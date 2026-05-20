@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../store/AppContext';
-import { ListOrdered, Edit2, Trash2, MapPin, Phone, User, Landmark, Compass, Smartphone, CheckCircle } from 'lucide-react';
+import { ListOrdered, Edit2, Trash2, MapPin, Phone, User, Landmark, Compass, Smartphone, CheckCircle, Info, X } from 'lucide-react';
 import { LeafletMap } from '../components/LeafletMap';
 import { SEOHead } from '../components/SEOHead';
 
@@ -9,10 +9,11 @@ interface CheckoutProps {
 }
 
 export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
-  const { cart, config, updateCartQuantity, removeFromCart, createOrder } = useApp();
+  const { cart, config, updateCartQuantity, removeFromCart, createOrder, users, currentUser, loginUser, registerUser } = useApp();
   
   // Wizard steps helper: 1: Cart, 2: Location, 3: Details & Pay
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [showPopupHelp, setShowPopupHelp] = useState(false);
 
   // Check if any item in the cart has free delivery
   const hasFreeDeliveryItem = cart.some(item => item.item.delivery_gratis);
@@ -50,7 +51,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
     setShippingZone(zoneName);
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate Client Name is not empty or just whitespace
@@ -74,10 +75,29 @@ export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
 
     setValidationError('');
 
+    // Auto-login or register customer based on checkout phone
+    let finalUserId: string | undefined = currentUser ? currentUser.id : undefined;
+
+    if (!currentUser) {
+      const existingUser = users.find(u => u.telefono.trim() === clientPhone.trim());
+      if (existingUser) {
+        const logged = await loginUser(existingUser.telefono, existingUser.contrasena);
+        if (logged) {
+          finalUserId = logged.id;
+        }
+      } else {
+        const registered = await registerUser(cleanedName, clientPhone.trim(), '123456');
+        if (registered) {
+          finalUserId = registered.id;
+        }
+      }
+    }
+
     // Submit and store Order
     const created = createOrder({
       cliente_nombre: cleanedName,
       cliente_telefono: clientPhone.trim(),
+      usuario_id: finalUserId,
       costo_envio_usd: effectiveShippingCost,
       metodo_pago: selectedPayment,
       lat: shippingLat,
@@ -121,8 +141,10 @@ ${partsDetailText}
     const encodedMessage = encodeURIComponent(whatsappMessage);
     const whatsappUrl = `https://wa.me/${cleanConfigPhone}?text=${encodedMessage}`;
     
-    // Open WhatsApp
-    window.location.href = whatsappUrl;
+    // Abrir WhatsApp sin cerrar la app (window.open en nueva pestaña)
+    setTimeout(() => {
+      window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+    }, 400);
   };
 
   // If order was processed successfully
@@ -136,7 +158,8 @@ ${partsDetailText}
 
         <h3 className="text-[21px] font-bold font-display text-zinc-900">¡Su Compra ha sido Procesada!</h3>
         <p className="text-[13px] text-zinc-600 max-w-sm leading-relaxed">
-          Hemos recibido su pedido de supermercado con el ID <strong>{processedOrder.id}</strong>. Para agilizar el despacho y asegurar la frescura, hemos abierto una ventana con la factura precargada de WhatsApp.
+          Hemos recibido su pedido de supermercado con el ID <strong>{processedOrder.id}</strong>. 
+          Para agilizar el despacho y coordinar el pago, por favor envíe su factura por WhatsApp.
         </p>
 
         <div className="w-full max-w-sm bg-zinc-50 border border-zinc-200 p-4 rounded-lg text-left text-xs text-zinc-700 flex flex-col gap-2 font-mono mt-2">
@@ -162,19 +185,68 @@ ${partsDetailText}
               if (cleanPhone.startsWith('0')) {
                 cleanPhone = '58' + cleanPhone.substring(1);
               }
-              window.location.href = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+              window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
             }}
-            className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 px-4 rounded-lg text-xs transition-transform tracking-wider flex items-center justify-center gap-1.5 uppercase font-display cursor-pointer"
+            className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 px-4 rounded-lg text-xs transition-transform tracking-wider flex items-center justify-center gap-1.5 uppercase font-display cursor-pointer shadow-md"
           >
-            Compartir Factura
+            Enviar a WhatsApp 💬
+          </button>
+          
+          {/* Pop‑up blocker guidance */}
+          <div className="text-[10px] text-zinc-500 mb-2 flex items-start gap-2">
+            <Info className="mt-0.5 flex-shrink-0 text-zinc-400" size={14} />
+            <span>
+              Si WhatsApp no se abrió automáticamente, habilite los pop‑ups en su navegador y presione este botón verde.
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowPopupHelp(true)}
+              className="ml-auto text-xs text-violet-600 underline"
+            >
+              ¿Cómo habilitar pop‑ups?
+            </button>
+          </div>
+
+          {/* Modal for pop‑up instructions */}
+          {showPopupHelp && (
+            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+              <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-zinc-800">Habilitar pop‑ups</h3>
+                  <button onClick={() => setShowPopupHelp(false)} className="text-zinc-400 hover:text-zinc-600">
+                    <X size={20} />
+                  </button>
+                </div>
+                <ol className="list-decimal list-inside text-sm text-zinc-600 space-y-2">
+                  <li>En Chrome, abre el menú (⋮) → Configuración → Privacidad y seguridad → Configuración de sitio → Pop‑ups y redirecciones → Permitir <code>wa.me</code>.</li>
+                  <li>En Firefox, abre el menú (☰) → Opciones → Privacidad & Seguridad → Permisos → Pop‑ups → Excepciones → Añade <code>https://wa.me</code> y permite.</li>
+                  <li>En Edge, ve a Configuración → Cookies y permisos del sitio → Pop‑ups y redirecciones → Añade <code>https://wa.me</code> y permite.</li>
+                  <li>Después de habilitar, vuelve a presionar el botón “Enviar a WhatsApp”.</li>
+                </ol>
+                <button
+                  onClick={() => setShowPopupHelp(false)}
+                  className="mt-4 w-full bg-violet-600 hover:bg-violet-700 text-white py-2 rounded"
+                >
+                  Entendido
+                </button>
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => { setTab('profile'); }}
+            className="w-full bg-violet-650 hover:bg-violet-750 text-white font-bold py-3 px-4 rounded-lg text-xs transition-all tracking-wider flex items-center justify-center gap-1.5 uppercase font-display cursor-pointer"
+          >
+            Ver Estatus de mi Pedido 🛵
           </button>
 
           <button
             type="button"
             onClick={() => { setTab('home'); }}
-            className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-200 text-xs py-2.5 rounded-lg transition-all cursor-pointer"
+            className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-200 text-xs py-2 rounded-lg transition-all cursor-pointer font-medium"
           >
-            Regresar al Inicio
+            Ir a la Tienda
           </button>
         </div>
       </div>
