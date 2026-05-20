@@ -55,6 +55,9 @@ interface AppContextProps {
   toggleNotificationReadStatus: (id: string) => void;
   clearAllNotifications: () => void;
   
+  // App State
+  isGlobalLoading: boolean;
+  
   // Auth
   authenticateAdmin: (email: string, pass: string) => Promise<boolean>;
   logoutAdmin: () => Promise<void>;
@@ -469,6 +472,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ];
   });
 
+  const [isGlobalLoading, setIsGlobalLoading] = useState(true);
+
   const [cart, setCart] = useState<{ item: AutoPart; quantity: number }[]>(() => {
     const saved = localStorage.getItem('trv_cart');
     return saved ? JSON.parse(saved) : [];
@@ -556,6 +561,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       } catch (err) {
         console.error('Error fetching Supabase data', err);
+      } finally {
+        setIsGlobalLoading(false);
       }
     };
     fetchData();
@@ -1190,6 +1197,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       notifications,
       cart,
       isAdminAuthenticated,
+      isGlobalLoading,
       favorites,
       toggleFavorite,
       isFavorite,

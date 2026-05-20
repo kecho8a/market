@@ -13,12 +13,34 @@ import {
   X, ShoppingCart, Landmark, ShieldCheck, Tag, Info, AlertOctagon, 
   HelpCircle, Eye, Share2, ClipboardCheck, ChevronLeft, ChevronRight,
   Menu, Sparkles, Bell, User, Cpu, ShoppingBag, MapPin, ShieldAlert, RefreshCw,
-  Search, ArrowRight
+  Search, ArrowRight, Download
 } from 'lucide-react';
 import { SEOHead } from './components/SEOHead';
 
 function AppContent() {
-  const { cart, config, addToCart, isAdminAuthenticated, authenticateAdmin, logoutAdmin, currentUser, notifications, displayCurrency, toggleCurrency } = useApp();
+  const { cart, config, addToCart, isAdminAuthenticated, authenticateAdmin, logoutAdmin, currentUser, notifications, displayCurrency, toggleCurrency, isGlobalLoading } = useApp();
+
+  // PWA Install Prompt State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+      }
+    }
+  };
 
   // Route/Tab controllers
   const [tab, setTab] = useState<'home' | 'catalog' | 'cart' | 'admin' | 'profile'>('home');
@@ -105,6 +127,21 @@ function AppContent() {
     }
     setTab('catalog');
   };
+
+  if (isGlobalLoading) {
+    return (
+      <div className="min-h-screen bg-violet-600 flex flex-col items-center justify-center text-white relative overflow-hidden">
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+        <div className="z-10 flex flex-col items-center animate-pulse">
+          <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center text-violet-600 mb-4 shadow-2xl">
+            <ShoppingBag size={40} />
+          </div>
+          <h1 className="text-3xl font-extrabold font-display tracking-tight">Marketo</h1>
+          <p className="text-violet-200 font-mono text-xs uppercase tracking-widest mt-2">Cargando pasillos...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 w-full flex justify-center">
@@ -232,6 +269,16 @@ function AppContent() {
                 >
                   Soporte en WhatsApp
                 </a>
+
+                {deferredPrompt && (
+                  <button
+                    type="button"
+                    onClick={handleInstallClick}
+                    className="flex items-center gap-3 w-full px-3 py-2.5 text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl font-bold transition-all cursor-pointer shadow-sm animate-pulse"
+                  >
+                    <Download size={14} /> Instalar Marketo App
+                  </button>
+                )}
               </div>
 
               {/* Sede Física */}

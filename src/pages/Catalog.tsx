@@ -274,7 +274,7 @@ export const Catalog: React.FC<CatalogProps> = ({
           </button>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-2.5 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 text-xs">
           <div className="flex flex-col gap-1">
             <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-tight">1. Pasillo</span>
             <select
@@ -350,7 +350,7 @@ export const Catalog: React.FC<CatalogProps> = ({
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <SkeletonCard key={i} />
           ))}
@@ -372,12 +372,13 @@ export const Catalog: React.FC<CatalogProps> = ({
         </div>
       ) : (
         <div className="flex flex-col gap-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
             {paginatedProducts.map((part) => (
               <ProductCard
                 key={part.id}
                 part={part}
                 config={config}
+                fullWidth={true}
                 onViewProductDetails={onViewProductDetails}
                 addToCart={(p, qty) => {
                   addToCart(p, qty);

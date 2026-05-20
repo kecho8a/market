@@ -104,8 +104,8 @@ create policy "Allow public read-only of system configuration"
 
 create policy "Allow all updates only to admin" 
     on configuracion_sistema for all 
-    using (auth.role() = 'service_role')
-    with check (auth.role() = 'service_role');
+    using (auth.role() = 'authenticated' AND auth.jwt() ->> 'email' = 'kecho8a@gmail.com')
+    with check (auth.role() = 'authenticated' AND auth.jwt() ->> 'email' = 'kecho8a@gmail.com');
 
 -- B. Policies for repuestos_catalogo
 create policy "Allow public read-only of spare parts catalog" 
@@ -114,8 +114,8 @@ create policy "Allow public read-only of spare parts catalog"
 
 create policy "Allow admin changes to catalog" 
     on repuestos_catalogo for all 
-    using (auth.role() = 'service_role')
-    with check (auth.role() = 'service_role');
+    using (auth.role() = 'authenticated' AND auth.jwt() ->> 'email' = 'kecho8a@gmail.com')
+    with check (auth.role() = 'authenticated' AND auth.jwt() ->> 'email' = 'kecho8a@gmail.com');
 
 -- C. Policies for usuarios_clientes
 create policy "Allow client to map or insert their profile" 

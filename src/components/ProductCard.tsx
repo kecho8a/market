@@ -10,9 +10,10 @@ interface ProductCardProps {
   onViewProductDetails: (part: AutoPart) => void;
   addToCart: (part: AutoPart, quantity: number) => void;
   isOffer?: boolean;
+  fullWidth?: boolean;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ part, config, onViewProductDetails, addToCart, isOffer = false }) => {
+export const ProductCard: React.FC<ProductCardProps> = ({ part, config, onViewProductDetails, addToCart, isOffer = false, fullWidth = false }) => {
   const [added, setAdded] = useState(false);
   const { displayCurrency } = useApp();
   const priceInBs = part.precio_usd * config.tasa_cambio;
@@ -34,7 +35,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ part, config, onViewPr
       viewport={{ once: true }}
       transition={{ duration: 0.3 }}
       whileHover={{ y: -4, transition: { duration: 0.2 } }}
-      className={`snap-start shrink-0 w-[240px] sm:w-[260px] md:w-[230px] lg:w-[230px] rounded-xl flex flex-col justify-between overflow-hidden relative group transition-all duration-300 bg-white border border-zinc-200/80 hover:border-zinc-300 hover:shadow-lg`}
+      className={`snap-start shrink-0 ${fullWidth ? 'w-full h-full' : 'w-[240px] sm:w-[260px] md:w-[230px] lg:w-[230px]'} rounded-xl flex flex-col justify-between overflow-hidden relative group transition-all duration-300 bg-white border border-zinc-200/80 hover:border-zinc-300 hover:shadow-lg`}
     >
       {/* Promotional Floating Badges (Woolworths HSL Green/Orange) */}
       <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1">
