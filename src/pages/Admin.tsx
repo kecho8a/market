@@ -1052,7 +1052,7 @@ export const Admin: React.FC<AdminProps> = ({
               />
               {config.telefono_soporte && (
                 <a
-                  href={`https://wa.me/${config.telefono_soporte.replace(/\D/g, '') || '584124976451'}`}
+                  href={`https://wa.me/${(config.telefono_soporte || '584124976451').replace(/\D/g, '').replace(/^0/, '58')}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-1 flex items-center gap-1 bg-violet-50 text-violet-700 border border-violet-200 px-2 py-1 rounded text-[10px] font-mono transition-colors w-fit select-none shrink-0"

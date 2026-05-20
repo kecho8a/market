@@ -114,12 +114,15 @@ ${partsDetailText}
 *Metodo de Pago:* ${created.metodo_pago}
 ----------------------------------`;
 
-    const cleanConfigPhone = config.telefono_soporte.replace(/[+ ]/g, '');
+    let cleanConfigPhone = (config.telefono_soporte || '584124976451').replace(/\D/g, '');
+    if (cleanConfigPhone.startsWith('0')) {
+      cleanConfigPhone = '58' + cleanConfigPhone.substring(1);
+    }
     const encodedMessage = encodeURIComponent(whatsappMessage);
     const whatsappUrl = `https://wa.me/${cleanConfigPhone}?text=${encodedMessage}`;
     
     // Open WhatsApp
-    window.open(whatsappUrl, '_blank', 'noreferrer');
+    window.location.href = whatsappUrl;
   };
 
   // If order was processed successfully
@@ -155,7 +158,11 @@ ${partsDetailText}
                 details += `- ${it.quantity || it.cantidad}x ${it.nombre} (SKU: ${it.codigo}) - $${(it.precio_usd * (it.quantity || it.cantidad)).toFixed(2)}\n`;
               });
               const msg = `*Nuevo Pedido en Marketo Supermercado*\n----------------------------------\n*Pedido ID:* ${processedOrder.id}\n*Cliente:* ${processedOrder.cliente_nombre}\n*Telefono:* ${processedOrder.cliente_telefono}\n*Direccion de Entrega:* ${processedOrder.direccion_envio}\n*Ubicacion Mapa:* https://www.google.com/maps?q=${processedOrder.lat},${processedOrder.lng}\n*Metodo Despacho:* Delivery Express - Costo: $${processedOrder.costo_envio_usd.toFixed(2)}\n\n*Productos:*\n${details}\n*Total Neto a Pagar:* $${processedOrder.total_usd.toFixed(2)} / ${processedOrder.total_bs.toFixed(2)} Bs.\n*Metodo de Pago:* ${processedOrder.metodo_pago}\n----------------------------------`;
-              window.open(`https://wa.me/${config.telefono_soporte.replace(/[+ ]/g, '')}?text=${encodeURIComponent(msg)}`, '_blank', 'noreferrer');
+              let cleanPhone = (config.telefono_soporte || '584124976451').replace(/\D/g, '');
+              if (cleanPhone.startsWith('0')) {
+                cleanPhone = '58' + cleanPhone.substring(1);
+              }
+              window.location.href = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
             }}
             className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 px-4 rounded-lg text-xs transition-transform tracking-wider flex items-center justify-center gap-1.5 uppercase font-display cursor-pointer"
           >

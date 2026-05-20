@@ -444,7 +444,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [config, setConfig] = useState<StoreConfig>(() => {
     const saved = localStorage.getItem('trv_config');
-    return saved ? JSON.parse(saved) : DEFAULT_CONFIG;
+    if (saved) {
+      try {
+        return { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
+      } catch (e) {
+        return DEFAULT_CONFIG;
+      }
+    }
+    return DEFAULT_CONFIG;
   });
 
   const [notifications, setNotifications] = useState<InAppNotification[]>(() => {
