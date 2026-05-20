@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { AutoPart, Order, StoreConfig, InAppNotification, OrderItem, AppUser } from '../types/store';
+import { supabase } from './supabaseClient';
 
 interface AppContextProps {
   parts: AutoPart[];
@@ -512,6 +513,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : [];
   });
 
+  // SUPABASE REAL-TIME FETCH ON MOUNT
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const { data: configData } = await supabase.from('configuracion_sistema').select('*').limit(1).single();
+        if (configData) {
+          setConfig(prev => ({
+            ...prev,
+            site_nombre: configData.site_nombre || prev.site_nombre,
+            telefono_soporte: configData.telefono_soporte || prev.telefono_soporte,
+            direccion_fisica: configData.direccion_fisica || prev.direccion_fisica,
+            coordenadas_tienda: { lat: configData.tienda_lat ?? prev.coordenadas_tienda.lat, lng: configData.tienda_lng ?? prev.coordenadas_tienda.lng },
+            banners: [configData.banner_url_1 || prev.banners[0], configData.banner_url_2 || prev.banners[1], configData.banner_url_3 || prev.banners[2]],
+            zelle_enabled: configData.zelle_enabled ?? prev.zelle_enabled,
+            pagomovil_enabled: configData.pagomovil_enabled ?? prev.pagomovil_enabled,
+            efectivo_enabled: configData.efectivo_enabled ?? prev.efectivo_enabled,
+            transferencia_enabled: configData.transferencia_enabled ?? prev.transferencia_enabled,
+            tasa_cambio: configData.tasa_cambio ?? prev.tasa_cambio
+          }));
+        }
+
+        const { data: partsData } = await supabase.from('repuestos_catalogo').select('*');
+        if (partsData && partsData.length > 0) {
+          setParts(partsData.map(p => ({ ...p, precio_usd: Number(p.precio_usd) })));
+        }
+
+        const { data: ordersData } = await supabase.from('pedidos').select('*').order('fecha', { ascending: false });
+        if (ordersData && ordersData.length > 0) {
+          setOrders(ordersData.map(o => ({
+            ...o, subtotal_usd: Number(o.subtotal_usd), total_usd: Number(o.total_usd), total_bs: Number(o.total_bs), costo_envio_usd: Number(o.costo_envio_usd)
+          })));
+        }
+      } catch (err) {
+        console.error('Error fetching Supabase data', err);
+      }
+    };
+    fetchData();
+  }, []);
+
   // Save to locale variables on updates
   useEffect(() => {
     localStorage.setItem('trv_parts', JSON.stringify(parts));
@@ -616,6 +656,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setParts(prev => [...prev, newPart]);
     addNotification('Nuevo Producto Agregado', `Se ha agregado ${newPart.nombre} al catálogo de Marketo.`);
     
+    // Supabase Async Sync
+    supabase.from('repuestos_catalogo').insert([{
+      codigo: newPart.codigo,
+      nombre: newPart.nombre,
+      descripcion: newPart.descripcion,
+      categoria: newPart.categoria,
+      marca_carro: newPart.marca_carro,
+      modelo_carro: newPart.modelo_carro,
+      anio_inicio: newPart.anio_inicio,
+      anio_fin: newPart.anio_fin,
+      precio_usd: newPart.precio_usd,
+      stock: newPart.stock,
+      imagen_urls: newPart.imagen_urls || [],
+      es_promo: newPart.es_promo,
+      es_nuevo: newPart.es_nuevo,
+      es_mas_vendido: newPart.es_mas_vendido,
+      compatibilidad_detalle: newPart.compatibilidad_detalle
+    }]).then(({ error }) => { if (error) console.error('Add part error:', error); });
+    
     if (newPart.stock < 5) {
       addNotification(
         'Alerta de Stock Bajo (Admin)',
@@ -636,13 +695,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             'admin'
           );
         }
-        return { ...p, ...updated };
+        
+        const updatedPart = { ...p, ...updated };
+        
+        // Supabase Async Sync
+        const updatePayload: any = { ...updated };
+        delete updatePayload.id; // avoid id conflicts
+        supabase.from('repuestos_catalogo').update(updatePayload).eq('codigo', updatedPart.codigo)
+          .then(({ error }) => { if (error) console.error('Update part error:', error); });
+          
+        return updatedPart;
       }
       return p;
     }));
   };
 
   const deletePart = (id: string) => {
+    const targetPart = parts.find(p => p.id === id);
+    if (targetPart) {
+      supabase.from('repuestos_catalogo').delete().eq('codigo', targetPart.codigo)
+        .then(({ error }) => { if (error) console.error('Delete part error:', error); });
+    }
+    
     setParts(prev => prev.filter(p => p.id !== id));
     // Remove from cart if it was there
     setCart(prev => prev.filter(item => item.item.id !== id));
@@ -797,6 +871,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setOrders(prev => [newOrder, ...prev]);
     clearCart();
 
+    // Supabase Insert
+    supabase.from('pedidos').insert([{
+      cliente_nombre: newOrder.cliente_nombre,
+      cliente_telefono: newOrder.cliente_telefono,
+      items: newOrder.items,
+      subtotal_usd: newOrder.subtotal_usd,
+      costo_envio_usd: newOrder.costo_envio_usd,
+      total_usd: newOrder.total_usd,
+      total_bs: newOrder.total_bs,
+      metodo_pago: newOrder.metodo_pago,
+      lat: newOrder.lat,
+      lng: newOrder.lng,
+      direccion_envio: newOrder.direccion_envio,
+      distancia_km: newOrder.distancia_km,
+      status: newOrder.status
+    }]).then(({ error }) => { if (error) console.error('Insert order error:', error); });
+
     // Trigger Notification for the store and the client
     addNotification('Nuevo Pedido Recibido', `Pedido ${newOrder.id} fue procesado correctamente para ${newOrder.cliente_nombre}.`);
 
@@ -847,6 +938,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     
     if (targetPhone) {
       addNotification('Estado de Pedido Actualizado', statusMsg, 'personal', targetPhone);
+    }
+    
+    if (orderObj) {
+      supabase.from('pedidos')
+        .update({ status })
+        .eq('cliente_telefono', orderObj.cliente_telefono)
+        .eq('total_usd', orderObj.total_usd)
+        .then(({ error }) => { if (error) console.error('Update order status error:', error); });
     }
   };
 
@@ -975,6 +1074,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setConfig(prev => {
       const updated = { ...prev, ...newSettings };
       localStorage.setItem('trv_config', JSON.stringify(updated));
+      
+      // Supabase Async Sync
+      (async () => {
+        try {
+          const updatePayload: any = {};
+          if (newSettings.site_nombre !== undefined) updatePayload.site_nombre = newSettings.site_nombre;
+          if (newSettings.telefono_soporte !== undefined) updatePayload.telefono_soporte = newSettings.telefono_soporte;
+          if (newSettings.direccion_fisica !== undefined) updatePayload.direccion_fisica = newSettings.direccion_fisica;
+          if (newSettings.tasa_cambio !== undefined) updatePayload.tasa_cambio = newSettings.tasa_cambio;
+          
+          if (Object.keys(updatePayload).length > 0) {
+            const { data: existing } = await supabase.from('configuracion_sistema').select('id').limit(1).single();
+            if (existing) {
+              await supabase.from('configuracion_sistema').update(updatePayload).eq('id', existing.id);
+            } else {
+              await supabase.from('configuracion_sistema').insert([updatePayload]);
+            }
+          }
+        } catch (e) {
+          console.error('Failed to sync config', e);
+        }
+      })();
+      
       return updated;
     });
   };
