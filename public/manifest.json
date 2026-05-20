@@ -1,0 +1,33 @@
+{
+  "name": "TuRepuestoValencia - Repuestos Premium Valencia",
+  "short_name": "TRValencia",
+  "description": "Buscador de repuestos premium y delivery en Valencia, Carabobo, Venezuela, San Diego, Naguanagua.",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#2563eb",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "https://images.unsplash.com/photo-1486006920555-c77dce18193b?auto=format&fit=crop&q=80&w=192",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://images.unsplash.com/photo-1486006920555-c77dce18193b?auto=format&fit=crop&q=80&w=512",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["shopping", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Ver Catálogo",
+      "short_name": "Catálogo",
+      "url": "/?tab=catalog",
+      "description": "Explorar el catálogo de repuestos de autos de inmediato."
+    }
+  ]
+}

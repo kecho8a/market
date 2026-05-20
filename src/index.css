@@ -1,0 +1,220 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f5f6f5; /* Woolworths clean light grey background */
+  --card: #ffffff;
+  --border: #e0e6e2; /* Soft grey-green border */
+  --accent-blue: #0f5d34; /* Woolworths Signature Green */
+  --accent-purple: #0a522d; /* Woolworths Darker Green */
+  --text: #1a1a1a; /* Charcoal grey for high contrast */
+  --muted: #555555; /* Soft Muted Grey */
+}
+
+@theme {
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "Fira Code", monospace;
+  
+  --color-premium-dark: var(--bg);
+  --color-premium-card: var(--card);
+  --color-premium-border: var(--border);
+  --color-premium-text: var(--text);
+  --color-premium-muted: var(--muted);
+  --color-electric-blue: var(--accent-blue);
+  --color-deep-purple: var(--accent-purple);
+  --color-neon-violet: var(--accent-blue);
+  
+  /* Overrides to map all "violet" classes to Woolworths Green shades */
+  --color-violet-50: #f1f7f3;
+  --color-violet-100: #e2ede6;
+  --color-violet-150: #cfe4d8;
+  --color-violet-200: #b0cfbe;
+  --color-violet-300: #8bb7a0;
+  --color-violet-400: #4c9b6f;
+  --color-violet-500: #1a7c47;
+  --color-violet-600: #0f5d34;
+  --color-violet-650: #0a522d;
+  --color-violet-700: #0d4d2b;
+  --color-violet-750: #0b4325;
+  --color-violet-800: #08371e;
+  --color-violet-900: #052614;
+
+  /* Overrides to map "amber" / "orange" to Woolworths warm orange specials/sales color */
+  --color-amber-50: #fff6f0;
+  --color-amber-100: #ffebd6;
+  --color-amber-500: #e05a00;
+  --color-amber-600: #cc5200;
+  
+  /* Overrides to map "emerald" colors to Woolworths Green shades */
+  --color-emerald-50: #f1f7f3;
+  --color-emerald-100: #e2ede6;
+  --color-emerald-600: #0f5d34;
+  --color-emerald-650: #0a522d;
+  --color-emerald-700: #0d4d2b;
+  --color-emerald-800: #08371e;
+}
+
+
+/* Base custom styles */
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, .font-display {
+  font-family: var(--font-display);
+}
+
+code, pre, .font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Samsung-style sleek rounded buttons: Let Tailwind utility classes (rounded-lg, rounded-xl, etc.) work perfectly instead of forcing clumsy pills */
+button,
+.btn,
+input[type="button"],
+input[type="submit"],
+[role="button"] {
+  border-radius: 0.5rem; /* default to 8px, but can be customized with Tailwind */
+}
+
+/* Premium unicolor elegant iconography that scales naturally with text color */
+svg {
+  color: currentColor;
+  stroke-width: 1.5px; /* Thinner, ultra-premium stroke width like Apple/Samsung/modern tech design */
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Custom Scrollbars and Hiding scrollbar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
+}
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Glassmorphism Classes with Sophisticated Light variables */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+}
+
+.glass-panel-heavy {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+}
+
+/* Custom premium-gradient definition */
+.premium-gradient {
+  background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-purple) 100%);
+}
+
+.rounded-premium {
+  border-radius: 50px;
+}
+
+.bento-item {
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.active-indicator {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  box-shadow: 0 0 8px var(--accent-blue);
+}
+
+/* Custom Leaflet Light Style Map */
+.leaflet-container {
+  background: #ffffff !important;
+  border-radius: 10px !important;
+  font-family: var(--font-sans) !important;
+}
+
+.leaflet-bar {
+  border: 1px solid var(--border) !important;
+  box-shadow: none !important;
+}
+
+.leaflet-bar a {
+  background-color: var(--card) !important;
+  color: var(--accent-blue) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+.leaflet-bar a:hover {
+  background-color: #f4f4f5 !important;
+  color: #2563eb !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: var(--card) !important;
+  color: var(--text) !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--border) !important;
+}
+
+.leaflet-popup-tip {
+  background: var(--card) !important;
+}
+
+/* Neon Glow Transitions */
+.neon-glow {
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+}
+
+.neon-glow-purple {
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.25);
+}
+
+/* Snap scrolling adjustments */
+.snap-inline {
+  scroll-snap-type: x mandatory;
+}
+
+.snap-item {
+  scroll-snap-align: start;
+}
+
+/* Custom premium micro-animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.98) translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes bounceSubtle {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.animate-bounce {
+  animation: bounceSubtle 1.8s ease-in-out infinite;
+}

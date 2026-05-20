@@ -1,0 +1,10 @@
+{
+  "name": "TuRepuestoValencia",
+  "description": "Plataforma premium para la compra de repuestos automotrices en Valencia, Venezuela con catálogo inteligente, cotización multimoneda y checkout con geolocalización.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
