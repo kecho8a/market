@@ -62,9 +62,9 @@ function AppContent() {
   }, [selectedProductDetails]);
   
   // Authentication trigger helper
-  const handleAdminVerifySubmit = (e: React.FormEvent) => {
+  const handleAdminVerifySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = authenticateAdmin(adminUserInput, adminPasswordInput);
+    const success = await authenticateAdmin(adminUserInput, adminPasswordInput);
     if (success) {
       setTab('admin');
       setIsAdminLoginOpen(false);
@@ -762,13 +762,13 @@ function AppContent() {
 
             <form onSubmit={handleAdminVerifySubmit} className="flex flex-col gap-3.5 text-xs text-zinc-900">
               <div className="flex flex-col gap-1.5">
-                <span>Teléfono *</span>
+                <span>Correo Electrónico *</span>
                 <input
-                  type="text"
+                  type="email"
                   required
                   value={adminUserInput}
                   onChange={(e) => setAdminUserInput(e.target.value)}
-                  placeholder="Ingrese teléfono..."
+                  placeholder="Ingrese correo electrónico..."
                   className="bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2 outline-none focus:border-blue-500 text-center text-sm tracking-wider font-mono text-blue-600 font-bold"
                 />
               </div>

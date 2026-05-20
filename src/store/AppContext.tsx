@@ -56,8 +56,8 @@ interface AppContextProps {
   clearAllNotifications: () => void;
   
   // Auth
-  authenticateAdmin: (user: string, pass: string) => boolean;
-  logoutAdmin: () => void;
+  authenticateAdmin: (email: string, pass: string) => Promise<boolean>;
+  logoutAdmin: () => Promise<void>;
   updateAdminCredentials: (user: string, pass: string) => void;
   adminUser: string;
   adminPass: string;
@@ -515,6 +515,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // SUPABASE REAL-TIME FETCH ON MOUNT
   useEffect(() => {
+    // Escuchar el estado de autenticación real de Supabase
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsAdminAuthenticated(!!session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAdminAuthenticated(!!session);
+    });
+
     const fetchData = async () => {
       try {
         const { data: configData } = await supabase.from('configuracion_sistema').select('*').limit(1).single();
@@ -550,6 +559,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
     fetchData();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Save to locale variables on updates
@@ -1137,16 +1150,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Admin Auth functions
-  const authenticateAdmin = (user: string, pass: string): boolean => {
-    if (user.trim() === adminUser.trim() && pass.trim() === adminPass.trim()) {
-      setIsAdminAuthenticated(true);
-      localStorage.setItem('trv_admin_auth', 'true');
-      return true;
+  const authenticateAdmin = async (email: string, pass: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: pass.trim()
+      });
+      if (error) {
+        console.error('Supabase Auth Error:', error.message);
+        return false;
+      }
+      if (data.session) {
+        setIsAdminAuthenticated(true);
+        localStorage.setItem('trv_admin_auth', 'true');
+        return true;
+      }
+      return false;
+    } catch (err) {
+      return false;
     }
-    return false;
   };
 
-  const logoutAdmin = () => {
+  const logoutAdmin = async () => {
+    await supabase.auth.signOut();
     setIsAdminAuthenticated(false);
     localStorage.removeItem('trv_admin_auth');
   };
