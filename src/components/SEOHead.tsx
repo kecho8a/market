@@ -1,12 +1,12 @@
-import React, { useEffect } from 'react';
-import { AutoPart } from '../types/store';
+﻿import React, { useEffect } from 'react';
+import { Producto } from '../types/store';
 import { useApp } from '../store/AppContext';
 
 interface SEOHeadProps {
   title?: string;
   description?: string;
   type?: 'home' | 'product' | 'catalog' | 'admin';
-  product?: AutoPart;
+  product?: Producto;
   filters?: {
     category?: string;
     brand?: string;
@@ -39,7 +39,7 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
     if (type === 'product' && product) {
       seoTitle = `${product.nombre} fresco en Valencia | Marketo Supermercado`;
       seoDesc = `Compra ${product.nombre} ${product.condicion.toLowerCase()} de la mejor calidad. Despacho premium a domicilio en Valencia, Naguanagua y San Diego. Código SKU: ${product.codigo}. Delivery Express con cadena de frío garantizada.`;
-      seoKeywords = `${product.nombre}, ${product.marca_carro}, ${product.modelo_carro}, ${product.categoria}, marketo, valencia, venezuela, carabobo, delicatessen naguanagua, gourmet san diego, sku ${product.codigo}, ${product.marca_repuesto}`;
+      seoKeywords = `${product.nombre}, ${product.seccion}, ${product.subseccion}, ${product.categoria}, marketo, valencia, venezuela, carabobo, delicatessen naguanagua, gourmet san diego, sku ${product.codigo}, ${product.marca}`;
     }
 
     // AIO: Automatic SEO Generation for Catalog
@@ -200,7 +200,7 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
         'mpn': product.codigo,
         'brand': {
           '@type': 'Brand',
-          'name': product.marca_repuesto
+          'name': product.marca
         },
         'offers': {
           '@type': 'Offer',

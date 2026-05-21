@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../store/AppContext';
-import { AutoPart, Order } from '../types/store';
+import { Producto, Order } from '../types/store';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, LineChart, Line } from 'recharts';
 import { 
   Plus, Edit, Trash2, Camera, Landmark, Settings, ShoppingBag, BarChart3, 
@@ -84,19 +84,19 @@ export const Admin: React.FC<AdminProps> = ({
 
   // CRUD MODAL STATE
   const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [editingPart, setEditingPart] = useState<AutoPart | null>(null);
+  const [editingPart, setEditingPart] = useState<Producto | null>(null);
 
   // Form states for adding/editing a product
   const [formCodigo, setFormCodigo] = useState('');
   const [formNombre, setFormNombre] = useState('');
   const [formDescripcion, setFormDescripcion] = useState('');
-  const [formCompatibilidadDetalle, setFormCompatibilidadDetalle] = useState('');
+  const [formDetalleAdicional, setFormDetalleAdicional] = useState('');
   const [uploadFormat, setUploadFormat] = useState<'image/webp' | 'image/jpeg'>('image/webp');
   const [formCategoria, setFormCategoria] = useState('Lácteos y Quesos');
-  const [formMarca, setFormMarca] = useState('Pasillo 1 - Lácteos');
+  const [formMarca, setFormMarca] = useState('Pasillo 1 - Lacteos');
   const [formModelo, setFormModelo] = useState('');
-  const [formAnioInicio, setFormAnioInicio] = useState(2026);
-  const [formAnioFin, setFormAnioFin] = useState(2026);
+  const [formAnioInicio, setFormAnioInicio] = useState(15);
+  const [formAnioFin, setFormAnioFin] = useState(4);
   const [formPrecio, setFormPrecio] = useState(0.00);
   const [formStock, setFormStock] = useState(1);
   const [formImages, setFormImages] = useState<string[]>([]);
@@ -129,15 +129,15 @@ export const Admin: React.FC<AdminProps> = ({
   const [orderFilter, setOrderFilter] = useState<'Todos' | 'Pendiente' | 'Procesando' | 'Enviado'>('Todos');
 
   // Open CRUD Editor Helper
-  const openEditor = (part: AutoPart | null = null) => {
+  const openEditor = (part: Producto | null = null) => {
     if (part) {
       setEditingPart(part);
       setFormCodigo(part.codigo);
       setFormNombre(part.nombre);
       setFormDescripcion(part.descripcion);
       setFormCategoria(part.categoria);
-      setFormMarca(part.marca_carro);
-      setFormModelo(part.modelo_carro);
+      setFormMarca(part.seccion);
+      setFormModelo(part.subseccion);
       setFormAnioInicio(part.anio_inicio);
       setFormAnioFin(part.anio_fin);
       setFormPrecio(part.precio_usd);
@@ -146,24 +146,24 @@ export const Admin: React.FC<AdminProps> = ({
       setFormPromo(part.es_promo);
       setFormNuevo(part.es_nuevo);
       setFormVendido(part.es_mas_vendido);
-      setFormCompatibilidadDetalle(part.compatibilidad_detalle || '');
+      setFormDetalleAdicional(part.detalle_adicional || '');
     } else {
       setEditingPart(null);
       setFormCodigo('');
       setFormNombre('');
       setFormDescripcion('');
       setFormCategoria(config.categories?.[0] || 'Lácteos y Quesos');
-      setFormMarca('Pasillo 1 - Lácteos');
+      setFormMarca('Pasillo 1 - Lacteos');
       setFormModelo('');
-      setFormAnioInicio(2026);
-      setFormAnioFin(2026);
+      setFormAnioInicio(15);
+      setFormAnioFin(4);
       setFormPrecio(1.00);
       setFormStock(10);
       setFormImages(['https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=500']);
       setFormPromo(false);
       setFormNuevo(true);
       setFormVendido(false);
-      setFormCompatibilidadDetalle('');
+      setFormDetalleAdicional('');
     }
     setIsEditorOpen(true);
   };
@@ -183,8 +183,8 @@ export const Admin: React.FC<AdminProps> = ({
       nombre: formNombre.trim(),
       descripcion: formDescripcion.trim(),
       categoria: formCategoria,
-      marca_carro: formMarca,
-      modelo_carro: formModelo.trim(),
+      seccion: formMarca,
+      subseccion: formModelo.trim(),
       anio_inicio: Number(formAnioInicio),
       anio_fin: Number(formAnioFin),
       precio_usd: Number(formPrecio),
@@ -193,7 +193,7 @@ export const Admin: React.FC<AdminProps> = ({
       es_promo: formPromo,
       es_nuevo: formNuevo,
       es_mas_vendido: formVendido,
-      compatibilidad_detalle: formCompatibilidadDetalle.trim()
+      detalle_adicional: formDetalleAdicional.trim()
     };
 
     if (editingPart) {
@@ -330,8 +330,8 @@ export const Admin: React.FC<AdminProps> = ({
     return parts.filter(p => 
       p.nombre.toLowerCase().includes(crudSearch.toLowerCase()) ||
       p.codigo.toLowerCase().includes(crudSearch.toLowerCase()) ||
-      p.marca_carro.toLowerCase().includes(crudSearch.toLowerCase()) ||
-      p.modelo_carro.toLowerCase().includes(crudSearch.toLowerCase())
+      p.seccion.toLowerCase().includes(crudSearch.toLowerCase()) ||
+      p.subseccion.toLowerCase().includes(crudSearch.toLowerCase())
     );
   }, [parts, crudSearch]);
 
@@ -543,7 +543,7 @@ export const Admin: React.FC<AdminProps> = ({
                     <div className="text-[10px] text-slate-500 font-mono flex gap-2 mt-0.5">
                       <span className="text-violet-600 font-bold">COD: {part.codigo}</span>
                       <span>•</span>
-                      <span>Stock: <strong className={part.stock <= 3 ? 'text-red-500' : 'text-slate-900'}>{part.stock} pz</strong></span>
+                      <span>Stock: <strong className={part.stock <= 3 ? 'text-red-500' : 'text-slate-900'}>{part.stock} unid</strong></span>
                     </div>
                   </div>
                 </div>
@@ -745,7 +745,7 @@ export const Admin: React.FC<AdminProps> = ({
                   rows={2.5}
                   value={broadcastMessage}
                   onChange={(e) => setBroadcastMessage(e.target.value)}
-                  placeholder="Detalle el aviso, compatibilidad de marcas o promoción..."
+                  placeholder="Detalle el aviso, marcas, ofertas o promoción..."
                   className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-violet-500 font-sans text-xs"
                 />
               </div>
@@ -1326,14 +1326,14 @@ export const Admin: React.FC<AdminProps> = ({
               id: '',
               codigo: '',
               nombre: '',
-              marca_repuesto: 'Genérica',
-              condicion: 'Nuevo',
+              marca: 'Genérica',
+              condicion: 'Nacional',
               descripcion: '',
               categoria: config.categories?.[0] || 'Lácteos y Quesos',
-              marca_carro: 'Pasillo 1 - Lácteos',
-              modelo_carro: '',
-              anio_inicio: 2026,
-              anio_fin: 2026,
+              seccion: 'Pasillo 1 - Lacteos',
+              subseccion: '',
+              anio_inicio: 15,
+              anio_fin: 4,
               precio_usd: 1.00,
               stock: 10,
               imagen_urls: ['https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=500'],
@@ -1341,19 +1341,19 @@ export const Admin: React.FC<AdminProps> = ({
               es_nuevo: true,
               es_mas_vendido: false,
               delivery_gratis: false,
-              compatibilidad_detalle: ''
+              detalle_adicional: ''
             }}
             onClose={() => setIsEditorOpen(false)}
             onSubmit={(updatedPart) => {
               const payload = {
                 codigo: updatedPart.codigo,
                 nombre: updatedPart.nombre,
-                marca_repuesto: updatedPart.marca_repuesto,
+                marca: updatedPart.marca,
                 condicion: updatedPart.condicion,
                 descripcion: updatedPart.descripcion,
                 categoria: updatedPart.categoria,
-                marca_carro: updatedPart.marca_carro,
-                modelo_carro: updatedPart.modelo_carro,
+                seccion: updatedPart.seccion,
+                subseccion: updatedPart.subseccion,
                 anio_inicio: updatedPart.anio_inicio,
                 anio_fin: updatedPart.anio_fin,
                 precio_usd: updatedPart.precio_usd,
@@ -1363,7 +1363,7 @@ export const Admin: React.FC<AdminProps> = ({
                 es_nuevo: updatedPart.es_nuevo,
                 es_mas_vendido: updatedPart.es_mas_vendido,
                 delivery_gratis: updatedPart.delivery_gratis,
-                compatibilidad_detalle: updatedPart.compatibilidad_detalle
+                detalle_adicional: updatedPart.detalle_adicional
               };
               if (editingPart) {
                 updatePart(editingPart.id, payload);

@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../store/AppContext';
-import { AutoPart } from '../types/store';
+import { Producto } from '../types/store';
 import { Carrot, Salad, Milk, Beef, Coffee, Apple, ShieldCheck, Zap, Filter, ArrowRight, Eye, ShoppingCart, Landmark, Check, Bell, Sparkles, Flame, Camera, MessageSquare, Search, RefreshCcw } from 'lucide-react';
 import { motion } from 'motion/react';
 import { SEOHead } from '../components/SEOHead';
@@ -18,7 +18,7 @@ interface HomeProps {
   setSelectedYear: (year: string) => void;
   selectedEngine: string;
   setSelectedEngine: (engine: string) => void;
-  onViewProductDetails: (part: AutoPart) => void;
+  onViewProductDetails: (part: Producto) => void;
   globalSearch: string;
   setGlobalSearch: (term: string) => void;
   navigateToCatalog: (filters?: { category?: string; brand?: string; model?: string; year?: string; engine?: string }) => void;
@@ -36,7 +36,7 @@ export const Home: React.FC<HomeProps> = ({
   const { parts, config, addToCart, currentUser, requestPart } = useApp();
   const [activeBanner, setActiveBanner] = useState(0);
   const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
-  const [suggestions, setSuggestions] = useState<AutoPart[]>([]);
+  const [suggestions, setSuggestions] = useState<Producto[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
@@ -102,8 +102,8 @@ export const Home: React.FC<HomeProps> = ({
   }, [config.categories]);
 
   const activeParts = useMemo(() => parts.filter(p => p.activo !== false), [parts]);
-  const brands = useMemo(() => Array.from(new Set(activeParts.filter(p => p.marca_carro).map(p => p.marca_carro))), [activeParts]);
-  const models = useMemo(() => Array.from(new Set(activeParts.filter(p => (!selectedBrand || p.marca_carro === selectedBrand) && p.modelo_carro).map(p => p.modelo_carro))), [activeParts, selectedBrand]);
+  const brands = useMemo(() => Array.from(new Set(activeParts.filter(p => p.seccion).map(p => p.seccion))), [activeParts]);
+  const models = useMemo(() => Array.from(new Set(activeParts.filter(p => (!selectedBrand || p.seccion === selectedBrand) && p.subseccion).map(p => p.subseccion))), [activeParts, selectedBrand]);
   const yearsRange = useMemo(() => {
     const years: number[] = [];
     for (let yr = 1998; yr <= 2026; yr++) years.push(yr);
@@ -115,10 +115,10 @@ export const Home: React.FC<HomeProps> = ({
     if (!selectedBrand || !selectedModel) return [];
     
     const list = activeParts
-      .filter(p => p.marca_carro === selectedBrand && p.modelo_carro === selectedModel)
+      .filter(p => p.seccion === selectedBrand && p.subseccion === selectedModel)
       .flatMap(p => {
         const matches: string[] = [];
-        const combined = `${p.nombre} ${p.compatibilidad_detalle || ''} ${p.descripcion || ''}`.toLowerCase();
+        const combined = `${p.nombre} ${p.detalle_adicional || ''} ${p.descripcion || ''}`.toLowerCase();
         
         const keywords = [
           '1.6', '1.8', '2.0', '1.4', '1.2', '2.4', '3.6', '4.3', '5.3', '6.0',
@@ -159,8 +159,8 @@ export const Home: React.FC<HomeProps> = ({
           (p.nombre.toLowerCase().includes(globalSearch.toLowerCase()) || 
            p.descripcion.toLowerCase().includes(globalSearch.toLowerCase()) ||
            p.categoria.toLowerCase().includes(globalSearch.toLowerCase()) ||
-           p.marca_carro.toLowerCase().includes(globalSearch.toLowerCase()) ||
-           p.modelo_carro.toLowerCase().includes(globalSearch.toLowerCase()))
+           p.seccion.toLowerCase().includes(globalSearch.toLowerCase()) ||
+           p.subseccion.toLowerCase().includes(globalSearch.toLowerCase()))
         )
         .slice(0, 6);
       setSuggestions(filtered);

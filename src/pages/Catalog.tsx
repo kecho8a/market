@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../store/AppContext';
-import { AutoPart } from '../types/store';
+import { Producto } from '../types/store';
 import { Search, SlidersHorizontal, RefreshCcw, Camera, FilterX, Carrot } from 'lucide-react';
 import { SEOHead } from '../components/SEOHead';
 import { ProductCard } from '../components/ProductCard';
@@ -46,7 +46,7 @@ interface CatalogProps {
   setSelectedYear: (year: string) => void;
   selectedEngine: string;
   setSelectedEngine: (engine: string) => void;
-  onViewProductDetails: (part: AutoPart) => void;
+  onViewProductDetails: (part: Producto) => void;
   onOpenScanner: () => void;
   passedSearchCode?: string;
   clearPassedSearchCode?: () => void;
@@ -116,14 +116,14 @@ export const Catalog: React.FC<CatalogProps> = ({
   const activeParts = useMemo(() => parts.filter(p => p.activo !== false), [parts]);
 
   const brands = useMemo(() => {
-    const list = activeParts.filter(p => p.marca_carro).map(p => p.marca_carro);
+    const list = activeParts.filter(p => p.seccion).map(p => p.seccion);
     return Array.from(new Set(list));
   }, [activeParts]);
 
   const models = useMemo(() => {
     const list = activeParts
-      .filter(p => (!selectedBrand || p.marca_carro === selectedBrand) && p.modelo_carro)
-      .map(p => p.modelo_carro);
+      .filter(p => (!selectedBrand || p.seccion === selectedBrand) && p.subseccion)
+      .map(p => p.subseccion);
     return Array.from(new Set(list));
   }, [activeParts, selectedBrand]);
 
@@ -136,10 +136,10 @@ export const Catalog: React.FC<CatalogProps> = ({
   const engineVersions = useMemo(() => {
     if (!selectedBrand || !selectedModel) return [];
     const list = activeParts
-      .filter(p => p.marca_carro === selectedBrand && p.modelo_carro === selectedModel)
+      .filter(p => p.seccion === selectedBrand && p.subseccion === selectedModel)
       .flatMap(p => {
         const matches: string[] = [];
-        const combined = `${p.nombre} ${p.compatibilidad_detalle || ''} ${p.descripcion || ''}`.toLowerCase();
+        const combined = `${p.nombre} ${p.detalle_adicional || ''} ${p.descripcion || ''}`.toLowerCase();
         
         // Extended keywords for Chevrolet models and specific versions requested
         const keywords = [
@@ -171,10 +171,10 @@ export const Catalog: React.FC<CatalogProps> = ({
       list = list.filter(p => p.categoria.toLowerCase() === selectedCategory.toLowerCase());
     }
     if (selectedBrand) {
-      list = list.filter(p => p.marca_carro.toLowerCase() === selectedBrand.toLowerCase());
+      list = list.filter(p => p.seccion.toLowerCase() === selectedBrand.toLowerCase());
     }
     if (selectedModel) {
-      list = list.filter(p => p.modelo_carro.toLowerCase() === selectedModel.toLowerCase());
+      list = list.filter(p => p.subseccion.toLowerCase() === selectedModel.toLowerCase());
     }
     if (selectedYear) {
       const numericYear = parseInt(selectedYear);
@@ -184,7 +184,7 @@ export const Catalog: React.FC<CatalogProps> = ({
     }
     if (selectedEngine) {
       list = list.filter(p => {
-        const searchText = `${p.nombre} ${p.compatibilidad_detalle || ''} ${p.descripcion || ''}`.toLowerCase();
+        const searchText = `${p.nombre} ${p.detalle_adicional || ''} ${p.descripcion || ''}`.toLowerCase();
         return searchText.includes(selectedEngine.toLowerCase());
       });
     }

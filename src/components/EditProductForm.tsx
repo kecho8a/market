@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AutoPart } from '../types/store';
+import { Producto } from '../types/store';
 import { X, Upload, Camera, Plus, Trash2 } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 
@@ -36,8 +36,8 @@ const compressImage = (file: File, callback: (base64: string) => void, formatOve
 };
 
 interface EditProductFormProps {
-  part: AutoPart;
-  onSubmit: (partData: AutoPart) => void;
+  part: Producto;
+  onSubmit: (partData: Producto) => void;
   onClose: () => void;
 }
 
@@ -45,18 +45,18 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({ part, onSubmit
   const { parts, config } = useApp();
   const [formCodigo, setFormCodigo] = useState('');
   const [formNombre, setFormNombre] = useState('');
-  const [formMarcaRepuesto, setFormMarcaRepuesto] = useState('');
-  const [formCondicion, setFormCondicion] = useState<'Nuevo' | 'Usado'>('Nuevo');
+  const [formMarca, setFormMarca] = useState('');
+  const [formCondicion, setFormCondicion] = useState<'Nacional' | 'Importado'>('Nacional');
   const [formDescripcion, setFormDescripcion] = useState('');
-  const [formCompatibilidadDetalle, setFormCompatibilidadDetalle] = useState('');
+  const [formDetalleAdicional, setFormDetalleAdicional] = useState('');
   const [uploadFormat, setUploadFormat] = useState<'image/webp' | 'image/jpeg'>('image/webp');
-  const [formCategoria, setFormCategoria] = useState('Frenos');
-  const [formMarca, setFormMarca] = useState('Chevrolet');
-  const [formModelo, setFormModelo] = useState('');
-  const [formAnioInicio, setFormAnioInicio] = useState(2008);
-  const [formAnioFin, setFormAnioFin] = useState(2015);
-  const [formPrecio, setFormPrecio] = useState(10.00);
-  const [formStock, setFormStock] = useState(5);
+  const [formCategoria, setFormCategoria] = useState('Lácteos y Quesos');
+  const [formSeccion, setFormSeccion] = useState('Pasillo 1 - Lacteos');
+  const [formSubseccion, setFormSubseccion] = useState('');
+  const [formAnioInicio, setFormAnioInicio] = useState(15);
+  const [formAnioFin, setFormAnioFin] = useState(4);
+  const [formPrecio, setFormPrecio] = useState(0.00);
+  const [formStock, setFormStock] = useState(0);
   const [formImages, setFormImages] = useState<string[]>([]);
   const [formPromo, setFormPromo] = useState(false);
   const [formNuevo, setFormNuevo] = useState(false);
@@ -71,23 +71,23 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({ part, onSubmit
     if (part) {
       setFormCodigo(part.codigo || '');
       setFormNombre(part.nombre || '');
-      setFormMarcaRepuesto(part.marca_repuesto || '');
-      setFormCondicion(part.condicion || 'Nuevo');
+      setFormMarca(part.marca || '');
+      setFormCondicion(part.condicion || 'Nacional');
       setFormDescripcion(part.descripcion || '');
-      setFormCategoria(part.categoria || 'Frenos');
-      setFormMarca(part.marca_carro || 'Chevrolet');
-      setFormModelo(part.modelo_carro || '');
-      setFormAnioInicio(part.anio_inicio ?? 2008);
-      setFormAnioFin(part.anio_fin ?? 2015);
-      setFormPrecio(part.precio_usd ?? 10.00);
-      setFormStock(part.stock ?? 5);
+      setFormCategoria(part.categoria || 'Lácteos y Quesos');
+      setFormSeccion(part.seccion || 'Pasillo 1 - Lacteos');
+      setFormSubseccion(part.subseccion || '');
+      setFormAnioInicio(part.anio_inicio ?? 15);
+      setFormAnioFin(part.anio_fin ?? 4);
+      setFormPrecio(part.precio_usd ?? 0.00);
+      setFormStock(part.stock ?? 0);
       setFormImages(part.imagen_urls && part.imagen_urls.length > 0 ? [...part.imagen_urls] : ['']);
       setFormPromo(!!part.es_promo);
       setFormNuevo(!!part.es_nuevo);
       setFormVendido(!!part.es_mas_vendido);
       setFormDeliveryGratis(!!part.delivery_gratis);
       setFormActivo(part.activo !== undefined ? part.activo : true);
-      setFormCompatibilidadDetalle(part.compatibilidad_detalle || '');
+      setFormDetalleAdicional(part.detalle_adicional || '');
       setValidationErrors({});
     }
   }, [part]);
@@ -108,22 +108,18 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({ part, onSubmit
     if (!formNombre.trim()) {
       errors.nombre = 'El nombre del artículo es requerido.';
     }
-    if (!formMarcaRepuesto.trim()) {
-      errors.marca_repuesto = 'La marca del fabricante es requerida.';
+    if (!formMarca.trim()) {
+      errors.marca = 'La marca del fabricante es requerida.';
     }
     if (!formCategoria.trim()) {
       errors.categoria = 'La categoría/departamento es requerida.';
     }
-    // Marca and modelo are now optional as requested
     
     if (formPrecio === undefined || formPrecio === null || isNaN(formPrecio) || formPrecio < 0) {
       errors.precio = 'El precio debe ser un número positivo válido.';
     }
     if (formStock === undefined || formStock === null || isNaN(formStock) || formStock < 0 || !Number.isInteger(formStock)) {
       errors.stock = 'El stock debe ser un número entero no negativo.';
-    }
-    if (formAnioInicio > formAnioFin) {
-      errors.anios = 'El año de inicio no puede ser mayor que el año de fin.';
     }
 
     setValidationErrors(errors);
@@ -140,16 +136,16 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({ part, onSubmit
       .map(url => url.trim())
       .filter(url => url !== '');
 
-    const updatedPart: AutoPart = {
+    const updatedPart: Producto = {
       ...part,
       codigo: formCodigo.trim(),
       nombre: formNombre.trim(),
-      marca_repuesto: formMarcaRepuesto.trim(),
+      marca: formMarca.trim(),
       condicion: formCondicion,
       descripcion: formDescripcion.trim(),
       categoria: formCategoria,
-      marca_carro: formMarca,
-      modelo_carro: formModelo.trim(),
+      seccion: formSeccion.trim(),
+      subseccion: formSubseccion.trim(),
       anio_inicio: Number(formAnioInicio) || 0,
       anio_fin: Number(formAnioFin) || 0,
       precio_usd: Number(formPrecio),
@@ -160,23 +156,14 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({ part, onSubmit
       es_mas_vendido: formVendido,
       delivery_gratis: formDeliveryGratis,
       activo: formActivo,
-      compatibilidad_detalle: formCompatibilidadDetalle.trim()
+      detalle_adicional: formDetalleAdicional.trim()
     };
 
     onSubmit(updatedPart);
   };
 
-  const CHEVROLET_MODELS = [
-    'Aveo', 'Optra', 'Spark', 'Cruze', 'Silverado', 'Grand Vitara', 
-    'Tahoe', 'Luv D-Max', 'TrailBlazer', 'Orlando', 'Captiva'
-  ];
-
   return (
     <div id="edit-product-form-container" className="bg-[#18181b] border border-[#27272a] rounded-xl text-white p-6 shadow-2xl relative w-full max-w-2xl mx-auto overflow-y-auto max-h-[90vh] no-scrollbar">
-      {/* datalist for models */}
-      <datalist id="chevrolet-models">
-        {CHEVROLET_MODELS.map(m => <option key={m} value={m} />)}
-      </datalist>
       {/* Header section with closing button */}
       <div className="flex justify-between items-center border-b border-[#27272a] pb-3 mb-4">
         <div>
@@ -255,18 +242,18 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({ part, onSubmit
             )}
           </div>
 
-          {/* Spare Part Brand input */}
+          {/* Brand/Fabricator Brand input */}
           <div className="col-span-2 md:col-span-1 flex flex-col gap-1">
             <span className="font-semibold text-zinc-350">Marca / Fabricante *</span>
             <input
               type="text"
-              value={formMarcaRepuesto}
-              onChange={(e) => setFormMarcaRepuesto(e.target.value)}
+              value={formMarca}
+              onChange={(e) => setFormMarca(e.target.value)}
               placeholder="Ej. Marketo, Alpina, Kraft..."
-              className={`bg-[#09090b] border ${validationErrors.marca_repuesto ? 'border-red-500/60 focus:border-red-500' : 'border-[#27272a] focus:border-emerald-500'} rounded-lg px-2.5 py-2 outline-none transition-colors`}
+              className={`bg-[#09090b] border ${validationErrors.marca ? 'border-red-500/60 focus:border-red-500' : 'border-[#27272a] focus:border-emerald-500'} rounded-lg px-2.5 py-2 outline-none transition-colors`}
             />
-            {validationErrors.marca_repuesto && (
-              <span className="text-[10px] text-red-400 font-mono mt-0.5">{validationErrors.marca_repuesto}</span>
+            {validationErrors.marca && (
+              <span className="text-[10px] text-red-400 font-mono mt-0.5">{validationErrors.marca}</span>
             )}
           </div>
 
@@ -291,25 +278,25 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({ part, onSubmit
             </div>
           </div>
 
-          {/* Brand/Make of compatible vehicle */}
+          {/* Supermarket Section */}
           <div className="flex flex-col gap-1">
             <span className="font-semibold text-zinc-350">Pasillo de Ubicación (Opcional)</span>
             <input
               type="text"
-              value={formMarca}
-              onChange={(e) => setFormMarca(e.target.value)}
+              value={formSeccion}
+              onChange={(e) => setFormSeccion(e.target.value)}
               placeholder="Ej. Lácteos, Carnes, Bebidas..."
               className="bg-[#09090b] border border-[#27272a] text-white rounded-lg px-2.5 py-2 focus:border-emerald-500 outline-none transition-colors h-[34px]"
             />
           </div>
 
-          {/* Specific Model of compatible vehicle */}
+          {/* Supermarket Subsection */}
           <div className="flex flex-col gap-1">
             <span className="font-semibold text-zinc-350">Estante / Ubicación (Opcional)</span>
             <input
               type="text"
-              value={formModelo}
-              onChange={(e) => setFormModelo(e.target.value)}
+              value={formSubseccion}
+              onChange={(e) => setFormSubseccion(e.target.value)}
               placeholder="Ej. Refrigerador 3, Estante B2..."
               className="bg-[#09090b] border border-[#27272a] focus:border-emerald-500 rounded-lg px-2.5 py-2 outline-none transition-colors h-[34px]"
             />
@@ -535,13 +522,13 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({ part, onSubmit
             />
           </div>
 
-          {/* Technical Specific Compatibilities detailed engine/liter ranges */}
+          {/* Additional details like ingredients, allergens, or nutrition info */}
           <div className="col-span-2 flex flex-col gap-1">
-            <span className="font-semibold text-zinc-350 font-sans">Información Nutricional / Ingredientes / Alérgenos:</span>
+            <span className="font-semibold text-zinc-355 font-sans">Información Nutricional / Ingredientes / Alérgenos:</span>
             <input
               type="text"
-              value={formCompatibilidadDetalle}
-              onChange={(e) => setFormCompatibilidadDetalle(e.target.value)}
+              value={formDetalleAdicional}
+              onChange={(e) => setFormDetalleAdicional(e.target.value)}
               placeholder="Ej. Sin Gluten • Alto en Calcio • 100% Orgánico"
               className="bg-[#09090b] border border-[#27272a] focus:border-emerald-500 rounded-lg px-2.5 py-2 outline-none font-sans text-xs text-zinc-300 transition-colors"
             />

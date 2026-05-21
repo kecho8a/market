@@ -139,12 +139,25 @@ ${partsDetailText}
       cleanConfigPhone = '58' + cleanConfigPhone.substring(1);
     }
     const encodedMessage = encodeURIComponent(whatsappMessage);
-    const whatsappUrl = `https://wa.me/${cleanConfigPhone}?text=${encodedMessage}`;
+    // Construir las URLs antes del await (importante para móvil)
+    // wa.me funciona en todos los móviles; api.whatsapp.com como fallback desktop
+    const whatsappUrlMobile = `https://wa.me/${cleanConfigPhone}?text=${encodedMessage}`;
+    const whatsappUrlWeb = `https://api.whatsapp.com/send?phone=${cleanConfigPhone}&text=${encodedMessage}`;
     
-    // Abrir WhatsApp sin cerrar la app (window.open en nueva pestaña)
-    setTimeout(() => {
-      window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
-    }, 400);
+    // Estrategia de apertura que funciona en iOS Safari, Android Chrome y Desktop:
+    // 1. window.open() directamente (síncrono, antes de cualquier await) — no bloqueado
+    // 2. Si fue bloqueado (resultado null), fallback con window.location.href
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isMobile) {
+      // En móvil: redirigir directamente (wa.me abre la app nativa)
+      window.location.href = whatsappUrlMobile;
+    } else {
+      // En desktop: intentar nueva pestaña, si es bloqueada usar la misma pestaña
+      const newTab = window.open(whatsappUrlWeb, '_blank', 'noopener,noreferrer');
+      if (!newTab) {
+        window.location.href = whatsappUrlMobile;
+      }
+    }
   };
 
   // If order was processed successfully
@@ -175,17 +188,24 @@ ${partsDetailText}
           <button
             type="button"
             onClick={() => {
-              // Re-build message if window was closed or pop up blocked
+              // Re-construir mensaje si el popup fue bloqueado la primera vez
               let details = '';
               processedOrder.items.forEach((it: any) => {
                 details += `- ${it.quantity || it.cantidad}x ${it.nombre} (SKU: ${it.codigo}) - $${(it.precio_usd * (it.quantity || it.cantidad)).toFixed(2)}\n`;
               });
               const msg = `*Nuevo Pedido en Marketo Supermercado*\n----------------------------------\n*Pedido ID:* ${processedOrder.id}\n*Cliente:* ${processedOrder.cliente_nombre}\n*Telefono:* ${processedOrder.cliente_telefono}\n*Direccion de Entrega:* ${processedOrder.direccion_envio}\n*Ubicacion Mapa:* https://www.google.com/maps?q=${processedOrder.lat},${processedOrder.lng}\n*Metodo Despacho:* Delivery Express - Costo: $${processedOrder.costo_envio_usd.toFixed(2)}\n\n*Productos:*\n${details}\n*Total Neto a Pagar:* $${processedOrder.total_usd.toFixed(2)} / ${processedOrder.total_bs.toFixed(2)} Bs.\n*Metodo de Pago:* ${processedOrder.metodo_pago}\n----------------------------------`;
               let cleanPhone = (config.telefono_soporte || '584124976451').replace(/\D/g, '');
-              if (cleanPhone.startsWith('0')) {
-                cleanPhone = '58' + cleanPhone.substring(1);
+              if (cleanPhone.startsWith('0')) cleanPhone = '58' + cleanPhone.substring(1);
+              const retryUrlMobile = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+              const retryUrlWeb = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`;
+              // Mismo patrón: móvil directo, desktop nueva pestaña con fallback
+              const isMob = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+              if (isMob) {
+                window.location.href = retryUrlMobile;
+              } else {
+                const tab = window.open(retryUrlWeb, '_blank', 'noopener,noreferrer');
+                if (!tab) window.location.href = retryUrlMobile;
               }
-              window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
             }}
             className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 px-4 rounded-lg text-xs transition-transform tracking-wider flex items-center justify-center gap-1.5 uppercase font-display cursor-pointer shadow-md"
           >

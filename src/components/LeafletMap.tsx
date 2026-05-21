@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { MapPin, Info, ArrowRight } from 'lucide-react';
 
 interface LeafletMapProps {

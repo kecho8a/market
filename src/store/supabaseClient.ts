@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+﻿import { createClient } from '@supabase/supabase-js';
 
 // URL y Clave anónima públicas de Supabase obtenidas de variables de entorno (Vite)
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://gqhanfjhqfeqsgpscmet.supabase.co';

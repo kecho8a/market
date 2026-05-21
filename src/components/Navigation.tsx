@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Home, Grid, ShoppingCart, Menu, X, Landmark, PhoneCall, MapPin, Sparkles, ShieldAlert, BadgeInfo, User } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 

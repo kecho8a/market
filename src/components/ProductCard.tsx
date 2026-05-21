@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Eye, ShoppingCart, Check, Camera } from 'lucide-react';
-import { AutoPart } from '../types/store';
+import { Producto } from '../types/store';
 import { useApp } from '../store/AppContext';
 
 interface ProductCardProps {
-  part: AutoPart;
+  part: Producto;
   config: any;
-  onViewProductDetails: (part: AutoPart) => void;
-  addToCart: (part: AutoPart, quantity: number) => void;
+  onViewProductDetails: (part: Producto) => void;
+  addToCart: (part: Producto, quantity: number) => void;
   isOffer?: boolean;
   fullWidth?: boolean;
 }
@@ -40,11 +40,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ part, config, onViewPr
       {/* Promotional Floating Badges (Woolworths HSL Green/Orange) */}
       <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1">
         <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm select-none ${
-          part.condicion === 'Nuevo' 
-            ? 'bg-violet-600 text-white' 
-            : 'bg-zinc-800 text-white'
+          part.condicion === 'Nacional' 
+            ? 'bg-emerald-600 text-white' 
+            : 'bg-indigo-650 text-white'
         }`}>
-          {part.condicion === 'Nuevo' ? 'Fresco' : 'Vívere'}
+          {part.condicion === 'Nacional' ? 'Nacional' : 'Importado'}
         </span>
         
         {part.es_promo && (
@@ -88,7 +88,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ part, config, onViewPr
         <div>
           <div className="flex items-center justify-between gap-1">
             <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider truncate">
-              {part.marca_repuesto}
+              {part.marca}
             </span>
             <span className="text-[9px] text-zinc-400 font-mono shrink-0">
               SKU: {part.codigo.split('-')[0]}
@@ -104,10 +104,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ part, config, onViewPr
           
           <div className="flex items-center gap-1.5 mt-2.5 overflow-hidden">
             <span className="bg-zinc-100 px-2 py-0.5 rounded text-[9px] font-bold text-zinc-650 shrink-0">
-              {part.marca_carro}
+              {part.seccion}
             </span>
             <span className="text-[9px] text-zinc-400 font-medium truncate">
-              {part.modelo_carro}
+              {part.subseccion}
             </span>
           </div>
         </div>

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useApp } from '../store/AppContext';
+import { supabase } from '../store/supabaseClient';
 import { 
   User, Lock, Phone, UserPlus, LogIn, LogOut, Bell, Package, 
   CheckCircle, Clock, Truck, MapPin, Edit2, AlertCircle, Eye, EyeOff, Tag,
@@ -122,7 +123,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab }) => {
     }
   };
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!regName.trim() || !regPhone.trim() || !regPassword.trim()) {
       setAuthError('Todos los campos son obligatorios.');
@@ -136,15 +137,20 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab }) => {
       return;
     }
 
-    // Check if phone matches any registered user
-    const exists = users.some(u => u.telefono.trim() === regPhone.trim());
-    if (exists) {
+    // Check if phone matches any registered user database-wide
+    const { data: existingUser } = await supabase
+      .from('usuarios_clientes')
+      .select('id')
+      .eq('telefono', regPhone.trim())
+      .limit(1);
+
+    if (existingUser && existingUser.length > 0) {
       setAuthError('Este número de teléfono ya está registrado.');
       return;
     }
 
     setAuthError('');
-    const userCreated = registerUser(regName.trim(), regPhone.trim(), regPassword.trim());
+    const userCreated = await registerUser(regName.trim(), regPhone.trim(), regPassword.trim());
     
     // Set Edit states
     setEditName(userCreated.nombre);
@@ -164,24 +170,21 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab }) => {
     setRegPassword('');
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!logPhone.trim() || !logPassword.trim()) {
       setAuthError('Por favor complete todos los campos.');
       return;
     }
 
-    const success = loginUser(logPhone, logPassword);
-    if (success) {
+    const loggedUser = await loginUser(logPhone, logPassword);
+    if (loggedUser) {
       setAuthError('');
       setLogPhone('');
       setLogPassword('');
-      const loggedUser = users.find(u => u.telefono.trim() === logPhone.trim());
-      if (loggedUser) {
-        setEditName(loggedUser.nombre);
-        setEditPhone(loggedUser.telefono);
-        setEditPassword(loggedUser.contrasena);
-      }
+      setEditName(loggedUser.nombre);
+      setEditPhone(loggedUser.telefono);
+      setEditPassword(loggedUser.contrasena);
       setActiveSubTab('orders');
     } else {
       setAuthError('Credenciales incorrectas. Verifique el teléfono y contraseña.');

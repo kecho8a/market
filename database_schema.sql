@@ -64,9 +64,9 @@ INSERT INTO store_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
 
 -- ----------------------------------------------------------------------------
--- 2. TABLA: USUARIOS / CLIENTES (users)
+-- 2. TABLA: USUARIOS / CLIENTES (usuarios_clientes)
 -- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE IF NOT EXISTS usuarios_clientes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nombre TEXT NOT NULL,
     telefono VARCHAR(20) UNIQUE NOT NULL,
@@ -114,7 +114,7 @@ CREATE INDEX IF NOT EXISTS idx_products_search ON products USING gin(to_tsvector
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS orders (
     id VARCHAR(50) PRIMARY KEY, -- Formato MKT-123456
-    cliente_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    cliente_id UUID REFERENCES usuarios_clientes(id) ON DELETE SET NULL,
     cliente_nombre TEXT NOT NULL,
     cliente_telefono TEXT NOT NULL,
     metodo_pago VARCHAR(50) NOT NULL, -- Pago Móvil, Zelle, Efectivo, Transferencia
@@ -190,7 +190,7 @@ CREATE TRIGGER update_store_config_modtime
 -- 8. POLÍTICAS RLS (Row Level Security) - RECOMENDACIONES SUPABASE
 -- ----------------------------------------------------------------------------
 ALTER TABLE store_config ENABLE ROW LEVEL SECURITY;
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE usuarios_clientes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;

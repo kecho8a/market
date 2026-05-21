@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../store/AppContext';
 import { Bell, ShieldAlert, Sparkles, X, ChevronRight, Truck, Info, Percent } from 'lucide-react';

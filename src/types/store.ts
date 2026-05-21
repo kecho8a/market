@@ -6,27 +6,27 @@ export interface AppUser {
   createdAt: string;
 }
 
-export interface AutoPart {
+export interface Producto {
   id: string;
-  codigo: string; // SKU or OEM number
+  codigo: string;                // SKU del producto
   nombre: string;
   descripcion: string;
-  categoria: string; // e.g., 'Frenos', 'Motor', 'Suspensión', 'Eléctrico', etc.
-  marca_carro: string; // e.g., 'Chevrolet', 'Toyota', 'Ford'
-  modelo_carro: string; // e.g., 'Aveo', 'Corolla', 'Fiesta'
-  marca_repuesto: string; // e.g., 'GM', 'Denso', 'Gates'
-  condicion: 'Nuevo' | 'Usado';
-  anio_inicio: number;
-  anio_fin: number;
+  categoria: string;             // Ej: 'Lácteos', 'Carnes', 'Panadería'
+  seccion: string;               // Pasillo del mercado. Ej: 'Pasillo 1 - Lácteos'
+  subseccion: string;            // Subsección. Ej: 'Leches y Cremas', 'Cortes Vacunos'
+  marca: string;                 // Marca del producto. Ej: 'Campestre', 'El Rey'
+  condicion: 'Nacional' | 'Importado'; // Origen
+  anio_inicio: number;           // Reutilizado en UI como "Vida Útil en Días"
+  anio_fin: number;              // Reutilizado en UI como "Temperatura Conservación °C"
   precio_usd: number;
   stock: number;
-  imagen_urls: string[]; // Support multiple images
+  imagen_urls: string[];         // Múltiples imágenes del producto
   es_promo: boolean;
   es_nuevo: boolean;
   es_mas_vendido: boolean;
   delivery_gratis?: boolean;
-  compatibilidad_detalle?: string;
-  activo?: boolean; // New flag to determine if it's sellable
+  detalle_adicional?: string;    // Info extra del producto (origen, peso, etc.)
+  activo?: boolean;              // Si está visible/vendible en el catálogo
 }
 
 export interface OrderItem {
@@ -61,6 +61,7 @@ export interface StoreConfig {
   site_nombre: string;
   telefono_soporte: string;
   direccion_fisica: string;
+  logo_url?: string;
   coordenadas_tienda: {
     lat: number;
     lng: number;
@@ -79,7 +80,6 @@ export interface StoreConfig {
   transferencia_data: string;
   transferencia_discount_percent: number;
   tasa_cambio: number; // exchange rate (Bs per USD)
-  logo_url?: string;
   theme_color?: string;
   delivery_gratis?: boolean;
   costo_delivery_km?: number;

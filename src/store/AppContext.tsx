@@ -1,13 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { AutoPart, Order, StoreConfig, InAppNotification, OrderItem, AppUser } from '../types/store';
+import { Producto, Order, StoreConfig, InAppNotification, OrderItem, AppUser } from '../types/store';
 import { supabase } from './supabaseClient';
 
 interface AppContextProps {
-  parts: AutoPart[];
+  parts: Producto[];
   orders: Order[];
   config: StoreConfig;
   notifications: InAppNotification[];
-  cart: { item: AutoPart; quantity: number }[];
+  cart: { item: Producto; quantity: number }[];
   isAdminAuthenticated: boolean;
   favorites: string[];
   toggleFavorite: (partId: string) => void;
@@ -18,21 +18,21 @@ interface AppContextProps {
   toggleCurrency: () => void;
   users: AppUser[];
   currentUser: AppUser | null;
-  registerUser: (nombre: string, telefono: string, contrasena: string) => AppUser;
-  loginUser: (telefono: string, contrasena: string) => boolean;
+  registerUser: (nombre: string, telefono: string, contrasena: string) => Promise<AppUser>;
+  loginUser: (telefono: string, contrasena: string) => Promise<AppUser | null>;
   logoutUser: () => void;
   updateUser: (updated: Partial<AppUser>) => void;
   updateUserByAdmin: (userId: string, updated: Partial<AppUser>) => void;
   requestPart: (nombre: string, telefono: string, descripcion: string, imagenUrl?: string) => void;
   
   // Catalog actions
-  addPart: (part: Omit<AutoPart, 'id'>) => void;
-  updatePart: (id: string, updated: Partial<AutoPart>) => void;
+  addPart: (part: Omit<Producto, 'id'>) => void;
+  updatePart: (id: string, updated: Partial<Producto>) => void;
   deletePart: (id: string) => void;
-  searchPartsSemantically: (query: string) => AutoPart[];
+  searchPartsSemantically: (query: string) => Producto[];
   
   // Cart Actions
-  addToCart: (part: AutoPart, qty?: number) => void;
+  addToCart: (part: Producto, qty?: number) => void;
   removeFromCart: (partId: string) => void;
   updateCartQuantity: (partId: string, quantity: number) => void;
   clearCart: () => void;
@@ -69,17 +69,17 @@ interface AppContextProps {
 const AppContext = createContext<AppContextProps | undefined>(undefined);
 
 // INITIAL PRODUCTS DATA
-const DEFAULT_PARTS: AutoPart[] = [
+const DEFAULT_PARTS: Producto[] = [
   {
     id: 'a4829bef-0c7f-4b08-be94-7123aa123b01',
     codigo: 'LCT-LECH-964',
     nombre: 'Leche Liquida Entera Campestre 1L',
     descripcion: 'Leche entera de vaca pasteurizada premium, enriquecida con vitaminas A y D. Ideal para toda la familia.',
     categoria: 'Lácteos y Quesos',
-    marca_carro: 'Pasillo 1 - Lacteos',
-    modelo_carro: 'Leches y Cremas',
-    marca_repuesto: 'Campestre',
-    condicion: 'Nuevo',
+    seccion: 'Pasillo 1 - Lacteos',
+    subseccion: 'Leches y Cremas',
+    marca: 'Campestre',
+    condicion: 'Nacional',
     anio_inicio: 2000,
     anio_fin: 2026,
     precio_usd: 1.80,
@@ -89,7 +89,7 @@ const DEFAULT_PARTS: AutoPart[] = [
     es_nuevo: false,
     es_mas_vendido: true,
     delivery_gratis: true,
-    compatibilidad_detalle: '100% Leche fresca pasteurizada. Conservar refrigerado.'
+    detalle_adicional: '100% Leche fresca pasteurizada. Conservar refrigerado.'
   },
   {
     id: 'a4829bef-0c7f-4b08-be94-7123aa123b02',
@@ -97,10 +97,10 @@ const DEFAULT_PARTS: AutoPart[] = [
     nombre: 'Queso Amarillo Tipo Gouda Madurado 500g',
     descripcion: 'Queso amarillo gouda premium madurado con textura cremosa y sabor semi-fuerte. Perfecto para picar o sandwiches.',
     categoria: 'Lácteos y Quesos',
-    marca_carro: 'Pasillo 1 - Lacteos',
-    modelo_carro: 'Quesos y Embutidos',
-    marca_repuesto: 'Torondoy',
-    condicion: 'Nuevo',
+    seccion: 'Pasillo 1 - Lacteos',
+    subseccion: 'Quesos y Embutidos',
+    marca: 'Torondoy',
+    condicion: 'Nacional',
     anio_inicio: 2000,
     anio_fin: 2026,
     precio_usd: 6.50,
@@ -110,7 +110,7 @@ const DEFAULT_PARTS: AutoPart[] = [
     es_nuevo: false,
     es_mas_vendido: false,
     delivery_gratis: true,
-    compatibilidad_detalle: 'Contiene lactosa. Maduracion controlada de 45 dias.'
+    detalle_adicional: 'Contiene lactosa. Maduracion controlada de 45 dias.'
   },
   {
     id: 'a4829bef-0c7f-4b08-be94-7123aa123b03',
@@ -118,10 +118,10 @@ const DEFAULT_PARTS: AutoPart[] = [
     nombre: 'Yogur Griego Natural Sin Azucar 500g',
     descripcion: 'Yogur griego cremoso alto en proteinas, sin azucar añadida ni conservantes. Excelente fuente de calcio.',
     categoria: 'Lácteos y Quesos',
-    marca_carro: 'Pasillo 1 - Lacteos',
-    modelo_carro: 'Yogures y Postres',
-    marca_repuesto: 'ValleFresco',
-    condicion: 'Nuevo',
+    seccion: 'Pasillo 1 - Lacteos',
+    subseccion: 'Yogures y Postres',
+    marca: 'ValleFresco',
+    condicion: 'Nacional',
     anio_inicio: 2000,
     anio_fin: 2026,
     precio_usd: 3.90,
@@ -131,7 +131,7 @@ const DEFAULT_PARTS: AutoPart[] = [
     es_nuevo: true,
     es_mas_vendido: true,
     delivery_gratis: false,
-    compatibilidad_detalle: 'Mantener en refrigeracion constante entre 2 y 4 grados.'
+    detalle_adicional: 'Mantener en refrigeracion constante entre 2 y 4 grados.'
   },
   {
     id: 'a4829bef-0c7f-4b08-be94-7123aa123b04',
@@ -139,10 +139,10 @@ const DEFAULT_PARTS: AutoPart[] = [
     nombre: 'Ribeye de Carne Premium Angus 400g',
     descripcion: 'Corte selecto Ribeye de res Angus certificado con excelente marmoleo para garantizar jugosidad extrema y gran suavidad.',
     categoria: 'Carnes y Aves',
-    marca_carro: 'Pasillo 2 - Carnes',
-    modelo_carro: 'Cortes Vacunos',
-    marca_repuesto: 'Angus Gold',
-    condicion: 'Nuevo',
+    seccion: 'Pasillo 2 - Carnes',
+    subseccion: 'Cortes Vacunos',
+    marca: 'Angus Gold',
+    condicion: 'Nacional',
     anio_inicio: 2000,
     anio_fin: 2026,
     precio_usd: 14.90,
@@ -152,7 +152,7 @@ const DEFAULT_PARTS: AutoPart[] = [
     es_nuevo: false,
     es_mas_vendido: true,
     delivery_gratis: false,
-    compatibilidad_detalle: 'Empacado al vacio de origen. Conservar congelado.'
+    detalle_adicional: 'Empacado al vacio de origen. Conservar congelado.'
   },
   {
     id: 'a4829bef-0c7f-4b08-be94-7123aa123b05',
@@ -160,10 +160,10 @@ const DEFAULT_PARTS: AutoPart[] = [
     nombre: 'Pechuga de Pollo Entera Deshuesada 1kg',
     descripcion: 'Pechuga de pollo fresca, limpia, deshuesada y sin piel. Carne tierna ideal para preparar a la plancha o ensaladas.',
     categoria: 'Carnes y Aves',
-    marca_carro: 'Pasillo 2 - Carnes',
-    modelo_carro: 'Aves y Pollo',
-    marca_repuesto: 'GranjaSol',
-    condicion: 'Nuevo',
+    seccion: 'Pasillo 2 - Carnes',
+    subseccion: 'Aves y Pollo',
+    marca: 'GranjaSol',
+    condicion: 'Nacional',
     anio_inicio: 2000,
     anio_fin: 2026,
     precio_usd: 5.80,
@@ -173,7 +173,7 @@ const DEFAULT_PARTS: AutoPart[] = [
     es_nuevo: false,
     es_mas_vendido: false,
     delivery_gratis: true,
-    compatibilidad_detalle: 'Pollo fresco libre de hormonas, lavado y empacado de forma segura.'
+    detalle_adicional: 'Pollo fresco libre de hormonas, lavado y empacado de forma segura.'
   },
   {
     id: 'a4829bef-0c7f-4b08-be94-7123aa123b06',
@@ -181,10 +181,10 @@ const DEFAULT_PARTS: AutoPart[] = [
     nombre: 'Jamon Serrano Bodega Reserva 150g',
     descripcion: 'Jamon serrano curado artesanalmente en bodega. Rebanadas finas de intenso sabor y excelente aroma español.',
     categoria: 'Charcutería',
-    marca_carro: 'Pasillo 1 - Lacteos',
-    modelo_carro: 'Quesos y Embutidos',
-    marca_repuesto: 'Campestre',
-    condicion: 'Nuevo',
+    seccion: 'Pasillo 1 - Lacteos',
+    subseccion: 'Quesos y Embutidos',
+    marca: 'Campestre',
+    condicion: 'Nacional',
     anio_inicio: 2000,
     anio_fin: 2026,
     precio_usd: 8.20,
@@ -194,7 +194,7 @@ const DEFAULT_PARTS: AutoPart[] = [
     es_nuevo: true,
     es_mas_vendido: true,
     delivery_gratis: false,
-    compatibilidad_detalle: 'Listo para consumir. Ideal con pan con tomate o tablas de quesos.'
+    detalle_adicional: 'Listo para consumir. Ideal con pan con tomate o tablas de quesos.'
   },
   {
     id: 'a4829bef-0c7f-4b08-be94-7123aa123b07',
@@ -202,10 +202,10 @@ const DEFAULT_PARTS: AutoPart[] = [
     nombre: 'Prosciutto Italiano Di Parma Rebanado 100g',
     descripcion: 'Prosciutto curado italiano original. Sabor balanceado y textura sedosa que se derrite en la boca.',
     categoria: 'Charcutería',
-    marca_carro: 'Pasillo 1 - Lacteos',
-    modelo_carro: 'Quesos y Embutidos',
-    marca_repuesto: 'Torondoy',
-    condicion: 'Nuevo',
+    seccion: 'Pasillo 1 - Lacteos',
+    subseccion: 'Quesos y Embutidos',
+    marca: 'Torondoy',
+    condicion: 'Nacional',
     anio_inicio: 2000,
     anio_fin: 2026,
     precio_usd: 9.90,
@@ -215,7 +215,7 @@ const DEFAULT_PARTS: AutoPart[] = [
     es_nuevo: false,
     es_mas_vendido: false,
     delivery_gratis: true,
-    compatibilidad_detalle: 'Conservar refrigerado. Abrir 10 minutos antes de consumir.'
+    detalle_adicional: 'Conservar refrigerado. Abrir 10 minutos antes de consumir.'
   },
   {
     id: 'a4829bef-0c7f-4b08-be94-7123aa123b08',
@@ -223,10 +223,10 @@ const DEFAULT_PARTS: AutoPart[] = [
     nombre: 'Fresas Organicas Seleccionadas del Valle 500g',
     descripcion: 'Fresas organicas cosechadas en altura en Merida. Gran sabor dulce natural y consistencia firme.',
     categoria: 'Frutas y Verduras',
-    marca_carro: 'Pasillo 2 - Frescos',
-    modelo_carro: 'Frutas y Vegetales',
-    marca_repuesto: 'ValleFresco',
-    condicion: 'Nuevo',
+    seccion: 'Pasillo 2 - Frescos',
+    subseccion: 'Frutas y Vegetales',
+    marca: 'ValleFresco',
+    condicion: 'Nacional',
     anio_inicio: 2000,
     anio_fin: 2026,
     precio_usd: 4.20,
@@ -236,7 +236,7 @@ const DEFAULT_PARTS: AutoPart[] = [
     es_nuevo: true,
     es_mas_vendido: false,
     delivery_gratis: false,
-    compatibilidad_detalle: 'Lavar y desinfectar bien. Mantener refrigerado.'
+    detalle_adicional: 'Lavar y desinfectar bien. Mantener refrigerado.'
   },
   {
     id: 'a4829bef-0c7f-4b08-be94-7123aa123b09',
@@ -244,10 +244,10 @@ const DEFAULT_PARTS: AutoPart[] = [
     nombre: 'Aguacate Hass Maduro Premium Pack de 3',
     descripcion: 'Aguacates de variedad Hass seleccionados en su punto optimo de maduracion. Textura suave como mantequilla.',
     categoria: 'Frutas y Verduras',
-    marca_carro: 'Pasillo 2 - Frescos',
-    modelo_carro: 'Frutas y Vegetales',
-    marca_repuesto: 'EcoGranja',
-    condicion: 'Nuevo',
+    seccion: 'Pasillo 2 - Frescos',
+    subseccion: 'Frutas y Vegetales',
+    marca: 'EcoGranja',
+    condicion: 'Nacional',
     anio_inicio: 2000,
     anio_fin: 2026,
     precio_usd: 3.50,
@@ -257,7 +257,7 @@ const DEFAULT_PARTS: AutoPart[] = [
     es_nuevo: false,
     es_mas_vendido: true,
     delivery_gratis: false,
-    compatibilidad_detalle: 'Ideal para guacamole o rebanar de inmediato.'
+    detalle_adicional: 'Ideal para guacamole o rebanar de inmediato.'
   },
   {
     id: 'a4829bef-0c7f-4b08-be94-7123aa123b10',
@@ -265,10 +265,10 @@ const DEFAULT_PARTS: AutoPart[] = [
     nombre: 'Aceite de Oliva Extra Virgen Andaluz 500ml',
     descripcion: 'Aceite de oliva extra virgen prensado en frio en España. Sabor equilibrado frutal excelente para aderezos.',
     categoria: 'Víveres y Despensa',
-    marca_carro: 'Pasillo 3 - Despensa',
-    modelo_carro: 'Aceites y Abarrotes',
-    marca_repuesto: 'Carbonell',
-    condicion: 'Usado',
+    seccion: 'Pasillo 3 - Despensa',
+    subseccion: 'Aceites y Abarrotes',
+    marca: 'Carbonell',
+    condicion: 'Importado',
     anio_inicio: 2000,
     anio_fin: 2026,
     precio_usd: 9.50,
@@ -278,7 +278,7 @@ const DEFAULT_PARTS: AutoPart[] = [
     es_nuevo: true,
     es_mas_vendido: true,
     delivery_gratis: false,
-    compatibilidad_detalle: 'Acidez inferior a 0.4%. Almacenar en lugar seco y oscuro.'
+    detalle_adicional: 'Acidez inferior a 0.4%. Almacenar en lugar seco y oscuro.'
   },
   {
     id: 'a4829bef-0c7f-4b08-be94-7123aa123b11',
@@ -286,10 +286,10 @@ const DEFAULT_PARTS: AutoPart[] = [
     nombre: 'Arroz Extra Premium Basmati Aromatico 1kg',
     descripcion: 'Arroz basmati de grano extra largo y gran fragancia. Su coccion suelta es ideal para recetas asiaticas o gourmet.',
     categoria: 'Víveres y Despensa',
-    marca_carro: 'Pasillo 3 - Despensa',
-    modelo_carro: 'Arroces y Granos',
-    marca_repuesto: 'Royal',
-    condicion: 'Usado',
+    seccion: 'Pasillo 3 - Despensa',
+    subseccion: 'Arroces y Granos',
+    marca: 'Royal',
+    condicion: 'Importado',
     anio_inicio: 2000,
     anio_fin: 2026,
     precio_usd: 3.90,
@@ -299,7 +299,7 @@ const DEFAULT_PARTS: AutoPart[] = [
     es_nuevo: false,
     es_mas_vendido: false,
     delivery_gratis: false,
-    compatibilidad_detalle: 'Naturalmente libre de gluten. Cocinar con doble medida de agua.'
+    detalle_adicional: 'Naturalmente libre de gluten. Cocinar con doble medida de agua.'
   },
   {
     id: 'a4829bef-0c7f-4b08-be94-7123aa123b12',
@@ -307,10 +307,10 @@ const DEFAULT_PARTS: AutoPart[] = [
     nombre: 'Pan Baguette Artesanal de Masa Madre 250g',
     descripcion: 'Pan tipo baguette artesanal cocido en horno de piedra. Corteza crujiente y miga esponjosa y aireada.',
     categoria: 'Panadería y Pastelería',
-    marca_carro: 'Pasillo 4 - Panaderia',
-    modelo_carro: 'Panes Frescos',
-    marca_repuesto: 'El Rey',
-    condicion: 'Nuevo',
+    seccion: 'Pasillo 4 - Panaderia',
+    subseccion: 'Panes Frescos',
+    marca: 'El Rey',
+    condicion: 'Nacional',
     anio_inicio: 2000,
     anio_fin: 2026,
     precio_usd: 1.20,
@@ -320,7 +320,7 @@ const DEFAULT_PARTS: AutoPart[] = [
     es_nuevo: true,
     es_mas_vendido: false,
     delivery_gratis: false,
-    compatibilidad_detalle: 'Elaborado el dia de hoy con harina de trigo fortificada.'
+    detalle_adicional: 'Elaborado el dia de hoy con harina de trigo fortificada.'
   },
   {
     id: 'a4829bef-0c7f-4b08-be94-7123aa123b13',
@@ -328,10 +328,10 @@ const DEFAULT_PARTS: AutoPart[] = [
     nombre: 'Croissant Frances Genuino de Mantequilla Pack x4',
     descripcion: 'Pack de 4 croissants elaborados con hojaldre frances real y mantequilla premium. Crujientes por fuera y suaves por dentro.',
     categoria: 'Panadería y Pastelería',
-    marca_carro: 'Pasillo 4 - Panaderia',
-    modelo_carro: 'Panes Frescos',
-    marca_repuesto: 'El Rey',
-    condicion: 'Nuevo',
+    seccion: 'Pasillo 4 - Panaderia',
+    subseccion: 'Panes Frescos',
+    marca: 'El Rey',
+    condicion: 'Nacional',
     anio_inicio: 2000,
     anio_fin: 2026,
     precio_usd: 4.50,
@@ -341,7 +341,7 @@ const DEFAULT_PARTS: AutoPart[] = [
     es_nuevo: false,
     es_mas_vendido: true,
     delivery_gratis: true,
-    compatibilidad_detalle: 'Consumir fresco o entibiar 2 minutos en horno convencional.'
+    detalle_adicional: 'Consumir fresco o entibiar 2 minutos en horno convencional.'
   },
   {
     id: 'a4829bef-0c7f-4b08-be94-7123aa123b14',
@@ -349,10 +349,10 @@ const DEFAULT_PARTS: AutoPart[] = [
     nombre: 'Nectar de Naranja Organica Exprimida 1L',
     descripcion: 'Jugo natural de naranja exprimida al momento, sin azucar ni agua agregada. 100% puro sabor citrico natural.',
     categoria: 'Bebidas y Jugos',
-    marca_carro: 'Pasillo 2 - Frescos',
-    modelo_carro: 'Bebidas y Licores',
-    marca_repuesto: 'GranjaSol',
-    condicion: 'Nuevo',
+    seccion: 'Pasillo 2 - Frescos',
+    subseccion: 'Bebidas y Licores',
+    marca: 'GranjaSol',
+    condicion: 'Nacional',
     anio_inicio: 2000,
     anio_fin: 2026,
     precio_usd: 2.80,
@@ -362,7 +362,7 @@ const DEFAULT_PARTS: AutoPart[] = [
     es_nuevo: false,
     es_mas_vendido: false,
     delivery_gratis: false,
-    compatibilidad_detalle: 'Rico en Vitamina C natural. Agitar antes de abrir.'
+    detalle_adicional: 'Rico en Vitamina C natural. Agitar antes de abrir.'
   },
   {
     id: 'a4829bef-0c7f-4b08-be94-7123aa123b15',
@@ -370,10 +370,10 @@ const DEFAULT_PARTS: AutoPart[] = [
     nombre: 'Chocolate Oscuro 70% Cacao Carenero Superior 80g',
     descripcion: 'Tableta de chocolate gourmet con 70% de puro cacao fino de aroma del tipo Carenero Superior. Sabor profundo con notas frutales.',
     categoria: 'Snacks y Dulces',
-    marca_carro: 'Pasillo 3 - Despensa',
-    modelo_carro: 'Confiteria y Snacks',
-    marca_repuesto: 'El Rey',
-    condicion: 'Nuevo',
+    seccion: 'Pasillo 3 - Despensa',
+    subseccion: 'Confiteria y Snacks',
+    marca: 'El Rey',
+    condicion: 'Nacional',
     anio_inicio: 2000,
     anio_fin: 2026,
     precio_usd: 3.50,
@@ -383,7 +383,7 @@ const DEFAULT_PARTS: AutoPart[] = [
     es_nuevo: true,
     es_mas_vendido: true,
     delivery_gratis: false,
-    compatibilidad_detalle: 'Cacao venezolano de origen unico, libre de aditivos artificiales.'
+    detalle_adicional: 'Cacao venezolano de origen unico, libre de aditivos artificiales.'
   }
 ];
 
@@ -436,7 +436,7 @@ const DEFAULT_CONFIG: StoreConfig = {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Persistence state loaders
-  const [parts, setParts] = useState<AutoPart[]>(() => {
+  const [parts, setParts] = useState<Producto[]>(() => {
     const saved = localStorage.getItem('trv_parts');
     return saved ? JSON.parse(saved) : DEFAULT_PARTS;
   });
@@ -474,7 +474,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [isGlobalLoading, setIsGlobalLoading] = useState(true);
 
-  const [cart, setCart] = useState<{ item: AutoPart; quantity: number }[]>(() => {
+  const [cart, setCart] = useState<{ item: Producto; quantity: number }[]>(() => {
     const saved = localStorage.getItem('trv_cart');
     return saved ? JSON.parse(saved) : [];
   });
@@ -531,7 +531,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const fetchData = async () => {
       try {
-        const { data: configData } = await supabase.from('configuracion_sistema').select('*').limit(1).single();
+        const { data: configData } = await supabase.from('store_config').select('*').limit(1).single();
         if (configData) {
           setConfig(prev => ({
             ...prev,
@@ -544,19 +544,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             pagomovil_enabled: configData.pagomovil_enabled ?? prev.pagomovil_enabled,
             efectivo_enabled: configData.efectivo_enabled ?? prev.efectivo_enabled,
             transferencia_enabled: configData.transferencia_enabled ?? prev.transferencia_enabled,
-            tasa_cambio: configData.tasa_cambio ?? prev.tasa_cambio
+            tasa_cambio: configData.tasa_cambio ?? prev.tasa_cambio,
+            logo_url: configData.logo_url ?? prev.logo_url,
+            favicon_url: configData.favicon_url ?? prev.favicon_url
           }));
         }
 
-        const { data: partsData } = await supabase.from('repuestos_catalogo').select('*');
+        const { data: partsData } = await supabase.from('products').select('*');
         if (partsData && partsData.length > 0) {
           setParts(partsData.map(p => ({ ...p, precio_usd: Number(p.precio_usd) })));
         }
 
-        const { data: ordersData } = await supabase.from('pedidos').select('*').order('fecha', { ascending: false });
+        const { data: ordersData } = await supabase.from('orders').select('*').order('fecha', { ascending: false });
         if (ordersData && ordersData.length > 0) {
           setOrders(ordersData.map(o => ({
-            ...o, subtotal_usd: Number(o.subtotal_usd), total_usd: Number(o.total_usd), total_bs: Number(o.total_bs), costo_envio_usd: Number(o.costo_envio_usd)
+            ...o,
+            usuario_id: o.cliente_uid,
+            subtotal_usd: Number(o.subtotal_usd),
+            total_usd: Number(o.total_usd),
+            total_bs: Number(o.total_bs),
+            costo_envio_usd: Number(o.costo_envio_usd)
+          })));
+        }
+
+        const { data: usersData } = await supabase.from('usuarios_clientes').select('*');
+        if (usersData && usersData.length > 0) {
+          setUsers(usersData.map(u => ({
+            id: u.id,
+            nombre: u.nombre,
+            telefono: u.telefono,
+            contrasena: u.contrasena || '123456',
+            createdAt: u.created_at || new Date().toISOString()
           })));
         }
       } catch (err) {
@@ -668,8 +686,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Catalog CRUD Functions
-  const addPart = (partData: Omit<AutoPart, 'id'>) => {
-    const newPart: AutoPart = {
+  const addPart = (partData: Omit<Producto, 'id'>) => {
+    const newPart: Producto = {
       ...partData,
       id: `part-${Date.now()}`
     };
@@ -677,13 +695,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addNotification('Nuevo Producto Agregado', `Se ha agregado ${newPart.nombre} al catálogo de Marketo.`);
     
     // Supabase Async Sync
-    supabase.from('repuestos_catalogo').insert([{
+    supabase.from('products').insert([{
       codigo: newPart.codigo,
       nombre: newPart.nombre,
       descripcion: newPart.descripcion,
       categoria: newPart.categoria,
-      marca_carro: newPart.marca_carro,
-      modelo_carro: newPart.modelo_carro,
+      seccion: newPart.seccion,
+      subseccion: newPart.subseccion,
       anio_inicio: newPart.anio_inicio,
       anio_fin: newPart.anio_fin,
       precio_usd: newPart.precio_usd,
@@ -692,7 +710,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       es_promo: newPart.es_promo,
       es_nuevo: newPart.es_nuevo,
       es_mas_vendido: newPart.es_mas_vendido,
-      compatibilidad_detalle: newPart.compatibilidad_detalle
+      detalle_adicional: newPart.detalle_adicional
     }]).then(({ error }) => { if (error) console.error('Add part error:', error); });
     
     if (newPart.stock < 5) {
@@ -704,7 +722,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const updatePart = (id: string, updated: Partial<AutoPart>) => {
+  const updatePart = (id: string, updated: Partial<Producto>) => {
     setParts(prev => prev.map(p => {
       if (p.id === id) {
         const nextStock = updated.stock !== undefined ? updated.stock : p.stock;
@@ -721,7 +739,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Supabase Async Sync
         const updatePayload: any = { ...updated };
         delete updatePayload.id; // avoid id conflicts
-        supabase.from('repuestos_catalogo').update(updatePayload).eq('codigo', updatedPart.codigo)
+        supabase.from('products').update(updatePayload).eq('codigo', updatedPart.codigo)
           .then(({ error }) => { if (error) console.error('Update part error:', error); });
           
         return updatedPart;
@@ -733,7 +751,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deletePart = (id: string) => {
     const targetPart = parts.find(p => p.id === id);
     if (targetPart) {
-      supabase.from('repuestos_catalogo').delete().eq('codigo', targetPart.codigo)
+      supabase.from('products').delete().eq('codigo', targetPart.codigo)
         .then(({ error }) => { if (error) console.error('Delete part error:', error); });
     }
     
@@ -743,7 +761,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Semantical Automotive Intelligent Search
-  const searchPartsSemantically = (query: string): AutoPart[] => {
+  const searchPartsSemantically = (query: string): Producto[] => {
     if (!query || query.trim() === '') return parts.filter(p => p.activo !== false);
     
     const cleanQuery = query.toLowerCase().trim();
@@ -779,7 +797,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (remainingTokens.length === 0) return true;
       
       // 2. Keyword Match on Name, Code, Description, Brand, Model, Category, Compatibility Detalle, Condition, Delivery
-      const partSearchText = `${part.nombre} ${part.codigo} ${part.descripcion} ${part.categoria} ${part.marca_carro} ${part.modelo_carro} ${part.marca_repuesto} ${part.condicion} ${part.delivery_gratis ? 'delivery gratis' : ''} ${part.compatibilidad_detalle || ''}`.toLowerCase();
+      const partSearchText = `${part.nombre} ${part.codigo} ${part.descripcion} ${part.categoria} ${part.seccion} ${part.subseccion} ${part.marca} ${part.condicion} ${part.delivery_gratis ? 'delivery gratis' : ''} ${part.detalle_adicional || ''}`.toLowerCase();
       
       // Enforce AND logic or highly relevant matching
       return remainingTokens.every(tok => partSearchText.includes(tok));
@@ -787,7 +805,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Cart Actions
-  const addToCart = (part: AutoPart, qty = 1) => {
+  const addToCart = (part: Producto, qty = 1) => {
     setCart(prev => {
       const idx = prev.findIndex(item => item.item.id === part.id);
       if (idx > -1) {
@@ -862,7 +880,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newOrder: Order = {
       ...orderData,
       id: `PED-${Math.floor(1000 + Math.random() * 9000)}-VAL-${new Date().getFullYear()}`,
-      usuario_id: currentUser ? currentUser.id : undefined,
+      usuario_id: orderData.usuario_id || (currentUser ? currentUser.id : undefined),
       items,
       subtotal_usd: subtotal,
       total_usd: totalUsd,
@@ -892,9 +910,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     clearCart();
 
     // Supabase Insert
-    supabase.from('pedidos').insert([{
+    supabase.from('orders').insert([{
+      id: newOrder.id,
       cliente_nombre: newOrder.cliente_nombre,
       cliente_telefono: newOrder.cliente_telefono,
+      cliente_uid: newOrder.usuario_id,
       items: newOrder.items,
       subtotal_usd: newOrder.subtotal_usd,
       costo_envio_usd: newOrder.costo_envio_usd,
@@ -905,7 +925,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       lng: newOrder.lng,
       direccion_envio: newOrder.direccion_envio,
       distancia_km: newOrder.distancia_km,
-      status: newOrder.status
+      status: newOrder.status,
+      tiempo_estimado_entrega: newOrder.tiempo_estimado_entrega
     }]).then(({ error }) => { if (error) console.error('Insert order error:', error); });
 
     // Trigger Notification for the store and the client
@@ -961,16 +982,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     
     if (orderObj) {
-      supabase.from('pedidos')
-        .update({ status })
-        .eq('cliente_telefono', orderObj.cliente_telefono)
-        .eq('total_usd', orderObj.total_usd)
+      const updatePayload: any = { status };
+      if (estimatedTime !== undefined) {
+        updatePayload.tiempo_estimado_entrega = estimatedTime;
+      }
+      supabase.from('orders')
+        .update(updatePayload)
+        .eq('id', orderId)
         .then(({ error }) => { if (error) console.error('Update order status error:', error); });
     }
   };
 
   // User Management Implementation
-  const registerUser = (nombre: string, telefono: string, contrasena: string): AppUser => {
+  const registerUser = async (nombre: string, telefono: string, contrasena: string): Promise<AppUser> => {
     const newUser: AppUser = {
       id: `user-${Date.now()}`,
       nombre: nombre.trim(),
@@ -978,6 +1002,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       contrasena: contrasena.trim(),
       createdAt: new Date().toISOString()
     };
+
+    // Insert into Supabase
+    const { error } = await supabase.from('usuarios_clientes').insert([{
+      id: newUser.id,
+      nombre: newUser.nombre,
+      telefono: newUser.telefono,
+      contrasena: newUser.contrasena
+    }]);
+
+    if (error) {
+      console.error('Error inserting user to Supabase:', error);
+    }
     
     setUsers(prev => {
       // Remove any existing user with the same phone to avoid duplicates
@@ -996,8 +1032,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newUser;
   };
 
-  const loginUser = (telefono: string, contrasena: string): boolean => {
-    const user = users.find(u => u.telefono.trim() === telefono.trim() && u.contrasena.trim() === contrasena.trim());
+  const loginUser = async (telefono: string, contrasena: string): Promise<AppUser | null> => {
+    // 1. Try local list first for speed
+    let user = users.find(u => u.telefono.trim() === telefono.trim() && u.contrasena.trim() === contrasena.trim());
+    
+    // 2. If not found locally, check Supabase
+    if (!user) {
+      const { data, error } = await supabase
+        .from('usuarios_clientes')
+        .select('*')
+        .eq('telefono', telefono.trim())
+        .eq('contrasena', contrasena.trim())
+        .limit(1)
+        .single();
+        
+      if (data && !error) {
+        user = {
+          id: data.id,
+          nombre: data.nombre,
+          telefono: data.telefono,
+          contrasena: data.contrasena,
+          createdAt: data.created_at || new Date().toISOString()
+        };
+        // Add to local state
+        setUsers(prev => {
+          const filtered = prev.filter(u => u.id !== data.id);
+          return [...filtered, user!];
+        });
+      }
+    }
+
     if (user) {
       setCurrentUser(user);
       addNotification(
@@ -1006,9 +1070,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'personal',
         user.telefono
       );
-      return true;
+      return user;
     }
-    return false;
+    return null;
   };
 
   const logoutUser = () => {
@@ -1020,6 +1084,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updatedUser = { ...currentUser, ...updated };
     setCurrentUser(updatedUser);
     setUsers(prev => prev.map(u => u.id === currentUser.id ? updatedUser : u));
+
+    // Update in Supabase in background
+    supabase.from('usuarios_clientes')
+      .update({
+        nombre: updatedUser.nombre,
+        telefono: updatedUser.telefono,
+        contrasena: updatedUser.contrasena
+      })
+      .eq('id', currentUser.id)
+      .then(({ error }) => {
+        if (error) console.error('Error updating user in Supabase:', error);
+      });
 
     addNotification(
       'Datos Actualizados ⚙️',
@@ -1035,6 +1111,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // If the updated user is the current user, update current user too
     if (currentUser?.id === userId) {
       setCurrentUser(prev => prev ? { ...prev, ...updated } : null);
+    }
+
+    // Sync to Supabase in background
+    const updatePayload: any = {};
+    if (updated.nombre !== undefined) updatePayload.nombre = updated.nombre;
+    if (updated.telefono !== undefined) updatePayload.telefono = updated.telefono;
+    if (updated.contrasena !== undefined) updatePayload.contrasena = updated.contrasena;
+
+    if (Object.keys(updatePayload).length > 0) {
+      supabase.from('usuarios_clientes')
+        .update(updatePayload)
+        .eq('id', userId)
+        .then(({ error }) => {
+          if (error) console.error('Error updating user by admin in Supabase:', error);
+        });
     }
   };
 
@@ -1103,13 +1194,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (newSettings.telefono_soporte !== undefined) updatePayload.telefono_soporte = newSettings.telefono_soporte;
           if (newSettings.direccion_fisica !== undefined) updatePayload.direccion_fisica = newSettings.direccion_fisica;
           if (newSettings.tasa_cambio !== undefined) updatePayload.tasa_cambio = newSettings.tasa_cambio;
+          if (newSettings.logo_url !== undefined) updatePayload.logo_url = newSettings.logo_url;
+          if (newSettings.favicon_url !== undefined) updatePayload.favicon_url = newSettings.favicon_url;
+          if (newSettings.zelle_enabled !== undefined) updatePayload.zelle_enabled = newSettings.zelle_enabled;
+          if (newSettings.pagomovil_enabled !== undefined) updatePayload.pagomovil_enabled = newSettings.pagomovil_enabled;
+          if (newSettings.efectivo_enabled !== undefined) updatePayload.efectivo_enabled = newSettings.efectivo_enabled;
+          if (newSettings.transferencia_enabled !== undefined) updatePayload.transferencia_enabled = newSettings.transferencia_enabled;
+          
+          if (newSettings.coordenadas_tienda !== undefined) {
+            updatePayload.tienda_lat = newSettings.coordenadas_tienda.lat;
+            updatePayload.tienda_lng = newSettings.coordenadas_tienda.lng;
+          }
+          if (newSettings.banners !== undefined) {
+            if (newSettings.banners[0] !== undefined) updatePayload.banner_url_1 = newSettings.banners[0];
+            if (newSettings.banners[1] !== undefined) updatePayload.banner_url_2 = newSettings.banners[1];
+            if (newSettings.banners[2] !== undefined) updatePayload.banner_url_3 = newSettings.banners[2];
+          }
           
           if (Object.keys(updatePayload).length > 0) {
-            const { data: existing } = await supabase.from('configuracion_sistema').select('id').limit(1).single();
+            const { data: existing } = await supabase.from('store_config').select('id').limit(1).single();
             if (existing) {
-              await supabase.from('configuracion_sistema').update(updatePayload).eq('id', existing.id);
+              await supabase.from('store_config').update(updatePayload).eq('id', existing.id);
             } else {
-              await supabase.from('configuracion_sistema').insert([updatePayload]);
+              await supabase.from('store_config').insert([updatePayload]);
             }
           }
         } catch (e) {

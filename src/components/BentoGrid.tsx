@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { ShieldCheck, Truck, Clock, Sparkles, Award, History, Check } from 'lucide-react';
 
 export const BentoGrid: React.FC = () => {

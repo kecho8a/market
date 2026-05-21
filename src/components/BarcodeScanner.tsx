@@ -13,11 +13,11 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScanSuccess, o
   const streamRef = useRef<MediaStream | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanStatus, setScanStatus] = useState<string>('Iniciando cámara...');
-  const [availableOEMs] = useState<string[]>(() => {
-    // Collect OEM codes from existing parts
+  const [availableSKUs] = useState<string[]>(() => {
+    // Collect SKU codes from existing products
     return parts.map(p => p.codigo);
   });
-  const [selectedSimulatedOEM, setSelectedSimulatedOEM] = useState<string>('');
+  const [selectedSimulatedSKU, setSelectedSimulatedSKU] = useState<string>('');
 
   // Start live stream
   useEffect(() => {
@@ -36,12 +36,12 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScanSuccess, o
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           setHasPermission(true);
-          setScanStatus('Buscando códigos de barra / OEM en el visor...');
+          setScanStatus('Buscando códigos de barra / SKU en el visor...');
         }
       } catch (err) {
         console.warn("Could not acquire actual camera feed:", err);
         setHasPermission(false);
-        setScanStatus('Cámara física no disponible en este dispositivo/iframe. Simula el escaneo con el selector rápido.');
+        setScanStatus('Cámara física no disponible en este dispositivo. Simula el escaneo con el selector rápido.');
       }
     };
 
@@ -79,7 +79,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScanSuccess, o
   const handleSimulateScan = (codeToScan: string) => {
     if (!codeToScan) return;
     triggerBeepSuccess();
-    setScanStatus(`¡CÓDIGO OEM DETECTADO: ${codeToScan}!`);
+    setScanStatus(`¡CÓDIGO DETECTADO: ${codeToScan}!`);
     setTimeout(() => {
       onScanSuccess(codeToScan);
     }, 450);
@@ -120,7 +120,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScanSuccess, o
                 <AlertCircle size={12} /> Cámara física offline
               </p>
               <p className="text-[11px] leading-relaxed max-w-xs text-gray-400">
-                El entorno de iFrame o de sandbox de producción no tiene acceso al hardware stream. Usa el emulador de escaneo premium estructurado abajo.
+                El entorno no tiene acceso directo a la cámara. Usa el emulador de escaneo premium estructurado abajo.
               </p>
             </div>
           )}
@@ -149,7 +149,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScanSuccess, o
         {/* Emulation & Code Injector segment */}
         <div className="p-4 flex flex-col gap-3">
           <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider flex items-center gap-1">
-            <Sparkles size={11} className="text-[#45f3ff]" /> Emulador de Scanner (Simulación OEM)
+            <Sparkles size={11} className="text-[#45f3ff]" /> Emulador de Scanner (Simulación de Código)
           </span>
 
           <div className="grid grid-cols-1 gap-2">
@@ -159,22 +159,22 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScanSuccess, o
             
             <div className="flex gap-2">
               <select
-                value={selectedSimulatedOEM}
-                onChange={(e) => setSelectedSimulatedOEM(e.target.value)}
+                value={selectedSimulatedSKU}
+                onChange={(e) => setSelectedSimulatedSKU(e.target.value)}
                 className="flex-1 bg-black/50 border border-white/10 rounded-xl px-3 py-2 text-xs text-[#f5f5f7] focus:outline-none focus:border-[#45f3ff] transition-all"
               >
                 <option value="">-- Elige un producto del stock --</option>
                 {parts.map((p) => (
                   <option key={p.id} value={p.codigo}>
-                     [{p.codigo}] - {p.nombre} (Stock: {p.stock} pz)
+                     [{p.codigo}] - {p.nombre} (Stock: {p.stock} unid)
                   </option>
                 ))}
               </select>
 
               <button
                 type="button"
-                disabled={!selectedSimulatedOEM}
-                onClick={() => handleSimulateScan(selectedSimulatedOEM)}
+                disabled={!selectedSimulatedSKU}
+                onClick={() => handleSimulateScan(selectedSimulatedSKU)}
                 className="bg-gradient-to-r from-cyan-400 to-indigo-500 hover:from-cyan-300 hover:to-indigo-400 text-black font-semibold text-xs px-4 rounded-xl flex items-center gap-1.5 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <Volume2 size={13} />

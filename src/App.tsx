@@ -7,7 +7,7 @@ import { Admin } from './pages/Admin';
 import { UserProfile } from './pages/UserProfile';
 import { Navigation } from './components/Navigation';
 import { BarcodeScanner } from './components/BarcodeScanner';
-import { AutoPart } from './types/store';
+import { Producto } from './types/store';
 import { PushNotificationModal } from './components/PushNotificationModal';
 import { 
   X, ShoppingCart, Landmark, ShieldCheck, Tag, Info, AlertOctagon, 
@@ -52,7 +52,7 @@ function AppContent() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   
   // Custom Overlays & Modals
-  const [selectedProductDetails, setSelectedProductDetails] = useState<AutoPart | null>(null);
+  const [selectedProductDetails, setSelectedProductDetails] = useState<Producto | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannedCode, setScannedCode] = useState<string>('');
   const [globalSearch, setGlobalSearch] = useState<string>('');
@@ -104,7 +104,7 @@ function AppContent() {
     setTab('catalog'); // Navigate to catalog immediately to filter
   };
 
-  const handleShareProduct = (part: AutoPart) => {
+  const handleShareProduct = (part: Producto) => {
     const text = `🍏 *${part.nombre}* en *Marketo* • Código SKU: *${part.codigo}* por un precio de *$${part.precio_usd.toFixed(2)} USD*. ¡Pídelo directo al delivery express de Marketo!`;
     const url = `whatsapp://send?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank', 'noreferrer');
@@ -664,10 +664,10 @@ function AppContent() {
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex gap-2">
                     <span className="text-[10px] text-blue-600 font-black tracking-widest uppercase bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
-                      {selectedProductDetails.marca_repuesto}
+                      {selectedProductDetails.marca}
                     </span>
                     <span className={`text-[10px] font-black tracking-widest uppercase px-2 py-0.5 rounded border ${
-                      selectedProductDetails.condicion === 'Nacional' || selectedProductDetails.condicion === 'Nuevo'
+                      selectedProductDetails.condicion === 'Nacional'
                         ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
                         : 'bg-amber-50 text-amber-600 border-amber-100'
                     }`}>
@@ -701,11 +701,11 @@ function AppContent() {
               <div className="p-3 border border-zinc-200 rounded-lg bg-zinc-50 text-xs flex flex-col gap-1 font-mono">
                 <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Ubicación y Conservación</span>
                 <div className="text-zinc-900 mt-1 font-sans">
-                  📍 {selectedProductDetails.marca_carro} ➔ {selectedProductDetails.modelo_carro}
+                  📍 {selectedProductDetails.seccion} ➔ {selectedProductDetails.subseccion}
                 </div>
-                {selectedProductDetails.compatibilidad_detalle && (
+                {selectedProductDetails.detalle_adicional && (
                   <div className="text-[10px] text-zinc-500 leading-tight border-t border-zinc-200 pt-1.5 mt-1">
-                    💡 <strong>Detalles:</strong> {selectedProductDetails.compatibilidad_detalle}
+                    💡 <strong>Detalles:</strong> {selectedProductDetails.detalle_adicional}
                   </div>
                 )}
               </div>
