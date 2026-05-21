@@ -4,6 +4,9 @@ on:
   push:
     branches: [ main ]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
@@ -14,7 +17,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install dependencies
         run: npm ci
@@ -22,15 +25,10 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Aquí está el cambio definitivo usando Wrangler
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
+        uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CF_PAGES_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          projectName: 'market'
-          directory: ./dist
-
-# Notes:
-# - Create the repository secrets: CF_PAGES_API_TOKEN, CF_ACCOUNT_ID, CF_PROJECT_NAME.
-# - Alternatively, connect the repo directly in the Cloudflare Pages dashboard and
-#   set the build command to `npm run build` and the output directory to `dist`.
+          command: pages deploy ./dist --project-name=market
