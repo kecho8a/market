@@ -1,4 +1,4 @@
-# Documentación del Sistema - TuRepuestoValencia
+# Documentación del Sistema - marketo
 
 Esta documentación proporciona una guía detallada sobre la arquitectura, instalación, configuración y mantenimiento del sistema de gestión de repuestos automotrices.
 
@@ -44,7 +44,7 @@ Actualmente, el sistema utiliza `localStorage` para guardar datos, lo que signif
 
 #### A. Configuración en el Panel de Supabase
 1. Crea una cuenta en [Supabase](https://supabase.com).
-2. Crea un nuevo proyecto llamado `TuRepuestoValencia`.
+2. Crea un nuevo proyecto llamado `market`.
 3. Ve a la sección **SQL Editor** y ejecuta el contenido del archivo `/supabase/schema.sql`. Esto creará las tablas necesarias (parts, orders, users, config, notifications).
 
 #### B. Instalación del Cliente

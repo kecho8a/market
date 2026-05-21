@@ -2,7 +2,7 @@
 
 // URL y Clave anónima públicas de Supabase obtenidas de variables de entorno (Vite)
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://gqhanfjhqfeqsgpscmet.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_YW8e1wo8UkjJGgYPU_f4uw_7Opn3lOg';
 
 // Inicializar y exportar el cliente de Supabase
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
