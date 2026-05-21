@@ -25,10 +25,10 @@ jobs:
       - name: Build
         run: npm run build
 
-      # Aquí está el cambio definitivo usando Wrangler
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CF_PAGES_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          command: pages deploy ./dist --project-name=market
+          projectName: 'market'
+          directory: './dist'
