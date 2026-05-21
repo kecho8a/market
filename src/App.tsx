@@ -499,9 +499,11 @@ function AppContent() {
             globalSearch={globalSearch}
             setGlobalSearch={setGlobalSearch}
             navigateToCatalog={navigateToCatalog}
+            deferredPrompt={deferredPrompt}
+            onInstallClick={handleInstallClick}
           />
         )}
-
+ 
         {tab === 'catalog' && (
           <Catalog
             selectedCategory={selectedCategory}
@@ -523,11 +525,11 @@ function AppContent() {
             resetGlobalFilters={resetAllFilters}
           />
         )}
-
+ 
         {tab === 'cart' && (
           <Checkout setTab={setTab} />
         )}
-
+ 
         {tab === 'admin' && (
           <Admin
             onOpenScanner={() => setIsScannerOpen(true)}
@@ -536,9 +538,9 @@ function AppContent() {
             setTab={setTab}
           />
         )}
-
+ 
         {tab === 'profile' && (
-          <UserProfile setTab={setTab} />
+          <UserProfile setTab={setTab} deferredPrompt={deferredPrompt} onInstallClick={handleInstallClick} />
         )}
 
         {/* Global Footer with Tasa BCV */}

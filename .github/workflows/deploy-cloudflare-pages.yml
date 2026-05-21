@@ -24,11 +24,14 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          # Estas variables deben estar configuradas en GitHub → Settings → Secrets and variables → Actions
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CF_PAGES_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          # Usamos la sintaxis oficial de Wrangler CLI para Pages
           command: pages deploy ./dist --project-name=market

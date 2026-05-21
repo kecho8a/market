@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../store/AppContext';
 import { supabase } from '../store/supabaseClient';
 import { 
@@ -10,9 +10,11 @@ import { SEOHead } from '../components/SEOHead';
 
 interface UserProfileProps {
   setTab: (tab: 'home' | 'catalog' | 'cart' | 'admin' | 'profile') => void;
+  deferredPrompt?: any;
+  onInstallClick?: () => void;
 }
 
-export const UserProfile: React.FC<UserProfileProps> = ({ setTab }) => {
+export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt, onInstallClick }) => {
   const { 
     currentUser, 
     users, 
@@ -461,6 +463,46 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab }) => {
               >
                 <Edit2 size={13} /> Mi Cuenta
               </button>
+            </div>
+          </div>
+
+          {/* PWA UTILITY CARD - PERMANENT ACCESS */}
+          <div className="p-4 border border-zinc-200 rounded-xl bg-white shadow-sm flex flex-col gap-3">
+            <div className="flex gap-2.5 items-center">
+              <span className="p-2 bg-violet-50 text-violet-600 rounded-lg text-xs font-bold font-mono">
+                PWA
+              </span>
+              <div className="flex flex-col">
+                <h4 className="font-bold text-zinc-900 text-xs">Acceso Inmediato en tu Pantalla</h4>
+                <p className="text-[11px] text-zinc-500 font-medium">Instala nuestra aplicación móvil PWA para un acceso ultra rápido a tus compras.</p>
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-1">
+              {deferredPrompt ? (
+                <button
+                  type="button"
+                  onClick={onInstallClick}
+                  className="bg-violet-600 hover:bg-violet-750 text-white font-bold py-2 px-4 rounded-lg text-[11px] transition-colors cursor-pointer active:scale-95"
+                >
+                  Instalar App Marketo
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const isiOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+                    if (isiOS) {
+                      alert("Para instalar en tu iPhone:\n1. Abre Safari.\n2. Pulsa el botón de Compartir (flecha hacia arriba).\n3. Elige 'Agregar a inicio'.");
+                    } else {
+                      alert("Para instalar en Android:\n1. Pulsa los 3 puntos arriba a la derecha en Chrome.\n2. Elige 'Instalar aplicación'.");
+                    }
+                  }}
+                  className="bg-zinc-100 hover:bg-zinc-200 border border-zinc-200 text-zinc-800 font-bold py-2 px-4 rounded-lg text-[11px] transition-colors cursor-pointer active:scale-95"
+                >
+                  Ver Instrucciones de Instalación
+                </button>
+              )}
             </div>
           </div>
 

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../store/AppContext';
 import { Producto } from '../types/store';
 import { Carrot, Salad, Milk, Beef, Coffee, Apple, ShieldCheck, Zap, Filter, ArrowRight, Eye, ShoppingCart, Landmark, Check, Bell, Sparkles, Flame, Camera, MessageSquare, Search, RefreshCcw } from 'lucide-react';
@@ -22,6 +22,8 @@ interface HomeProps {
   globalSearch: string;
   setGlobalSearch: (term: string) => void;
   navigateToCatalog: (filters?: { category?: string; brand?: string; model?: string; year?: string; engine?: string }) => void;
+  deferredPrompt?: any;
+  onInstallClick?: () => void;
 }
 
 export const Home: React.FC<HomeProps> = ({ 
@@ -31,7 +33,9 @@ export const Home: React.FC<HomeProps> = ({
   selectedYear, setSelectedYear,
   selectedEngine, setSelectedEngine,
   onViewProductDetails, globalSearch, setGlobalSearch,
-  navigateToCatalog 
+  navigateToCatalog,
+  deferredPrompt,
+  onInstallClick
 }) => {
   const { parts, config, addToCart, currentUser, requestPart } = useApp();
   const [activeBanner, setActiveBanner] = useState(0);
@@ -223,6 +227,53 @@ export const Home: React.FC<HomeProps> = ({
               className={`w-1.5 h-1.5 rounded-full transition-all cursor-pointer ${i === activeBanner ? 'bg-violet-600 w-4' : 'bg-white/40'}`}
             />
           ))}
+        </div>
+      </div>
+
+      {/* PWA INSTALLATION BANNER - HIGHLY VISIBLE & RECURRING */}
+      <div className="w-full bg-gradient-to-r from-violet-600 via-indigo-600 to-violet-750 text-white rounded-xl p-5 shadow-lg border border-violet-500/20 relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4 select-none">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
+        <div className="flex items-start gap-3.5 z-10">
+          <span className="p-3 bg-white/10 rounded-xl text-white text-xl flex items-center justify-center shrink-0 border border-white/10 shadow-inner">
+            📲
+          </span>
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] uppercase font-bold tracking-widest bg-amber-500 text-white px-2 py-0.5 rounded">Recomendado</span>
+              <span className="text-[9px] uppercase font-bold tracking-widest text-violet-200">Acceso Express PWA</span>
+            </div>
+            <h3 className="text-sm font-extrabold font-display mt-1 leading-snug">¡Instala la App de Marketo en tu Celular!</h3>
+            <p className="text-[11px] text-violet-100/90 leading-relaxed mt-0.5 max-w-lg font-medium">
+              Compra más rápido, recibe notificaciones de tu delivery express en tiempo real y navega usando menos datos. Funciona en iPhone, Android y PC.
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-2 shrink-0 z-10">
+          {deferredPrompt ? (
+            <button
+              type="button"
+              onClick={onInstallClick}
+              className="bg-white hover:bg-zinc-100 text-violet-700 font-extrabold font-display uppercase tracking-wider px-5 py-2.5 rounded-lg text-xs transition-all cursor-pointer shadow-md active:scale-95 flex items-center gap-1.5"
+            >
+              <span>Instalar Gratis</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                const isiOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+                if (isiOS) {
+                  alert("Para instalar en iPhone/iOS:\n1. Abre este sitio en Safari.\n2. Presiona el botón de 'Compartir' (el ícono de flecha hacia arriba en la barra inferior).\n3. Selecciona 'Agregar a inicio' o 'Add to Home Screen'.\n\n¡Y listo! Tendrás el ícono de Marketo en tu pantalla.");
+                } else {
+                  alert("Para instalar en Android / Chrome:\n1. Presiona los tres puntos en la esquina superior derecha.\n2. Selecciona 'Instalar aplicación' o 'Agregar a la pantalla principal'.");
+                }
+              }}
+              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold font-display uppercase tracking-wider px-4.5 py-2 rounded-lg text-[10px] sm:text-xs transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <span>¿Cómo Instalar?</span>
+            </button>
+          )}
         </div>
       </div>
 

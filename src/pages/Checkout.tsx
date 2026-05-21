@@ -53,15 +53,15 @@ export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate Client Name is not empty or just whitespace
+
+    // ── Validar nombre ──────────────────────────────────────────────────────────
     const cleanedName = clientName.trim();
     if (!cleanedName) {
       setValidationError('Por favor, ingrese su nombre completo.');
       return;
     }
 
-    // Validate Phone: optional leading + and 7 to 15 digits (ignoring spaces, hyphens, and parentheses)
+    // ── Validar teléfono ────────────────────────────────────────────────────────
     const cleanedPhone = clientPhone.replace(/[\s\-()]/g, '');
     const phoneRegex = /^\+?[0-9]{7,15}$/;
     if (!cleanedPhone) {
@@ -69,31 +69,87 @@ export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
       return;
     }
     if (!phoneRegex.test(cleanedPhone)) {
-      setValidationError('El número de teléfono no es válido. Debe contener de 7 a 15 números; puede usar prefijo de país si lo desea (ej: +584124976451 o 04124976451).');
+      setValidationError('El número de teléfono no es válido. Debe contener de 7 a 15 números (ej: +584124976451 o 04124976451).');
       return;
     }
-
     setValidationError('');
 
-    // Auto-login or register customer based on checkout phone
-    let finalUserId: string | undefined = currentUser ? currentUser.id : undefined;
+    // ── PASO 1: Generar ID del pedido de forma SINCRÓNICA ───────────────────────
+    // Debe hacerse antes de cualquier 'await' para incluirlo en el mensaje de WhatsApp
+    const preOrderId = `PED-${Math.floor(1000 + Math.random() * 9000)}-VAL-${new Date().getFullYear()}`;
 
+    // ── PASO 2: Construir mensaje de WhatsApp de forma SINCRÓNICA ───────────────
+    // Se construye con los datos del carrito ANTES de cualquier operación async.
+    // Esto garantiza que podemos abrir WhatsApp dentro del contexto de gesto del usuario.
+    let partsDetailText = '';
+    cart.forEach(ci => {
+      partsDetailText += `- ${ci.quantity}x ${ci.item.nombre} (SKU: ${ci.item.codigo}) - $${(ci.item.precio_usd * ci.quantity).toFixed(2)}\n`;
+    });
+
+    const deliveryLabel = effectiveShippingCost === 0
+      ? 'Retiro en Tienda'
+      : `Delivery Express (${shippingDistance} KM)`;
+
+    const finalTotalUsd = (subtotalUsd + effectiveShippingCost).toFixed(2);
+    const finalTotalBs  = ((subtotalUsd + effectiveShippingCost) * config.tasa_cambio).toFixed(2);
+
+    const whatsappMessage =
+`*Nuevo Pedido en Marketo Supermercado*
+----------------------------------
+*Pedido ID:* ${preOrderId}
+*Cliente:* ${cleanedName}
+*Telefono:* ${clientPhone.trim()}
+*Direccion de Entrega:* ${shippingZone}
+*Ubicacion Mapa:* https://www.google.com/maps?q=${shippingLat},${shippingLng}
+*Metodo Despacho:* ${deliveryLabel} - Costo: $${effectiveShippingCost.toFixed(2)}
+
+*Productos:*
+${partsDetailText}
+*Total Neto a Pagar:* $${finalTotalUsd} / ${finalTotalBs} Bs.
+*Metodo de Pago:* ${selectedPayment}
+----------------------------------`;
+
+    let cleanConfigPhone = (config.telefono_soporte || '584124976451').replace(/\D/g, '');
+    if (cleanConfigPhone.startsWith('0')) {
+      cleanConfigPhone = '58' + cleanConfigPhone.substring(1);
+    }
+    const encodedMessage = encodeURIComponent(whatsappMessage);
+    const whatsappUrlMobile = `https://wa.me/${cleanConfigPhone}?text=${encodedMessage}`;
+    const whatsappUrlWeb    = `https://api.whatsapp.com/send?phone=${cleanConfigPhone}&text=${encodedMessage}`;
+
+    // ── PASO 3: Abrir WhatsApp SINCRÓNICAMENTE ──────────────────────────────────
+    // CRÍTICO: Esto debe ocurrir ANTES de cualquier 'await'.
+    // Los navegadores móviles (iOS Safari, Android Chrome) bloquean window.open()
+    // y window.location.href si se llaman después de una operación asíncrona,
+    // ya que pierden el contexto de "gesto del usuario" (user gesture context).
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isMobile) {
+      // En móvil: wa.me con location.href abre WhatsApp nativo directamente
+      window.location.href = whatsappUrlMobile;
+    } else {
+      // En desktop: intentar nueva pestaña; si el bloqueador lo impide, fallback
+      const newTab = window.open(whatsappUrlWeb, '_blank', 'noopener,noreferrer');
+      if (!newTab) {
+        window.location.href = whatsappUrlMobile;
+      }
+    }
+
+    // ── PASO 4: Operaciones asíncronas (después de abrir WhatsApp) ──────────────
+    // El registro/login y la creación del pedido ocurren en background.
+    // En móvil el navegador ya inició la apertura de WhatsApp.
+    let finalUserId: string | undefined = currentUser ? currentUser.id : undefined;
     if (!currentUser) {
       const existingUser = users.find(u => u.telefono.trim() === clientPhone.trim());
       if (existingUser) {
         const logged = await loginUser(existingUser.telefono, existingUser.contrasena);
-        if (logged) {
-          finalUserId = logged.id;
-        }
+        if (logged) finalUserId = logged.id;
       } else {
         const registered = await registerUser(cleanedName, clientPhone.trim(), '123456');
-        if (registered) {
-          finalUserId = registered.id;
-        }
+        if (registered) finalUserId = registered.id;
       }
     }
 
-    // Submit and store Order
+    // Crear pedido usando el ID pre-generado para que coincida con el mensaje de WhatsApp
     const created = createOrder({
       cliente_nombre: cleanedName,
       cliente_telefono: clientPhone.trim(),
@@ -104,60 +160,9 @@ export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
       lng: shippingLng,
       direccion_envio: shippingZone,
       distancia_km: shippingDistance
-    });
+    }, preOrderId);
 
     setProcessedOrder(created);
-    
-    // BUILD WHATSAPP PRECISE TEXT LAYOUT
-    let partsDetailText = '';
-    created.items.forEach(it => {
-      partsDetailText += `- ${it.cantidad}x ${it.nombre} (SKU: ${it.codigo}) - $${(it.precio_usd * it.cantidad).toFixed(2)}\n`;
-    });
-
-    const deliveryMethodLabel = created.costo_envio_usd === 0 
-      ? `Retiro en Tienda` 
-      : `Delivery Express con Cadena de Frio (${created.distancia_km} KM)`;
-
-    const whatsappMessage = 
-`*Nuevo Pedido en Marketo Supermercado*
-----------------------------------
-*Pedido ID:* ${created.id}
-*Cliente:* ${created.cliente_nombre}
-*Telefono:* ${created.cliente_telefono}
-*Direccion de Entrega:* ${created.direccion_envio}
-*Ubicacion Mapa:* https://www.google.com/maps?q=${created.lat},${created.lng}
-*Metodo Despacho:* ${deliveryMethodLabel} - Costo: $${created.costo_envio_usd.toFixed(2)}
-
-*Productos:*
-${partsDetailText}
-*Total Neto a Pagar:* $${created.total_usd.toFixed(2)} / ${created.total_bs.toFixed(2)} Bs.
-*Metodo de Pago:* ${created.metodo_pago}
-----------------------------------`;
-
-    let cleanConfigPhone = (config.telefono_soporte || '584124976451').replace(/\D/g, '');
-    if (cleanConfigPhone.startsWith('0')) {
-      cleanConfigPhone = '58' + cleanConfigPhone.substring(1);
-    }
-    const encodedMessage = encodeURIComponent(whatsappMessage);
-    // Construir las URLs antes del await (importante para móvil)
-    // wa.me funciona en todos los móviles; api.whatsapp.com como fallback desktop
-    const whatsappUrlMobile = `https://wa.me/${cleanConfigPhone}?text=${encodedMessage}`;
-    const whatsappUrlWeb = `https://api.whatsapp.com/send?phone=${cleanConfigPhone}&text=${encodedMessage}`;
-    
-    // Estrategia de apertura que funciona en iOS Safari, Android Chrome y Desktop:
-    // 1. window.open() directamente (síncrono, antes de cualquier await) — no bloqueado
-    // 2. Si fue bloqueado (resultado null), fallback con window.location.href
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (isMobile) {
-      // En móvil: redirigir directamente (wa.me abre la app nativa)
-      window.location.href = whatsappUrlMobile;
-    } else {
-      // En desktop: intentar nueva pestaña, si es bloqueada usar la misma pestaña
-      const newTab = window.open(whatsappUrlWeb, '_blank', 'noopener,noreferrer');
-      if (!newTab) {
-        window.location.href = whatsappUrlMobile;
-      }
-    }
   };
 
   // If order was processed successfully

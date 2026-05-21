@@ -38,7 +38,7 @@ interface AppContextProps {
   clearCart: () => void;
   
   // Checkout & Order Actions
-  createOrder: (orderData: Omit<Order, 'id' | 'subtotal_usd' | 'total_usd' | 'total_bs' | 'fecha' | 'status'>) => Order;
+  createOrder: (orderData: Omit<Order, 'id' | 'subtotal_usd' | 'total_usd' | 'total_bs' | 'fecha' | 'status'>, preGeneratedId?: string) => Order;
   updateOrderStatus: (orderId: string, status: Order['status'], estimatedTime?: string) => void;
   
   // Config Actions
@@ -552,18 +552,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const { data: partsData } = await supabase.from('products').select('*');
         if (partsData && partsData.length > 0) {
-          setParts(partsData.map(p => ({ ...p, precio_usd: Number(p.precio_usd) })));
+          setParts(partsData.map(p => ({
+            ...p,
+            // Map legacy DB column names to Producto type fields
+            marca: p.marca || p.marca_repuesto || 'Genérica',
+            seccion: p.seccion || p.marca_carro || '',
+            subseccion: p.subseccion || p.modelo_carro || '',
+            precio_usd: Number(p.precio_usd),
+            delivery_gratis: p.delivery_gratis ?? false,
+            detalle_adicional: p.detalle_adicional || p.compatibilidad_detalle || ''
+          })));
         }
 
         const { data: ordersData } = await supabase.from('orders').select('*').order('fecha', { ascending: false });
         if (ordersData && ordersData.length > 0) {
           setOrders(ordersData.map(o => ({
             ...o,
-            usuario_id: o.cliente_uid,
-            subtotal_usd: Number(o.subtotal_usd),
-            total_usd: Number(o.total_usd),
-            total_bs: Number(o.total_bs),
-            costo_envio_usd: Number(o.costo_envio_usd)
+            usuario_id: o.cliente_uid || o.cliente_id || undefined,
+            items: o.items || [],
+            subtotal_usd: Number(o.subtotal_usd || 0),
+            costo_envio_usd: Number(o.costo_envio_usd ?? o.costo_delivery ?? 0),
+            total_usd: Number(o.total_usd || 0),
+            total_bs: Number(o.total_bs || 0),
+            lat: Number(o.lat || 0),
+            lng: Number(o.lng || 0),
+            distancia_km: Number(o.distancia_km || 0),
+            direccion_envio: o.direccion_envio || o.direccion_despacho || '',
+            status: o.status || 'Pendiente',
+            tiempo_estimado_entrega: o.tiempo_estimado_entrega || ''
           })));
         }
 
@@ -843,7 +859,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Orders Management
-  const createOrder = (orderData: Omit<Order, 'id' | 'subtotal_usd' | 'total_usd' | 'total_bs' | 'fecha' | 'status'>) => {
+  const createOrder = (orderData: Omit<Order, 'id' | 'subtotal_usd' | 'total_usd' | 'total_bs' | 'fecha' | 'status'>, preGeneratedId?: string) => {
     // Recalculate Totals securely
     const items = cart.map(item => ({
       part_id: item.item.id,
@@ -879,7 +895,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newOrder: Order = {
       ...orderData,
-      id: `PED-${Math.floor(1000 + Math.random() * 9000)}-VAL-${new Date().getFullYear()}`,
+      id: preGeneratedId || `PED-${Math.floor(1000 + Math.random() * 9000)}-VAL-${new Date().getFullYear()}`,
       usuario_id: orderData.usuario_id || (currentUser ? currentUser.id : undefined),
       items,
       subtotal_usd: subtotal,
