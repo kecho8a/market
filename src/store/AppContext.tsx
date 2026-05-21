@@ -531,7 +531,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const fetchData = async () => {
       try {
-        const { data: configData } = await supabase.from('store_config').select('*').limit(1).single();
+        const { data: configData } = await supabase.from('store_config').select('*').limit(1).maybeSingle();
         if (configData) {
           setConfig(prev => ({
             ...prev,

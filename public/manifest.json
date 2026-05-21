@@ -2,7 +2,7 @@
   "name": "Marketo - Supermercado Gourmet & Delivery Express",
   "short_name": "Marketo",
   "description": "Tu supermercado premium con despacho express en el Gran Valencia, Carabobo. Víveres, carnes selectas, lácteos y más.",
-  "start_url": "./",
+  "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "theme_color": "#7c3aed",
