@@ -1233,7 +1233,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <AppContext.Provider value={{
-      parts,
+      // NOTE: the store currently uses `products` as the source of truth.
+      // Keeping the exposed context API consistent with the rest of the app.
+      parts: products,
       orders,
       config,
       notifications,
@@ -1250,9 +1252,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       logoutUser,
       updateUser,
       updateUserByAdmin,
-      addPart,
-      updatePart,
-      deletePart,
+      // Catalog CRUD compatibility: map legacy API names to current implementations
+      addPart: addProduct,
+      updatePart: updateProduct,
+      deletePart: deleteProduct,
       searchPartsSemantically,
       addToCart,
       removeFromCart,
