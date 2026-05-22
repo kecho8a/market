@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Producto, Order, StoreConfig, InAppNotification, OrderItem, AppUser } from '../types/store';
 import { supabase } from './supabaseClient';
 
@@ -519,39 +519,141 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   // --- MOTOR DE TIEMPO REAL (SUPABASE CHANNELS) ---
-  useEffect(() => {
-    // 1. Canal de Configuración (Tasa de Cambio)
-    const configChannel = supabase
-      .channel('realtime_config')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'store_config' }, payload => {
-        setConfig(prev => ({ ...prev, tasa_cambio: payload.new.tasa_cambio }));
-      })
-      .subscribe();
+  const currentUserRef = useRef<AppUser | null>(currentUser);
 
-    // 2. Canal de Pedidos (Estatus en tiempo real)
-    const ordersChannel = supabase
-      .channel('realtime_orders')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, payload => {
-        const updated = payload.new;
-        setOrders(prev => prev.map(o => o.id === updated.id ? { ...o, status: updated.status, tiempo_estimado_entrega: updated.tiempo_estimado_entrega } : o));
-        
-        if (currentUser && updated.cliente_telefono === currentUser.telefono) {
-          if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('Marketo: Actualización de Pedido', { 
-              body: `Tu pedido ${updated.id} ahora está: ${updated.status}`,
-              icon: '/icon.png'
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
+
+  useEffect(() => {
+    let configChannel: any = null;
+    let ordersChannel: any = null;
+    let productsChannel: any = null;
+
+    try {
+      // 1) Canal de Configuración (Tasa de Cambio)
+      configChannel = supabase
+        .channel('realtime_config')
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'store_config' }, payload => {
+          const newRow = (payload as any)?.new;
+          if (newRow?.tasa_cambio !== undefined) {
+            setConfig(prev => ({ ...prev, tasa_cambio: Number(newRow.tasa_cambio) }));
+          }
+        })
+        .subscribe();
+
+      // 2) Canal de Pedidos (Estatus en tiempo real)
+      ordersChannel = supabase
+        .channel('realtime_orders')
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, payload => {
+          const updated = (payload as any)?.new;
+          if (!updated?.id) return;
+
+          setOrders(prev =>
+            prev.map(o =>
+              o.id === updated.id
+                ? { ...o, status: updated.status, tiempo_estimado_entrega: updated.tiempo_estimado_entrega }
+                : o
+            )
+          );
+
+          const cu = currentUserRef.current;
+          if (cu && updated.cliente_telefono === cu.telefono) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification('Marketo: Actualización de Pedido', {
+                body: `Tu pedido ${updated.id} ahora está: ${updated.status}`,
+                icon: '/icon.png'
+              });
+            }
+          }
+        })
+        .subscribe();
+
+      // 3) Canal de Productos (Catálogo en tiempo real)
+      productsChannel = supabase
+        .channel('realtime_products')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'products' },
+          payload => {
+            const inserted = (payload as any)?.new;
+            if (!inserted?.id) return;
+
+            setProducts(prev => {
+              const idxById = prev.findIndex(p => p.id === inserted.id);
+              if (idxById >= 0) {
+                const copy = [...prev];
+                copy[idxById] = { ...copy[idxById], ...inserted };
+                return copy;
+              }
+
+              // fallback por codigo
+              const idxByCode = prev.findIndex(p => p.codigo === inserted.codigo);
+              if (idxByCode >= 0) {
+                const copy = [...prev];
+                copy[idxByCode] = { ...copy[idxByCode], ...inserted };
+                return copy;
+              }
+
+              return [inserted as Producto, ...prev];
             });
           }
-        }
-      })
-      .subscribe();
+        )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'products' },
+          payload => {
+            const updated = (payload as any)?.new;
+            if (!updated?.id) return;
+
+            setProducts(prev => {
+              // Upsert por id
+              const idxById = prev.findIndex(p => p.id === updated.id);
+              if (idxById >= 0) {
+                const copy = [...prev];
+                copy[idxById] = { ...copy[idxById], ...updated };
+                return copy;
+              }
+
+              // fallback por codigo
+              const idxByCode = prev.findIndex(p => p.codigo === updated.codigo);
+              if (idxByCode >= 0) {
+                const copy = [...prev];
+                copy[idxByCode] = { ...copy[idxByCode], ...updated };
+                return copy;
+              }
+
+              return [updated as Producto, ...prev];
+            });
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'DELETE', schema: 'public', table: 'products' },
+          payload => {
+            const deleted = (payload as any)?.old;
+            if (!deleted) return;
+
+            setProducts(prev => {
+              const byId = deleted.id ? prev.filter(p => p.id !== deleted.id) : prev;
+              const byCode = deleted.codigo ? byId.filter(p => p.codigo !== deleted.codigo) : byId;
+              return byCode;
+            });
+          }
+        )
+        .subscribe();
+    } catch (e) {
+      console.error('Realtime channels failed:', e);
+    }
 
     setIsGlobalLoading(false);
     return () => {
-      supabase.removeChannel(configChannel);
-      supabase.removeChannel(ordersChannel);
+      if (configChannel) supabase.removeChannel(configChannel);
+      if (ordersChannel) supabase.removeChannel(ordersChannel);
+      if (productsChannel) supabase.removeChannel(productsChannel);
     };
   }, [currentUser]);
+
 
   useEffect(() => {
     localStorage.setItem('trv_orders', JSON.stringify(orders));
@@ -1081,15 +1183,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem('trv_config', JSON.stringify(updated));
       return updated;
     });
-    setParts(prevParts => {
-      const updatedParts = prevParts.map(p => {
+
+    setProducts(prevProducts => {
+      const updatedProducts = prevProducts.map(p => {
         if (p.categoria === categoryName) {
           return { ...p, categoria: 'Víveres y Despensa' };
         }
         return p;
       });
-      localStorage.setItem('trv_parts', JSON.stringify(updatedParts));
-      return updatedParts;
+      localStorage.setItem('trv_parts', JSON.stringify(updatedProducts));
+      return updatedProducts;
     });
   };
 
@@ -1103,15 +1206,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem('trv_config', JSON.stringify(updated));
       return updated;
     });
-    setParts(prevParts => {
-      const updatedParts = prevParts.map(p => {
+    setProducts(prevProducts => {
+      const updatedProducts = prevProducts.map(p => {
         if (p.categoria === oldCategory) {
           return { ...p, categoria: newCategory };
         }
         return p;
       });
-      localStorage.setItem('trv_parts', JSON.stringify(updatedParts));
-      return updatedParts;
+      localStorage.setItem('trv_parts', JSON.stringify(updatedProducts));
+      return updatedProducts;
     });
   };
 
