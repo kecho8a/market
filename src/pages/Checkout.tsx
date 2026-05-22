@@ -114,24 +114,16 @@ ${productosDetailText}
       cleanConfigPhone = '58' + cleanConfigPhone.substring(1);
     }
     const encodedMessage = encodeURIComponent(whatsappMessage);
-    const whatsappUrlMobile = `https://wa.me/${cleanConfigPhone}?text=${encodedMessage}`;
-    const whatsappUrlWeb    = `https://api.whatsapp.com/send?phone=${cleanConfigPhone}&text=${encodedMessage}`;
+    // Usar SIEMPRE wa.me para evitar errores de manifest / scheme handler
+    const whatsappUrl = `https://wa.me/${cleanConfigPhone}?text=${encodedMessage}`;
 
     // ── PASO 3: Abrir WhatsApp SINCRÓNICAMENTE ──────────────────────────────────
-    // CRÍTICO: Esto debe ocurrir ANTES de cualquier 'await'.
-    // Los navegadores móviles (iOS Safari, Android Chrome) bloquean window.open()
-    // y window.location.href si se llaman después de una operación asíncrona,
-    // ya que pierden el contexto de "gesto del usuario" (user gesture context).
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     if (isMobile) {
-      // En móvil: wa.me con location.href abre WhatsApp nativo directamente
-      window.location.href = whatsappUrlMobile;
+      window.location.href = whatsappUrl;
     } else {
-      // En desktop: intentar nueva pestaña; si el bloqueador lo impide, fallback
-      const newTab = window.open(whatsappUrlWeb, '_blank', 'noopener,noreferrer');
-      if (!newTab) {
-        window.location.href = whatsappUrlMobile;
-      }
+      const newTab = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+      if (!newTab) window.location.href = whatsappUrl;
     }
 
     // ── PASO 4: Operaciones asíncronas (después de abrir WhatsApp) ──────────────
@@ -161,6 +153,10 @@ ${productosDetailText}
       direccion_envio: shippingZone,
       distancia_km: shippingDistance
     }, preOrderId);
+
+    setProcessedOrder(created);
+    // Activa modal de timeline (cliente/admin) para la orden recién creada
+    localStorage.setItem('trv_active_order_id', created.id);
 
     // Redirección automática al panel del cliente tras iniciar el flujo de WhatsApp
     setTimeout(() => {

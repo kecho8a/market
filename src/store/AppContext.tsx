@@ -53,6 +53,7 @@ interface AppContextProps {
   addNotification: (title: string, message: string, tipo?: 'todos' | 'personal' | 'admin' | 'request', targetPhone?: string) => void;
   markNotificationAsRead: (id: string) => void;
   toggleNotificationReadStatus: (id: string) => void;
+  deleteNotification: (id: string) => void;
   clearAllNotifications: () => void;
   
   // App State
@@ -560,8 +561,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const cu = currentUserRef.current;
           if (cu && updated.cliente_telefono === cu.telefono) {
             if ('Notification' in window && Notification.permission === 'granted') {
+              const direccion = updated.direccion_envio || '';
+              const tiempo = updated.tiempo_estimado_entrega || '';
+              const extras = [direccion ? `Ubicación: ${direccion}` : '', tiempo ? `Tiempo estimado: ${tiempo}` : '']
+                .filter(Boolean)
+                .join(' • ');
+
               new Notification('Marketo: Actualización de Pedido', {
-                body: `Tu pedido ${updated.id} ahora está: ${updated.status}`,
+                body: `Tu pedido ${updated.id} ahora está: ${updated.status}${extras ? `\n${extras}` : ''}`,
                 icon: '/icon.png'
               });
             }
@@ -1297,6 +1304,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, leida: !n.leida } : n));
   };
 
+  const deleteNotification = (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
   const clearAllNotifications = () => {
     setNotifications([]);
   };
@@ -1375,6 +1386,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addNotification,
       markNotificationAsRead,
       toggleNotificationReadStatus,
+      deleteNotification,
       clearAllNotifications,
       authenticateAdmin,
       logoutAdmin,
