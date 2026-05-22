@@ -106,8 +106,9 @@ function AppContent() {
 
   const handleShareProduct = (part: Producto) => {
     const text = `🍏 *${part.nombre}* en *Marketo* • Código SKU: *${part.codigo}* por un precio de *$${part.precio_usd.toFixed(2)} USD*. ¡Pídelo directo al delivery express de Marketo!`;
-    const url = `whatsapp://send?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank', 'noreferrer');
+    const phone = config.telefono_soporte.replace(/[+ ]/g, '');
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const handleHeaderSearchSubmit = (e: React.FormEvent) => {

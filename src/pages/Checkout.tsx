@@ -205,7 +205,9 @@ ${productosDetailText}
               let cleanPhone = (config.telefono_soporte || '584124976451').replace(/\D/g, '');
               if (cleanPhone.startsWith('0')) cleanPhone = '58' + cleanPhone.substring(1);
               const retryUrlMobile = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
-              const retryUrlWeb = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`;
+              // En desktop también usamos wa.me para evitar fallos/SDK manifest (api.whatsapp.com)
+              const retryUrlWeb = retryUrlMobile;
+
               // Mismo patrón: móvil directo, desktop nueva pestaña con fallback
               const isMob = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
               if (isMob) {

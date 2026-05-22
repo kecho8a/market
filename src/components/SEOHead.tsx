@@ -89,39 +89,8 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
       setMeta('og:image', 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=1200', 'property');
     }
 
-    // Dynamic Manifest injection for PWA Standalone behavior
-    const manifestObj = {
-      name: config.site_nombre,
-      short_name: config.site_nombre,
-      start_url: "/",
-      display: "standalone",
-      background_color: config.theme_color || "#10b981",
-      theme_color: config.theme_color || "#10b981",
-      icons: [
-        {
-          src: config.logo_url || config.favicon_url || "https://vitejs.dev/logo.svg",
-          sizes: "192x192",
-          type: "image/png",
-          purpose: "any maskable"
-        },
-        {
-          src: config.logo_url || config.favicon_url || "https://vitejs.dev/logo.svg",
-          sizes: "512x512",
-          type: "image/png"
-        }
-      ]
-    };
-    
-    const manifestBlob = new Blob([JSON.stringify(manifestObj)], { type: 'application/json' });
-    const manifestUrl = URL.createObjectURL(manifestBlob);
-
-    let manifestLink = document.querySelector('link[rel="manifest"]');
-    if (!manifestLink) {
-      manifestLink = document.createElement('link');
-      manifestLink.setAttribute('rel', 'manifest');
-      document.head.appendChild(manifestLink);
-    }
-    manifestLink.setAttribute('href', manifestUrl);
+    // PWA manifest is provided statically via `public/manifest.json`.
+    // Avoid runtime Blob-manifest injection (it can cause invalid manifest fields like `start_url`).
 
     // Favicon injection
     if (config.favicon_url || config.logo_url) {

@@ -38,6 +38,12 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Marketo" />
     <meta name="theme-color" content="#7c3aed" />
+
+    <!-- CSP: allow Google Fonts + required font formats -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' https: wss:; frame-src 'self' https:; object-src 'none'; base-uri 'self'; form-action 'self' https:;"
+    />
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=192" />
 

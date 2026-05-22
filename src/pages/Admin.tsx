@@ -447,7 +447,7 @@ export const Admin: React.FC<AdminProps> = ({
             <div className="p-4 border border-slate-200 rounded-lg bg-white shadow-sm flex flex-col gap-2">
               <h4 className="text-xs font-bold font-display text-slate-900 uppercase tracking-wider">Flujo Diario de Ventas (USD)</h4>
               <div className="w-full h-[220px] text-[10px] font-mono mt-3">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={salesChartData}>
                     <XAxis dataKey="fecha" stroke="#64748b" />
                     <YAxis stroke="#64748b" />
@@ -462,7 +462,7 @@ export const Admin: React.FC<AdminProps> = ({
             <div className="p-4 border border-slate-200 rounded-lg bg-white shadow-sm flex flex-col gap-2">
               <h4 className="text-xs font-bold font-display text-slate-900 uppercase tracking-wider">Productos Más Vendidos (Unidades)</h4>
               <div className="w-full h-[220px] text-[10px] font-mono mt-3">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height={220}>
                   <BarChart data={topProductsChartData}>
                     <XAxis dataKey="name" stroke="#64748b" />
                     <YAxis stroke="#64748b" />
