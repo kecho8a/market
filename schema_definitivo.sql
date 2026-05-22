@@ -164,7 +164,7 @@ DO $$ BEGIN
     CREATE POLICY "Crear pedidos publico" ON orders FOR INSERT WITH CHECK (true);
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='orders' AND policyname='Leer pedidos') THEN
-    CREATE POLICY "Leer pedidos" ON orders FOR SELECT USING (true);
+    CREATE POLICY "Leer pedidos" ON orders FOR SELECT USING (true); -- Permitir lectura para filtrado local por tlf
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='orders' AND policyname='Actualizar pedidos admin') THEN
     CREATE POLICY "Actualizar pedidos admin" ON orders FOR UPDATE USING (true);

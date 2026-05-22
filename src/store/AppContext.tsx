@@ -730,6 +730,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (dbConfig) {
         setConfig(prev => ({ ...prev, tasa_cambio: dbConfig.tasa_cambio }));
       }
+      
+      // Cargar datos del usuario si está autenticado para persistencia real
+      if (currentUser) {
+        // Cargar Pedidos del usuario (por teléfono o ID)
+        const { data: dbOrders } = await supabase.from('orders')
+          .select('*')
+          .or(`cliente_telefono.eq.${currentUser.telefono},cliente_uid.eq.${currentUser.id}`)
+          .order('fecha', { ascending: false });
+        if (dbOrders) setOrders(dbOrders as Order[]);
+
+        // Cargar Notificaciones (Globales y personales)
+        const { data: dbNotifs } = await supabase.from('notifications')
+          .select('*')
+          .or(`tipo.eq.todos,destinatario_telefono.eq.${currentUser.telefono}`)
+          .order('id', { ascending: false });
+        if (dbNotifs) setNotifications(dbNotifs as InAppNotification[]);
+      }
 
       if (lastFetch !== today) {
         await fetchExchangeRate();
@@ -737,7 +754,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsGlobalLoading(false);
     };
     initData();
-  }, [lastFetch, today]);
+  }, [currentUser]); // Eliminado lastFetch de aquí para evitar ReferenceError
 
   const toggleFavorite = (partId: string) => {
     setFavorites(prev => 
@@ -767,12 +784,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Catalog CRUD Functions
   const addProduct = (productData: Omit<Producto, 'id'>) => {
-    const newProduct: Producto = {
-      ...productData,
-      id: `prod-${Date.now()}`
-    };
-    setProducts(prev => [...prev, newProduct]);
-    addNotification('Nuevo Producto en Estante', `Se ha agregado ${newProduct.nombre} al catálogo.`);
+    // No generamos ID manual para productos para que Supabase use gen_random_uuid()
+    addNotification('Procesando...', `Agregando ${productData.nombre} al catálogo.`);
     
     // Supabase Async Sync
     supabase.from('products').insert([{
@@ -788,7 +801,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       es_promo: newProduct.es_promo,
       es_nuevo: newProduct.es_nuevo,
       es_mas_vendido: newProduct.es_mas_vendido
-    }]).then(({ error }) => { if (error) console.error('Add part error:', error); });
+    }]).select().single().then(({ data, error }) => { 
+      if (error) console.error('Add part error:', error);
+      if (data) setProducts(prev => [data as Producto, ...prev]);
+    });
   };
 
   const updateProduct = (id: string, updated: Partial<Producto>) => {
