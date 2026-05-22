@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../store/AppContext';
+import { motion } from 'motion/react';
 import { supabase } from '../store/supabaseClient';
 import { 
   User, Lock, Phone, UserPlus, LogIn, LogOut, Bell, Package, 
@@ -660,7 +661,17 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                               const isCurrent = stepObj.target.includes(order.status);
 
                               return (
-                                <div key={idx} className="flex flex-col gap-1 items-center">
+                                <div key={idx} className="flex flex-col gap-1 items-center relative">
+                                  {order.status === 'En camino' && stepObj.label === 'En Camino' && (
+                                    <motion.div
+                                      initial={{ x: "-40%" }}
+                                      animate={{ x: "40%" }}
+                                      transition={{ duration: 1.5, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" }}
+                                      className="absolute -top-5 text-violet-600 drop-shadow-sm"
+                                    >
+                                      <Truck size={16} />
+                                    </motion.div>
+                                  )}
                                   <div className={`h-[4px] w-full rounded-full transition-all ${
                                     isCurrent ? 'bg-violet-600 ring-2 ring-violet-400/30 animate-pulse' :
                                     isStepPassed ? 'bg-zinc-800' : 'bg-zinc-200'

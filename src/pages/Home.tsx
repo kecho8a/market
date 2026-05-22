@@ -43,6 +43,30 @@ export const Home: React.FC<HomeProps> = ({
   const [suggestions, setSuggestions] = useState<Producto[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
+  // Countdown Timer para la "Oferta del Día"
+  const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      const now = new Date();
+      const endOfDay = new Date();
+      endOfDay.setHours(23, 59, 59, 999);
+      const diff = endOfDay.getTime() - now.getTime();
+      
+      if (diff > 0) {
+        setTimeLeft({
+          hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
+          minutes: Math.floor((diff / 1000 / 60) % 60),
+          seconds: Math.floor((diff / 1000) % 60)
+        });
+      }
+    };
+
+    const timer = setInterval(calculateTimeLeft, 1000);
+    calculateTimeLeft();
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
        if (Notification.permission === 'default') {
@@ -108,14 +132,14 @@ export const Home: React.FC<HomeProps> = ({
   const activeParts = useMemo(() => parts.filter(p => p.activo !== false), [parts]);
   const brands = useMemo(() => Array.from(new Set(activeParts.filter(p => p.seccion).map(p => p.seccion))), [activeParts]);
   const models = useMemo(() => Array.from(new Set(activeParts.filter(p => (!selectedBrand || p.seccion === selectedBrand) && p.subseccion).map(p => p.subseccion))), [activeParts, selectedBrand]);
-  const yearsRange = useMemo(() => {
+  const yearsRange = useMemo(() => { // Mantenido por compatibilidad de tipos, pero con años actuales
     const years: number[] = [];
     for (let yr = 1998; yr <= 2026; yr++) years.push(yr);
     return years.reverse();
   }, []);
 
-  // Predefined version keywords for Chevrolet models
-  const engineVersions = useMemo(() => {
+  // Preferencias de dieta o tipos de producto (Reemplaza lógica de motores automotrices)
+  const dietaryPreferences = useMemo(() => {
     if (!selectedBrand || !selectedModel) return [];
     
     const list = activeParts
@@ -125,14 +149,11 @@ export const Home: React.FC<HomeProps> = ({
         const combined = `${p.nombre} ${p.detalle_adicional || ''} ${p.descripcion || ''}`.toLowerCase();
         
         const keywords = [
-          '1.6', '1.8', '2.0', '1.4', '1.2', '2.4', '3.6', '4.3', '5.3', '6.0',
-          'design', 'limited', 'avance', 'advance', '2pt', '4pt', '2 puertas', '4 puertas'
+          'sin gluten', 'organico', 'keto', 'vegano', 'artesanal', 'importado', 'nacional', 'light', 'integral'
         ];
         keywords.forEach(kw => {
           if (combined.includes(kw)) {
              let display = kw.toUpperCase();
-             if (kw === '2pt' || kw === '2 puertas') display = '2 PUERTAS';
-             if (kw === '4pt' || kw === '4 puertas') display = '4 PUERTAS';
              matches.push(display);
           }
         });
@@ -147,13 +168,15 @@ export const Home: React.FC<HomeProps> = ({
       brand: selectedBrand, 
       model: selectedModel, 
       year: selectedYear,
-      engine: selectedEngine
+      engine: selectedEngine // Mapeado internamente a preferencia
     });
   };
 
   const promoParts = parts.filter(p => p.es_promo && p.stock > 0 && p.activo !== false);
   const newParts = parts.filter(p => p.es_nuevo && p.stock > 0 && p.activo !== false);
   const bestsellerParts = parts.filter(p => p.es_mas_vendido && p.stock > 0 && p.activo !== false);
+
+  const dailyDeal = useMemo(() => promoParts[0], [promoParts]);
 
   useEffect(() => {
     if (globalSearch.trim().length > 1) {
@@ -179,10 +202,30 @@ export const Home: React.FC<HomeProps> = ({
     navigateToCatalog({ category: catName });
   };
 
+  const handleAddDailyDeal = () => {
+    if (dailyDeal) {
+      addToCart(dailyDeal);
+      if (typeof (window as any).confetti === 'function') {
+        (window as any).confetti({
+          particleCount: 150,
+          spread: 80,
+          origin: { y: 0.6 },
+          colors: ['#7c3aed', '#f59e0b', '#ef4444', '#ffffff'],
+          shapes: ['star', 'circle']
+        });
+      }
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6 pb-24">
       <SEOHead title="Supermercado Express Marketo en Valencia" type="home" />
       <h1 className="sr-only">Supermercado Premium en Valencia con Delivery | Compra Víveres, Carnes, Quesos y Frescos en Naguanagua y San Diego</h1>
+
+      {/* Tasa de Cambio Oficial (Solo en Home y Checkout) */}
+      <div className="flex justify-end px-1 -mb-4">
+        <div className="bg-violet-50 border border-violet-200 px-3 py-1 rounded-full text-[10px] font-mono font-bold text-violet-700 uppercase tracking-tighter shadow-sm animate-pulse">Tasa Oficial BCV: {config.tasa_cambio.toFixed(2)} Bs.</div>
+      </div>
 
       {/* 1. PREMIUM ROTATING BANNER */}
       <div className="relative h-[180px] md:h-[260px] w-full bg-zinc-200 rounded-xl overflow-hidden border border-zinc-200 shadow-lg select-none">
@@ -227,53 +270,6 @@ export const Home: React.FC<HomeProps> = ({
               className={`w-1.5 h-1.5 rounded-full transition-all cursor-pointer ${i === activeBanner ? 'bg-violet-600 w-4' : 'bg-white/40'}`}
             />
           ))}
-        </div>
-      </div>
-
-      {/* PWA INSTALLATION BANNER - HIGHLY VISIBLE & RECURRING */}
-      <div className="w-full bg-gradient-to-r from-violet-600 via-indigo-600 to-violet-750 text-white rounded-xl p-5 shadow-lg border border-violet-500/20 relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4 select-none">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
-        <div className="flex items-start gap-3.5 z-10">
-          <span className="p-3 bg-white/10 rounded-xl text-white text-xl flex items-center justify-center shrink-0 border border-white/10 shadow-inner">
-            📲
-          </span>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <span className="text-[9px] uppercase font-bold tracking-widest bg-amber-500 text-white px-2 py-0.5 rounded">Recomendado</span>
-              <span className="text-[9px] uppercase font-bold tracking-widest text-violet-200">Acceso Express PWA</span>
-            </div>
-            <h3 className="text-sm font-extrabold font-display mt-1 leading-snug">¡Instala la App de Marketo en tu Celular!</h3>
-            <p className="text-[11px] text-violet-100/90 leading-relaxed mt-0.5 max-w-lg font-medium">
-              Compra más rápido, recibe notificaciones de tu delivery express en tiempo real y navega usando menos datos. Funciona en iPhone, Android y PC.
-            </p>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-2 shrink-0 z-10">
-          {deferredPrompt ? (
-            <button
-              type="button"
-              onClick={onInstallClick}
-              className="bg-white hover:bg-zinc-100 text-violet-700 font-extrabold font-display uppercase tracking-wider px-5 py-2.5 rounded-lg text-xs transition-all cursor-pointer shadow-md active:scale-95 flex items-center gap-1.5"
-            >
-              <span>Instalar Gratis</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                const isiOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-                if (isiOS) {
-                  alert("Para instalar en iPhone/iOS:\n1. Abre este sitio en Safari.\n2. Presiona el botón de 'Compartir' (el ícono de flecha hacia arriba en la barra inferior).\n3. Selecciona 'Agregar a inicio' o 'Add to Home Screen'.\n\n¡Y listo! Tendrás el ícono de Marketo en tu pantalla.");
-                } else {
-                  alert("Para instalar en Android / Chrome:\n1. Presiona los tres puntos en la esquina superior derecha.\n2. Selecciona 'Instalar aplicación' o 'Agregar a la pantalla principal'.");
-                }
-              }}
-              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold font-display uppercase tracking-wider px-4.5 py-2 rounded-lg text-[10px] sm:text-xs transition-all cursor-pointer flex items-center gap-1.5"
-            >
-              <span>¿Cómo Instalar?</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -444,6 +440,50 @@ export const Home: React.FC<HomeProps> = ({
       </div>
 
       <BentoGrid />
+
+      {/* PWA INSTALLATION BANNER - MOVILIZADO AL FINAL CON FONDO TEMÁTICO */}
+      <div className="w-full bg-zinc-900 text-white rounded-2xl p-6 shadow-2xl relative overflow-hidden min-h-[220px] flex flex-col justify-center border border-zinc-800 select-none bg-[url('https://images.unsplash.com/photo-1512428559083-a400a6b8249a?auto=format&fit=crop&q=80&w=1000')] bg-cover bg-center">
+        <div className="absolute inset-0 bg-violet-950/80 backdrop-blur-[2px] z-0"></div>
+        <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex flex-col text-center md:text-left">
+            <div className="flex items-center gap-2 justify-center md:justify-start">
+              <span className="text-[10px] uppercase font-black tracking-widest bg-white text-violet-700 px-2 py-0.5 rounded shadow-sm">Supermercado PWA</span>
+              <span className="text-[10px] uppercase font-bold tracking-widest text-violet-200">Experiencia Nativa</span>
+            </div>
+            <h3 className="text-xl font-black font-display mt-2 leading-tight">Lleva Marketo en tu Pantalla de Inicio</h3>
+            <p className="text-[12px] text-violet-100/90 leading-relaxed mt-1.5 max-w-sm font-medium">
+              Accede instantáneamente a tus víveres. Recibe alertas de preparación y seguimiento de delivery express directamente en tu móvil.
+            </p>
+          </div>
+          
+          <div className="flex flex-col gap-3 shrink-0 w-full md:w-auto">
+            {deferredPrompt ? (
+              <button
+                type="button"
+                onClick={onInstallClick}
+                className="bg-white hover:bg-zinc-100 text-violet-900 font-black font-display uppercase tracking-wider px-8 py-3.5 rounded-xl text-xs transition-all cursor-pointer shadow-xl active:scale-95 flex items-center justify-center gap-2"
+              >
+                <span>Descargar Aplicación</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  const isiOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+                  if (isiOS) {
+                    alert("Para instalar en iPhone: 1. Abre Safari. 2. Presiona 'Compartir'. 3. Selecciona 'Agregar a inicio'.");
+                  } else {
+                    alert("Para instalar en Android: 1. Abre Chrome. 2. Presiona los 3 puntos. 3. Selecciona 'Instalar aplicación'.");
+                  }
+                }}
+                className="bg-violet-600 hover:bg-violet-500 text-white border border-violet-400/30 font-bold font-display uppercase tracking-wider px-6 py-3 rounded-xl text-xs transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <span>¿Cómo instalar en mi móvil?</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
 
       <footer className="mt-8 border-t border-zinc-200 pt-8 pb-4 px-1 text-zinc-650">
         <h2 className="text-sm font-black font-display text-zinc-900 uppercase tracking-widest mb-3">

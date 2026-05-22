@@ -3,7 +3,7 @@ import { Producto, Order, StoreConfig, InAppNotification, OrderItem, AppUser } f
 import { supabase } from './supabaseClient';
 
 interface AppContextProps {
-  parts: Producto[];
+  products: Producto[];
   orders: Order[];
   config: StoreConfig;
   notifications: InAppNotification[];
@@ -26,9 +26,9 @@ interface AppContextProps {
   requestPart: (nombre: string, telefono: string, descripcion: string, imagenUrl?: string) => void;
   
   // Catalog actions
-  addPart: (part: Omit<Producto, 'id'>) => void;
-  updatePart: (id: string, updated: Partial<Producto>) => void;
-  deletePart: (id: string) => void;
+  addProduct: (product: Omit<Producto, 'id'>) => void;
+  updateProduct: (id: string, updated: Partial<Producto>) => void;
+  deleteProduct: (id: string) => void;
   searchPartsSemantically: (query: string) => Producto[];
   
   // Cart Actions
@@ -69,7 +69,7 @@ interface AppContextProps {
 const AppContext = createContext<AppContextProps | undefined>(undefined);
 
 // INITIAL PRODUCTS DATA
-const DEFAULT_PARTS: Producto[] = [
+const DEFAULT_PRODUCTS: Producto[] = [
   {
     id: 'a4829bef-0c7f-4b08-be94-7123aa123b01',
     codigo: 'LCT-LECH-964',
@@ -436,9 +436,9 @@ const DEFAULT_CONFIG: StoreConfig = {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Persistence state loaders
-  const [parts, setParts] = useState<Producto[]>(() => {
-    const saved = localStorage.getItem('trv_parts');
-    return saved ? JSON.parse(saved) : DEFAULT_PARTS;
+  const [products, setProducts] = useState<Producto[]>(() => {
+    const saved = localStorage.getItem('trv_products');
+    return saved ? JSON.parse(saved) : DEFAULT_PRODUCTS;
   });
 
   const [orders, setOrders] = useState<Order[]>(() => {
@@ -518,98 +518,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : [];
   });
 
-  // SUPABASE REAL-TIME FETCH ON MOUNT
+  // --- MOTOR DE TIEMPO REAL (SUPABASE CHANNELS) ---
   useEffect(() => {
-    // Escuchar el estado de autenticación real de Supabase
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsAdminAuthenticated(!!session);
-    });
+    // 1. Canal de Configuración (Tasa de Cambio)
+    const configChannel = supabase
+      .channel('realtime_config')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'store_config' }, payload => {
+        setConfig(prev => ({ ...prev, tasa_cambio: payload.new.tasa_cambio }));
+      })
+      .subscribe();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAdminAuthenticated(!!session);
-    });
-
-    const fetchData = async () => {
-      try {
-        const { data: configData } = await supabase.from('store_config').select('*').limit(1).maybeSingle();
-        if (configData) {
-          setConfig(prev => ({
-            ...prev,
-            site_nombre: configData.site_nombre || prev.site_nombre,
-            telefono_soporte: configData.telefono_soporte || prev.telefono_soporte,
-            direccion_fisica: configData.direccion_fisica || prev.direccion_fisica,
-            coordenadas_tienda: { lat: configData.tienda_lat ?? prev.coordenadas_tienda.lat, lng: configData.tienda_lng ?? prev.coordenadas_tienda.lng },
-            banners: [configData.banner_url_1 || prev.banners[0], configData.banner_url_2 || prev.banners[1], configData.banner_url_3 || prev.banners[2]],
-            zelle_enabled: configData.zelle_enabled ?? prev.zelle_enabled,
-            pagomovil_enabled: configData.pagomovil_enabled ?? prev.pagomovil_enabled,
-            efectivo_enabled: configData.efectivo_enabled ?? prev.efectivo_enabled,
-            transferencia_enabled: configData.transferencia_enabled ?? prev.transferencia_enabled,
-            tasa_cambio: configData.tasa_cambio ?? prev.tasa_cambio,
-            logo_url: configData.logo_url ?? prev.logo_url,
-            favicon_url: configData.favicon_url ?? prev.favicon_url
-          }));
+    // 2. Canal de Pedidos (Estatus en tiempo real)
+    const ordersChannel = supabase
+      .channel('realtime_orders')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, payload => {
+        const updated = payload.new;
+        setOrders(prev => prev.map(o => o.id === updated.id ? { ...o, status: updated.status, tiempo_estimado_entrega: updated.tiempo_estimado_entrega } : o));
+        
+        if (currentUser && updated.cliente_telefono === currentUser.telefono) {
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('Marketo: Actualización de Pedido', { 
+              body: `Tu pedido ${updated.id} ahora está: ${updated.status}`,
+              icon: '/icon.png'
+            });
+          }
         }
+      })
+      .subscribe();
 
-        const { data: partsData } = await supabase.from('products').select('*');
-        if (partsData && partsData.length > 0) {
-          setParts(partsData.map(p => ({
-            ...p,
-            // Map legacy DB column names to Producto type fields
-            marca: p.marca || p.marca_repuesto || 'Genérica',
-            seccion: p.seccion || p.marca_carro || '',
-            subseccion: p.subseccion || p.modelo_carro || '',
-            precio_usd: Number(p.precio_usd),
-            delivery_gratis: p.delivery_gratis ?? false,
-            detalle_adicional: p.detalle_adicional || p.compatibilidad_detalle || ''
-          })));
-        }
-
-        const { data: ordersData } = await supabase.from('orders').select('*').order('fecha', { ascending: false });
-        if (ordersData && ordersData.length > 0) {
-          setOrders(ordersData.map(o => ({
-            ...o,
-            usuario_id: o.cliente_uid || o.cliente_id || undefined,
-            items: o.items || [],
-            subtotal_usd: Number(o.subtotal_usd || 0),
-            costo_envio_usd: Number(o.costo_envio_usd ?? o.costo_delivery ?? 0),
-            total_usd: Number(o.total_usd || 0),
-            total_bs: Number(o.total_bs || 0),
-            lat: Number(o.lat || 0),
-            lng: Number(o.lng || 0),
-            distancia_km: Number(o.distancia_km || 0),
-            direccion_envio: o.direccion_envio || o.direccion_despacho || '',
-            status: o.status || 'Pendiente',
-            tiempo_estimado_entrega: o.tiempo_estimado_entrega || ''
-          })));
-        }
-
-        const { data: usersData } = await supabase.from('usuarios_clientes').select('*');
-        if (usersData && usersData.length > 0) {
-          setUsers(usersData.map(u => ({
-            id: u.id,
-            nombre: u.nombre,
-            telefono: u.telefono,
-            contrasena: u.contrasena || '123456',
-            createdAt: u.created_at || new Date().toISOString()
-          })));
-        }
-      } catch (err) {
-        console.error('Error fetching Supabase data', err);
-      } finally {
-        setIsGlobalLoading(false);
-      }
-    };
-    fetchData();
-
+    setIsGlobalLoading(false);
     return () => {
-      subscription.unsubscribe();
+      supabase.removeChannel(configChannel);
+      supabase.removeChannel(ordersChannel);
     };
-  }, []);
-
-  // Save to locale variables on updates
-  useEffect(() => {
-    localStorage.setItem('trv_parts', JSON.stringify(parts));
-  }, [parts]);
+  }, [currentUser]);
 
   useEffect(() => {
     localStorage.setItem('trv_orders', JSON.stringify(orders));
@@ -624,7 +566,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [notifications]);
 
   useEffect(() => {
-    localStorage.setItem('trv_cart', JSON.stringify(cart));
+    localStorage.setItem('trv_products', JSON.stringify(products));
   }, [cart]);
 
   useEffect(() => {
@@ -702,54 +644,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Catalog CRUD Functions
-  const addPart = (partData: Omit<Producto, 'id'>) => {
-    const newPart: Producto = {
-      ...partData,
-      id: `part-${Date.now()}`
+  const addProduct = (productData: Omit<Producto, 'id'>) => {
+    const newProduct: Producto = {
+      ...productData,
+      id: `prod-${Date.now()}`
     };
-    setParts(prev => [...prev, newPart]);
-    addNotification('Nuevo Producto Agregado', `Se ha agregado ${newPart.nombre} al catálogo de Marketo.`);
+    setProducts(prev => [...prev, newProduct]);
+    addNotification('Nuevo Producto en Estante', `Se ha agregado ${newProduct.nombre} al catálogo.`);
     
     // Supabase Async Sync
     supabase.from('products').insert([{
-      codigo: newPart.codigo,
-      nombre: newPart.nombre,
-      descripcion: newPart.descripcion,
-      categoria: newPart.categoria,
-      seccion: newPart.seccion,
-      subseccion: newPart.subseccion,
-      anio_inicio: newPart.anio_inicio,
-      anio_fin: newPart.anio_fin,
-      precio_usd: newPart.precio_usd,
-      stock: newPart.stock,
-      imagen_urls: newPart.imagen_urls || [],
-      es_promo: newPart.es_promo,
-      es_nuevo: newPart.es_nuevo,
-      es_mas_vendido: newPart.es_mas_vendido,
-      detalle_adicional: newPart.detalle_adicional
+      codigo: newProduct.codigo,
+      nombre: newProduct.nombre,
+      descripcion: newProduct.descripcion,
+      categoria: newProduct.categoria,
+      seccion: newProduct.seccion,
+      subseccion: newProduct.subseccion,
+      precio_usd: newProduct.precio_usd,
+      stock: newProduct.stock,
+      imagen_urls: newProduct.imagen_urls || [],
+      es_promo: newProduct.es_promo,
+      es_nuevo: newProduct.es_nuevo,
+      es_mas_vendido: newProduct.es_mas_vendido
     }]).then(({ error }) => { if (error) console.error('Add part error:', error); });
-    
-    if (newPart.stock < 5) {
-      addNotification(
-        'Alerta de Stock Bajo (Admin)',
-        `El artículo "${newPart.nombre}" (SKU: ${newPart.codigo}) tiene un nivel de stock crítico inicial de ${newPart.stock} unidades. Por favor, reabastecer a la brevedad.`,
-        'admin'
-      );
-    }
   };
 
-  const updatePart = (id: string, updated: Partial<Producto>) => {
-    setParts(prev => prev.map(p => {
+  const updateProduct = (id: string, updated: Partial<Producto>) => {
+    setProducts(prev => prev.map(p => {
       if (p.id === id) {
-        const nextStock = updated.stock !== undefined ? updated.stock : p.stock;
-        if (p.stock >= 5 && nextStock < 5) {
-          addNotification(
-            'Alerta de Stock Bajo (Admin)',
-            `El artículo "${p.nombre}" (SKU: ${p.codigo}) tiene un nivel de stock crítico de ${nextStock} unidades. Por favor, reabastecer a la brevedad.`,
-            'admin'
-          );
-        }
-        
         const updatedPart = { ...p, ...updated };
         
         // Supabase Async Sync
@@ -764,26 +686,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
   };
 
-  const deletePart = (id: string) => {
-    const targetPart = parts.find(p => p.id === id);
+  const deleteProduct = (id: string) => {
+    const targetPart = products.find(p => p.id === id);
     if (targetPart) {
       supabase.from('products').delete().eq('codigo', targetPart.codigo)
         .then(({ error }) => { if (error) console.error('Delete part error:', error); });
     }
-    
-    setParts(prev => prev.filter(p => p.id !== id));
-    // Remove from cart if it was there
-    setCart(prev => prev.filter(item => item.item.id !== id));
+    setProducts(prev => prev.filter(p => p.id !== id));
   };
 
-  // Semantical Automotive Intelligent Search
+  // Buscador Inteligente de Supermercado (Lógica Semántica)
   const searchPartsSemantically = (query: string): Producto[] => {
-    if (!query || query.trim() === '') return parts.filter(p => p.activo !== false);
+    if (!query || query.trim() === '') return products.filter(p => p.activo !== false);
     
     const cleanQuery = query.toLowerCase().trim();
     const tokens = cleanQuery.split(/\s+/);
     
-    // Isolate target year if any numeric text of 4 digits exists between 1980 and 2026
+    // Filtrado opcional por año (útil para añadas de licores o vigencia de combos)
     let queryYear: number | null = null;
     const remainingTokens: string[] = [];
     
@@ -796,7 +715,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
     
-    return parts.filter(part => {
+    return products.filter(part => {
       // 0. Only active parts
       if (part.activo === false) {
         return false;
@@ -812,7 +731,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // If there are no other keywords, just filter by compatible year
       if (remainingTokens.length === 0) return true;
       
-      // 2. Keyword Match on Name, Code, Description, Brand, Model, Category, Compatibility Detalle, Condition, Delivery
+      // Búsqueda por palabras clave en campos relevantes (Nombre, Marca, Sección, etc.)
       const partSearchText = `${part.nombre} ${part.codigo} ${part.descripcion} ${part.categoria} ${part.seccion} ${part.subseccion} ${part.marca} ${part.condicion} ${part.delivery_gratis ? 'delivery gratis' : ''} ${part.detalle_adicional || ''}`.toLowerCase();
       
       // Enforce AND logic or highly relevant matching
@@ -906,7 +825,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     // Discount stock of our products
-    setParts(prev => prev.map(p => {
+    setProducts(prev => prev.map(p => {
       const cartItem = cart.find(ci => ci.item.id === p.id);
       if (cartItem) {
         const nextStock = Math.max(0, p.stock - cartItem.quantity);

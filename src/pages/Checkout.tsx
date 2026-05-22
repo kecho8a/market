@@ -78,12 +78,12 @@ export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
     // Debe hacerse antes de cualquier 'await' para incluirlo en el mensaje de WhatsApp
     const preOrderId = `PED-${Math.floor(1000 + Math.random() * 9000)}-VAL-${new Date().getFullYear()}`;
 
-    // ── PASO 2: Construir mensaje de WhatsApp de forma SINCRÓNICA ───────────────
+    // ── PASO 2: Construir mensaje de WhatsApp de forma SINCRÓNICA ──
     // Se construye con los datos del carrito ANTES de cualquier operación async.
     // Esto garantiza que podemos abrir WhatsApp dentro del contexto de gesto del usuario.
-    let partsDetailText = '';
+    let productosDetailText = '';
     cart.forEach(ci => {
-      partsDetailText += `- ${ci.quantity}x ${ci.item.nombre} (SKU: ${ci.item.codigo}) - $${(ci.item.precio_usd * ci.quantity).toFixed(2)}\n`;
+      productosDetailText += `- ${ci.quantity}x ${ci.item.nombre} (SKU: ${ci.item.codigo}) - $${(ci.item.precio_usd * ci.quantity).toFixed(2)}\n`;
     });
 
     const deliveryLabel = effectiveShippingCost === 0
@@ -103,8 +103,8 @@ export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
 *Ubicacion Mapa:* https://www.google.com/maps?q=${shippingLat},${shippingLng}
 *Metodo Despacho:* ${deliveryLabel} - Costo: $${effectiveShippingCost.toFixed(2)}
 
-*Productos:*
-${partsDetailText}
+*Detalle del Carrito:*
+${productosDetailText}
 *Total Neto a Pagar:* $${finalTotalUsd} / ${finalTotalBs} Bs.
 *Metodo de Pago:* ${selectedPayment}
 ----------------------------------`;
@@ -162,7 +162,10 @@ ${partsDetailText}
       distancia_km: shippingDistance
     }, preOrderId);
 
-    setProcessedOrder(created);
+    // Redirección automática al panel del cliente tras iniciar el flujo de WhatsApp
+    setTimeout(() => {
+      setTab('profile');
+    }, 2500);
   };
 
   // If order was processed successfully
