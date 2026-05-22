@@ -5,7 +5,7 @@ import { supabase } from '../store/supabaseClient';
 import { 
   User, Lock, Phone, UserPlus, LogIn, LogOut, Bell, Package, 
   CheckCircle, Clock, Truck, MapPin, Edit2, AlertCircle, Eye, EyeOff, Tag,
-  Copy, Check
+  Copy, Check, X
 } from 'lucide-react';
 import { SEOHead } from '../components/SEOHead';
 
@@ -438,8 +438,6 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
           </motion.div>
         </div>
       )}
-=======
-
       {/* Title */}
       <div>
         <span className="text-[10px] font-mono text-violet-600 font-bold uppercase tracking-wider">Espacio del Cliente</span>

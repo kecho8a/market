@@ -660,8 +660,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (productsChannel) supabase.removeChannel(productsChannel);
     };
   }, [currentUser]);
-
-
   useEffect(() => {
     localStorage.setItem('trv_orders', JSON.stringify(orders));
   }, [orders]);
@@ -676,7 +674,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     localStorage.setItem('trv_products', JSON.stringify(products));
-  }, [cart]);
+  }, [products]);
 
   useEffect(() => {
     localStorage.setItem('trv_users', JSON.stringify(users));
@@ -721,10 +719,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const lastFetch = localStorage.getItem('trv_last_rate_fetch');
     const today = new Date().toDateString();
     
-    if (lastFetch !== today) {
-      fetchExchangeRate();
-    }
-  }, []);
+    const initData = async () => {
+      setIsGlobalLoading(true);
+      // Cargar productos de Supabase
+      const { data: dbProducts } = await supabase.from('products').select('*').eq('activo', true);
+      if (dbProducts) setProducts(dbProducts as Producto[]);
+
+      // Cargar configuración
+      const { data: dbConfig } = await supabase.from('store_config').select('*').single();
+      if (dbConfig) {
+        setConfig(prev => ({ ...prev, tasa_cambio: dbConfig.tasa_cambio }));
+      }
+
+      if (lastFetch !== today) {
+        await fetchExchangeRate();
+      }
+      setIsGlobalLoading(false);
+    };
+    initData();
+  }, [lastFetch, today]);
 
   const toggleFavorite = (partId: string) => {
     setFavorites(prev => 
@@ -1289,6 +1302,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       leida: false
     };
     setNotifications(prev => [newNotif, ...prev]);
+
+    // Sincronización con Supabase
+    supabase.from('notifications').insert([{
+      id: newNotif.id,
+      titulo: newNotif.titulo,
+      mensaje: newNotif.mensaje,
+      fecha: newNotif.fecha,
+      tipo: newNotif.tipo,
+      destinatario_telefono: newNotif.destinatario_telefono,
+      leida: newNotif.leida
+    }]).then(({ error }) => { if (error) console.error('Error sync notification:', error); });
 
     // Push local browser notification if permitted
     if ('Notification' in window && Notification.permission === 'granted') {

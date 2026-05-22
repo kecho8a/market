@@ -178,4 +178,15 @@ DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='usuarios_clientes' AND policyname='Actualizar usuarios') THEN
     CREATE POLICY "Actualizar usuarios" ON usuarios_clientes FOR UPDATE USING (true);
   END IF;
+  
+  -- Políticas para la tabla de notificaciones
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='notifications' AND policyname='Insercion publica notificaciones') THEN
+    CREATE POLICY "Insercion publica notificaciones" ON notifications FOR INSERT WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='notifications' AND policyname='Lectura publica notificaciones') THEN
+    CREATE POLICY "Lectura publica notificaciones" ON notifications FOR SELECT USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='notifications' AND policyname='Gestion notificaciones admin') THEN
+    CREATE POLICY "Gestion notificaciones admin" ON notifications FOR ALL USING (true);
+  END IF;
 END $$;
