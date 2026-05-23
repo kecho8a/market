@@ -789,18 +789,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     
     // Supabase Async Sync
     supabase.from('products').insert([{
-      codigo: newProduct.codigo,
-      nombre: newProduct.nombre,
-      descripcion: newProduct.descripcion,
-      categoria: newProduct.categoria,
-      seccion: newProduct.seccion,
-      subseccion: newProduct.subseccion,
-      precio_usd: newProduct.precio_usd,
-      stock: newProduct.stock,
-      imagen_urls: newProduct.imagen_urls || [],
-      es_promo: newProduct.es_promo,
-      es_nuevo: newProduct.es_nuevo,
-      es_mas_vendido: newProduct.es_mas_vendido
+      codigo: productData.codigo,
+      nombre: productData.nombre,
+      descripcion: productData.descripcion,
+      categoria: productData.categoria,
+      seccion: productData.seccion,
+      subseccion: productData.subseccion,
+      precio_usd: productData.precio_usd,
+      stock: productData.stock,
+      imagen_urls: productData.imagen_urls || [],
+      es_promo: productData.es_promo,
+      es_nuevo: productData.es_nuevo,
+      es_mas_vendido: productData.es_mas_vendido
     }]).select().single().then(({ data, error }) => { 
       if (error) console.error('Add part error:', error);
       if (data) setProducts(prev => [data as Producto, ...prev]);

@@ -114,17 +114,11 @@ ${productosDetailText}
       cleanConfigPhone = '58' + cleanConfigPhone.substring(1);
     }
     const encodedMessage = encodeURIComponent(whatsappMessage);
-    // Usar SIEMPRE wa.me para evitar errores de manifest / scheme handler
     const whatsappUrl = `https://wa.me/${cleanConfigPhone}?text=${encodedMessage}`;
 
-    // ── PASO 3: Abrir WhatsApp SINCRÓNICAMENTE ──────────────────────────────────
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (isMobile) {
-      window.location.href = whatsappUrl;
-    } else {
-      const newTab = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
-      if (!newTab) window.location.href = whatsappUrl;
-    }
+    // ── PASO 3: Abrir WhatsApp en Pestaña Nueva ──────────────────────────────────
+    // Abrimos en blanco para que el usuario no pierda el panel de confirmación del sistema
+    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
 
     // ── PASO 4: Operaciones asíncronas (después de abrir WhatsApp) ──────────────
     // El registro/login y la creación del pedido ocurren en background.
@@ -157,11 +151,6 @@ ${productosDetailText}
     setProcessedOrder(created);
     // Activa modal de timeline (cliente/admin) para la orden recién creada
     localStorage.setItem('trv_active_order_id', created.id);
-
-    // Redirección automática al panel del cliente tras iniciar el flujo de WhatsApp
-    setTimeout(() => {
-      setTab('profile');
-    }, 2500);
   };
 
   // If order was processed successfully
