@@ -1,2 +1,2 @@
-﻿/* ARCHIVO ELIMINADO / DUPLICADO CORRUPTO */
-/* Use src/store/supabaseClient.ts en su lugar */
+﻿/* ARCHIVO DUPLICADO ELIMINADO */
+/* Por favor, utilice exclusivamente src/store/supabaseClient.ts */
