@@ -697,16 +697,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const fetchExchangeRate = async () => {
     try {
       console.log('Fetching latest exchange rate from BCV...');
-      // Using a reputable open source API for BCV rates in Venezuela
       const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
       if (response.ok) {
         const data = await response.json();
-        if (data && data.promedio) {
-          const newRate = parseFloat(data.promedio);
-          if (!isNaN(newRate) && newRate > 0) {
+        // DolarAPI usa 'valor' para la tasa oficial del BCV
+        const rateValue = data.valor;
+        if (rateValue) {
+          const newRate = parseFloat(rateValue);
+          // Rango de seguridad realista para evitar picos erróneos (ej. 526)
+          if (!isNaN(newRate) && newRate > 20 && newRate < 120) {
             updateExchangeRate(newRate);
             localStorage.setItem('trv_last_rate_fetch', new Date().toDateString());
             console.log(`Rate updated to: ${newRate} Bs.`);
+          } else {
+            console.warn('Tasa de cambio fuera de rango lógico, ignorando:', newRate);
           }
         }
       }
@@ -716,11 +720,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   useEffect(() => {
-    const lastFetch = localStorage.getItem('trv_last_rate_fetch');
-    const today = new Date().toDateString();
-    
     const initData = async () => {
       setIsGlobalLoading(true);
+      const lastFetch = localStorage.getItem('trv_last_rate_fetch');
+      const today = new Date().toDateString();
+
       // Cargar productos de Supabase
       const { data: dbProducts } = await supabase.from('products').select('*').eq('activo', true);
       if (dbProducts) setProducts(dbProducts as Producto[]);

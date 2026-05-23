@@ -152,6 +152,7 @@ GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated;
 
 -- Asegurar que la tabla store_config tenga su fila inicial para la tasa
 INSERT INTO store_config (id, tasa_cambio) VALUES (1, 36.50) ON CONFLICT (id) DO NOTHING;
