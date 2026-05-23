@@ -253,8 +253,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
       const storedId = localStorage.getItem('trv_active_order_id');
       if (!storedId) return;
 
-      // Evitar abrir el modal si el usuario ya está sincrónico y no tiene ese pedido visible
-      const exists = userOrders.some(o => o.id === storedId);
+      // Buscar tanto en userOrders (DB) como en orders (Estado global local)
+      const exists = orders.find(o => o.id === storedId);
       if (!exists) return;
 
       setActiveOrderModalId(storedId);
@@ -264,7 +264,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
     tryOpenModal();
 
     // si llegan órdenes luego de refrescar, reintentar
-  }, [userOrders]);
+  }, [orders]); // Depender del estado global para mayor velocidad
 
   return (
     <div className="flex flex-col gap-6 pb-24 text-zinc-900 bg-white">

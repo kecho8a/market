@@ -38,7 +38,7 @@ interface AppContextProps {
   clearCart: () => void;
   
   // Checkout & Order Actions
-  createOrder: (orderData: Omit<Order, 'id' | 'subtotal_usd' | 'total_usd' | 'total_bs' | 'fecha' | 'status'>, preGeneratedId?: string) => Order;
+  createOrder: (orderData: Omit<Order, 'id' | 'subtotal_usd' | 'total_usd' | 'total_bs' | 'fecha' | 'status'>, preGeneratedId?: string) => Promise<Order | null>;
   updateOrderStatus: (orderId: string, status: Order['status'], estimatedTime?: string) => void;
   
   // Config Actions
@@ -916,7 +916,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Orders Management
-  const createOrder = (orderData: Omit<Order, 'id' | 'subtotal_usd' | 'total_usd' | 'total_bs' | 'fecha' | 'status'>, preGeneratedId?: string) => {
+  const createOrder = async (orderData: Omit<Order, 'id' | 'subtotal_usd' | 'total_usd' | 'total_bs' | 'fecha' | 'status'>, preGeneratedId?: string) => {
     // Recalculate Totals securely
     const items = cart.map(item => ({
       part_id: item.item.id,
@@ -979,11 +979,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return p;
     }));
 
-    setOrders(prev => [newOrder, ...prev]);
-    clearCart();
-
     // Supabase Insert
-    supabase.from('orders').insert([{
+    const { error } = await supabase.from('orders').insert([{
       id: newOrder.id,
       cliente_nombre: newOrder.cliente_nombre,
       cliente_telefono: newOrder.cliente_telefono,
@@ -1000,7 +997,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       distancia_km: newOrder.distancia_km,
       status: newOrder.status,
       tiempo_estimado_entrega: newOrder.tiempo_estimado_entrega
-    }]).then(({ error }) => { if (error) console.error('Insert order error:', error); });
+    }]);
+
+    if (error) {
+      console.error('Insert order error:', error);
+      return null;
+    }
+
+    setOrders(prev => [newOrder, ...prev]);
+    clearCart();
 
     // Trigger Notification for the store and the client
     addNotification('Nuevo Pedido Recibido', `Pedido ${newOrder.id} fue procesado correctamente para ${newOrder.cliente_nombre}.`);
@@ -1303,7 +1308,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateExchangeRate = (rate: number) => {
+    if (isNaN(rate) || rate <= 0 || rate > 200) {
+      console.warn('Tasa de cambio rechazada por seguridad:', rate);
+      return;
+    }
     setConfig(prev => ({ ...prev, tasa_cambio: rate }));
+    
+    // Sincronizar con Supabase para que todos los clientes la vean
+    supabase.from('store_config').update({ tasa_cambio: rate }).eq('id', 1)
+      .then(({ error }) => { if (error) console.error('Error syncing rate to DB:', error); });
   };
 
   // Log notifications

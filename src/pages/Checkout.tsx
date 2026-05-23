@@ -14,6 +14,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
   // Wizard steps helper: 1: Cart, 2: Location, 3: Details & Pay
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [showPopupHelp, setShowPopupHelp] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Check if any item in the cart has free delivery
   const hasFreeDeliveryItem = cart.some(item => item.item.delivery_gratis);
@@ -73,6 +74,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
       return;
     }
     setValidationError('');
+    setIsProcessing(true);
 
     // ── PASO 1: Generar ID del pedido de forma SINCRÓNICA ───────────────────────
     // Debe hacerse antes de cualquier 'await' para incluirlo en el mensaje de WhatsApp
@@ -116,10 +118,6 @@ ${productosDetailText}
     const encodedMessage = encodeURIComponent(whatsappMessage);
     const whatsappUrl = `https://wa.me/${cleanConfigPhone}?text=${encodedMessage}`;
 
-    // ── PASO 3: Abrir WhatsApp en Pestaña Nueva ──────────────────────────────────
-    // Abrimos en blanco para que el usuario no pierda el panel de confirmación del sistema
-    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
-
     // ── PASO 4: Operaciones asíncronas (después de abrir WhatsApp) ──────────────
     // El registro/login y la creación del pedido ocurren en background.
     // En móvil el navegador ya inició la apertura de WhatsApp.
@@ -136,7 +134,7 @@ ${productosDetailText}
     }
 
     // Crear pedido usando el ID pre-generado para que coincida con el mensaje de WhatsApp
-    const created = createOrder({
+    const created = await createOrder({
       cliente_nombre: cleanedName,
       cliente_telefono: clientPhone.trim(),
       usuario_id: finalUserId,
@@ -148,9 +146,19 @@ ${productosDetailText}
       distancia_km: shippingDistance
     }, preOrderId);
 
-    setProcessedOrder(created);
-    // Activa modal de timeline (cliente/admin) para la orden recién creada
-    localStorage.setItem('trv_active_order_id', created.id);
+    if (created) {
+      setProcessedOrder(created);
+      // Activa modal de timeline (cliente/admin) para la orden recién creada
+      localStorage.setItem('trv_active_order_id', created.id);
+      
+      // Intentar abrir WhatsApp automáticamente ahora que el pedido es real en DB
+      // Nota: Puede ser bloqueado por ser post-await, pero tenemos el botón de respaldo
+      window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      setValidationError('Error crítico: No se pudo registrar el pedido en el servidor. Verifique su conexión e intente de nuevo.');
+    }
+    
+    setIsProcessing(false);
   };
 
   // If order was processed successfully
@@ -271,6 +279,20 @@ ${productosDetailText}
   return (
     <div className="flex flex-col gap-6 pb-24 text-zinc-900">
       <SEOHead title="Checkout Rápido" />
+
+      {/* Processing Overlay - Feedback Visual Global */}
+      {isProcessing && (
+        <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-white/70 backdrop-blur-md">
+          <div className="relative flex items-center justify-center">
+            <div className="w-16 h-16 border-4 border-violet-100 rounded-full"></div>
+            <div className="absolute w-16 h-16 border-4 border-violet-600 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+          <div className="mt-6 flex flex-col items-center gap-1">
+            <p className="text-sm font-black font-display text-zinc-900 uppercase tracking-tight">Procesando Pedido</p>
+            <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest animate-pulse">Sincronizando con Marketo Cloud...</p>
+          </div>
+        </div>
+      )}
 
       {/* Heading */}
       <div>
@@ -599,9 +621,10 @@ ${productosDetailText}
             </button>
             <button
               type="submit"
-              className="bg-[#25D366] hover:bg-[#128C7E] text-white font-bold font-display py-3.5 rounded-lg text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              disabled={isProcessing}
+              className={`${isProcessing ? 'bg-zinc-400' : 'bg-[#25D366] hover:bg-[#128C7E]'} text-white font-bold font-display py-3.5 rounded-lg text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer`}
             >
-              Procesar & WhatsApp
+              {isProcessing ? 'Procesando...' : 'Procesar & WhatsApp'}
             </button>
           </div>
         </form>
