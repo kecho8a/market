@@ -1,7 +1,7 @@
--- ============================================================================
+-- ==========================================================================
 -- SCRIPT DE ESQUEMA DEFINITIVO PARA MARKETO PWA
 -- ESTE ES EL SCRIPT CORRECTO Y ACTUALIZADO
--- ============================================================================
+-- ==========================================================================
 
 -- Habilitar extensión uuid-ossp
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -147,56 +147,98 @@ ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
--- Garantizar que el rol anonimo pueda usar el esquema y las tablas (Soluciona 401)
+-- Permisos base (evitan 401 por privilegios)
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated;
 
--- Asegurar que la tabla store_config tenga su fila inicial para la tasa
-INSERT INTO store_config (id, tasa_cambio) VALUES (1, 36.50) ON CONFLICT (id) DO NOTHING;
-
 DO $$ BEGIN
+
+  -- ============================
+  -- store_config
+  -- ============================
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='store_config' AND policyname='Lectura config publica') THEN
     CREATE POLICY "Lectura config publica" ON store_config FOR SELECT USING (true);
   END IF;
+
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='store_config' AND policyname='Escritura config admin') THEN
     CREATE POLICY "Escritura config admin" ON store_config FOR ALL USING (true);
   END IF;
+
+  -- ============================
+  -- products
+  -- ============================
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='products' AND policyname='Lectura productos activos') THEN
     CREATE POLICY "Lectura productos activos" ON products FOR SELECT USING (activo = true);
   END IF;
+
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='products' AND policyname='Gestion productos admin') THEN
     CREATE POLICY "Gestion productos admin" ON products FOR ALL USING (true);
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='orders' AND policyname='Crear pedidos publico') THEN
-    CREATE POLICY "Crear pedidos publico" ON orders FOR INSERT WITH CHECK (true);
+
+  -- ============================
+  -- orders (IMPORTANTE)
+  -- ============================
+  -- Tu front inserta con rol `anon`, por eso debe existir una policy que permita INSERT a anon.
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='orders' AND policyname='orders_insert_allow_anon') THEN
+    CREATE POLICY orders_insert_allow_anon ON orders
+      FOR INSERT
+      TO anon
+      WITH CHECK (true);
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='orders' AND policyname='Leer pedidos') THEN
-    CREATE POLICY "Leer pedidos" ON orders FOR SELECT USING (true); -- Permitir lectura para filtrado local por tlf
+
+  -- Lectura: permitir (para dashboard/local). Tu front filtra por teléfono en algunos flows.
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='orders' AND policyname='orders_select_allow_all') THEN
+    CREATE POLICY orders_select_allow_all ON orders
+      FOR SELECT
+      USING (true);
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='orders' AND policyname='Actualizar pedidos admin') THEN
-    CREATE POLICY "Actualizar pedidos admin" ON orders FOR UPDATE USING (true);
+
+  -- Actualización: mantener permisivo (admin/client no está usando auth real)
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='orders' AND policyname='orders_update_allow_all') THEN
+    CREATE POLICY orders_update_allow_all ON orders
+      FOR UPDATE
+      USING (true);
   END IF;
+
+  -- ============================
+  -- usuarios_clientes
+  -- ============================
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='usuarios_clientes' AND policyname='Registro de usuarios') THEN
     CREATE POLICY "Registro de usuarios" ON usuarios_clientes FOR INSERT WITH CHECK (true);
   END IF;
+
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='usuarios_clientes' AND policyname='Lectura de usuarios') THEN
     CREATE POLICY "Lectura de usuarios" ON usuarios_clientes FOR SELECT USING (true);
   END IF;
+
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='usuarios_clientes' AND policyname='Actualizar usuarios') THEN
     CREATE POLICY "Actualizar usuarios" ON usuarios_clientes FOR UPDATE USING (true);
   END IF;
-  
-  -- Políticas para la tabla de notificaciones
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='notifications' AND policyname='Insercion publica notificaciones') THEN
-    CREATE POLICY "Insercion publica notificaciones" ON notifications FOR INSERT WITH CHECK (true);
+
+  -- ============================
+  -- notifications (IMPORTANTE)
+  -- ============================
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='notifications' AND policyname='notifications_insert_allow_anon') THEN
+    CREATE POLICY notifications_insert_allow_anon ON notifications
+      FOR INSERT
+      TO anon
+      WITH CHECK (true);
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='notifications' AND policyname='Lectura publica notificaciones') THEN
-    CREATE POLICY "Lectura publica notificaciones" ON notifications FOR SELECT USING (true);
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='notifications' AND policyname='notifications_select_allow_all') THEN
+    CREATE POLICY notifications_select_allow_all ON notifications
+      FOR SELECT
+      USING (true);
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='notifications' AND policyname='Gestion notificaciones admin') THEN
-    CREATE POLICY "Gestion notificaciones admin" ON notifications FOR ALL USING (true);
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='notifications' AND policyname='notifications_update_allow_all') THEN
+    CREATE POLICY notifications_update_allow_all ON notifications
+      FOR UPDATE
+      USING (true);
   END IF;
+
 END $$;
+

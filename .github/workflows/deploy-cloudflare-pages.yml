@@ -34,4 +34,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CF_PAGES_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          command: pages deploy ./dist --project-name=market --commit-dirty=true
+          command: pages deploy ./dist --project-name=${{ secrets.CF_PAGES_PROJECT_NAME }} --commit-dirty=true
