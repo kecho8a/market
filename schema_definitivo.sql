@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS usuarios_clientes (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+ALTER TABLE usuarios_clientes ADD COLUMN IF NOT EXISTS email TEXT UNIQUE;
 -- ----------------------------------------------------------------------------
 -- 3. products
 -- ----------------------------------------------------------------------------
@@ -115,6 +116,11 @@ CREATE TABLE IF NOT EXISTS orders (
     fecha TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS cliente_email TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS cliente_uid TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS descuento_cupon_usd NUMERIC(10,2) DEFAULT 0.00;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS cupon_codigo TEXT;
 
 -- ----------------------------------------------------------------------------
 -- 4.5 coupons (SISTEMA DE FIDELIZACIÓN)

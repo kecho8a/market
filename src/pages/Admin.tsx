@@ -60,7 +60,8 @@ export const Admin: React.FC<AdminProps> = ({
     addPart, updatePart, deletePart, updateConfig, updateExchangeRate, 
     updateOrderStatus, addNotification, toggleNotificationReadStatus,
     updateAdminCredentials, adminUser, adminPass, users, updateUserByAdmin,
-    addCategory, deleteCategory, updateCategory
+    addCategory, deleteCategory, updateCategory, 
+    coupons, addCoupon, updateCoupon, deleteCoupon
   } = useApp();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
