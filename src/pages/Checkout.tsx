@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../store/AppContext';
-import { ListOrdered, Edit2, Trash2, MapPin, Phone, User, Landmark, Compass, Smartphone, CheckCircle, Info, X } from 'lucide-react';
+import { ListOrdered, Edit2, Trash2, MapPin, Phone, User, Landmark, Compass, Smartphone, CheckCircle, Info, X, Mail, Lock, LogIn, UserPlus } from 'lucide-react';
 import { LeafletMap } from '../components/LeafletMap';
 import { SEOHead } from '../components/SEOHead';
 
@@ -9,19 +9,27 @@ interface CheckoutProps {
 }
 
 export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
-  const { cart, config, updateCartQuantity, removeFromCart, createOrder, users, currentUser, loginUser, registerUser } = useApp();
+  const { cart, config, updateCartQuantity, removeFromCart, createOrder, users, currentUser, loginUser, registerUser, coupons, updateCoupon } = useApp();
   
   // Wizard steps helper: 1: Cart, 2: Location, 3: Details & Pay
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [showPopupHelp, setShowPopupHelp] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('register');
+
+  // Coupon state
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [couponError, setCouponError] = useState('');
 
   // Check if any item in the cart has free delivery
   const hasFreeDeliveryItem = cart.some(item => item.item.delivery_gratis);
 
   // Form Fields
   const [clientName, setClientName] = useState('');
+  const [clientEmail, setClientEmail] = useState('');
   const [clientPhone, setClientPhone] = useState('');
+  const [clientPassword, setClientPassword] = useState('');
   const [selectedPayment, setSelectedPayment] = useState<'Pago Móvil' | 'Zelle' | 'Efectivo' | 'Transferencia'>('Pago Móvil');
   const [validationError, setValidationError] = useState('');
   
@@ -38,7 +46,11 @@ export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
   // Cart prices calculations
   const subtotalUsd = cart.reduce((acc, ci) => acc + (ci.item.precio_usd * ci.quantity), 0);
   const effectiveShippingCost = hasFreeDeliveryItem ? 0 : shippingCost;
-  const totalUsd = subtotalUsd + (step > 1 ? effectiveShippingCost : 0);
+  
+  // Loyalty Calculation
+  const discountFromCoupon = appliedCoupon ? (subtotalUsd * (appliedCoupon.discount_percent / 100)) : 0;
+  const totalUsd = subtotalUsd - discountFromCoupon + (step > 1 ? effectiveShippingCost : 0);
+
   const totalBs = totalUsd * config.tasa_cambio;
 
   const isNameInvalid = !!(validationError && (validationError.toLowerCase().includes('nombre') || validationError.toLowerCase().includes('completo')));
@@ -52,18 +64,69 @@ export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
     setShippingZone(zoneName);
   };
 
+  const handleApplyCoupon = () => {
+    setCouponError('');
+    const found = coupons.find(c => c.code === couponInput.toUpperCase().trim());
+    
+    if (!found) {
+      setCouponError('Cupón no válido');
+      return;
+    }
+    if (!found.active) {
+      setCouponError('Este cupón ya no está activo');
+      return;
+    }
+    if (found.usage_limit && found.usage_count >= found.usage_limit) {
+      setCouponError('Este cupón ha agotado sus usos');
+      return;
+    }
+
+    setAppliedCoupon(found);
+    setCouponInput('');
+  };
+
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // ── Validar nombre ──────────────────────────────────────────────────────────
-    const cleanedName = clientName.trim();
+    // ── Autenticación/Registro en el Checkout ──────────────────────────────────
+    let finalUserId: string | undefined = currentUser ? currentUser.id : undefined;
+    let finalClientName = currentUser ? currentUser.nombre : clientName;
+    let finalClientPhone = currentUser ? currentUser.telefono : clientPhone;
+    let finalClientEmail = currentUser ? (currentUser.email || '') : clientEmail;
+
+    if (!currentUser) {
+      if (authMode === 'login') {
+        const logged = await loginUser(clientEmail || clientPhone, clientPassword);
+        if (!logged) {
+          setValidationError('Credenciales incorrectas. Verifique su correo/teléfono y clave.');
+          return;
+        }
+        finalUserId = logged.id;
+        finalClientName = logged.nombre;
+        finalClientPhone = logged.telefono;
+        finalClientEmail = logged.email || '';
+      } else {
+        // Validaciones de registro
+        if (!clientName.trim() || !clientEmail.trim() || !clientPhone.trim() || !clientPassword.trim()) {
+          setValidationError('Todos los campos de registro son obligatorios.');
+          return;
+        }
+        const registered = await registerUser(clientName, clientEmail, clientPhone, clientPassword);
+        if (registered) {
+          finalUserId = registered.id;
+          finalClientEmail = registered.email || '';
+        }
+      }
+    }
+
+    const cleanedName = finalClientName.trim();
     if (!cleanedName) {
       setValidationError('Por favor, ingrese su nombre completo.');
       return;
     }
 
     // ── Validar teléfono ────────────────────────────────────────────────────────
-    const cleanedPhone = clientPhone.replace(/[\s\-()]/g, '');
+    const cleanedPhone = finalClientPhone.replace(/[\s\-()]/g, '');
     const phoneRegex = /^\+?[0-9]{7,15}$/;
     if (!cleanedPhone) {
       setValidationError('Por favor, ingrese su número de teléfono.');
@@ -99,8 +162,8 @@ export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
 `*Nuevo Pedido en Marketo Supermercado*
 ----------------------------------
 *Pedido ID:* ${preOrderId}
-*Cliente:* ${cleanedName}
-*Telefono:* ${clientPhone.trim()}
+*Cliente:* ${finalClientName}
+*Telefono:* ${finalClientPhone.trim()}
 *Direccion de Entrega:* ${shippingZone}
 *Ubicacion Mapa:* https://www.google.com/maps?q=${shippingLat},${shippingLng}
 *Metodo Despacho:* ${deliveryLabel} - Costo: $${effectiveShippingCost.toFixed(2)}
@@ -118,27 +181,15 @@ ${productosDetailText}
     const encodedMessage = encodeURIComponent(whatsappMessage);
     const whatsappUrl = `https://wa.me/${cleanConfigPhone}?text=${encodedMessage}`;
 
-    // ── PASO 4: Operaciones asíncronas (después de abrir WhatsApp) ──────────────
-    // El registro/login y la creación del pedido ocurren en background.
-    // En móvil el navegador ya inició la apertura de WhatsApp.
-    let finalUserId: string | undefined = currentUser ? currentUser.id : undefined;
-    if (!currentUser) {
-      const existingUser = users.find(u => u.telefono.trim() === clientPhone.trim());
-      if (existingUser) {
-        const logged = await loginUser(existingUser.telefono, existingUser.contrasena);
-        if (logged) finalUserId = logged.id;
-      } else {
-        const registered = await registerUser(cleanedName, clientPhone.trim(), '123456');
-        if (registered) finalUserId = registered.id;
-      }
-    }
-
     // Crear pedido usando el ID pre-generado para que coincida con el mensaje de WhatsApp
     const created = await createOrder({
-      cliente_nombre: cleanedName,
-      cliente_telefono: clientPhone.trim(),
+      cliente_nombre: finalClientName,
+      cliente_telefono: cleanedPhone,
+      cliente_email: finalClientEmail,
       usuario_id: finalUserId,
       costo_envio_usd: effectiveShippingCost,
+      descuento_cupon_usd: discountFromCoupon,
+      cupon_codigo: appliedCoupon?.code,
       metodo_pago: selectedPayment,
       lat: shippingLat,
       lng: shippingLng,
@@ -148,6 +199,10 @@ ${productosDetailText}
 
     if (created) {
       setProcessedOrder(created);
+      // Incrementar uso del cupón
+      if (appliedCoupon) {
+        updateCoupon(appliedCoupon.id, { usage_count: (appliedCoupon.usage_count || 0) + 1 });
+      }
       // Activa modal de timeline (cliente/admin) para la orden recién creada
       localStorage.setItem('trv_active_order_id', created.id);
       
@@ -391,6 +446,12 @@ ${productosDetailText}
                   <span className="text-zinc-500">Subtotal USD:</span>
                   <span className="font-mono text-zinc-800 font-bold text-sm">${subtotalUsd.toFixed(2)}</span>
                 </div>
+                {appliedCoupon && (
+                  <div className="flex justify-between text-violet-600 font-bold">
+                    <span>Descuento Cupón ({appliedCoupon.discount_percent}%):</span>
+                    <span className="font-mono">-${discountFromCoupon.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between border-t border-zinc-200 pt-2">
                   <span className="text-zinc-500">Subtotal Bs (al cambio):</span>
                   <span className="font-mono text-violet-600 font-bold text-sm">{(subtotalUsd * config.tasa_cambio).toFixed(2)} Bs</span>
@@ -477,54 +538,68 @@ ${productosDetailText}
             <h3 className="text-sm font-bold font-display text-zinc-900">Datos de Contacto y Métodos de Pago</h3>
           </div>
 
-          {/* Client fields */}
-          <div className="flex flex-col gap-3 text-zinc-900">
-            <div className="flex flex-col gap-1">
-              <span className={`text-[10px] uppercase font-bold tracking-wider flex items-center gap-1 transition-colors ${isNameInvalid ? 'text-red-650' : 'text-zinc-500'}`}>
-                <User size={12} className={isNameInvalid ? 'text-red-650' : 'text-zinc-500'} /> Nombre Completo *
-              </span>
-              <input
-                type="text"
-                required
-                value={clientName}
-                onChange={(e) => {
-                  setClientName(e.target.value);
-                  if (validationError && (e.target.value.trim() !== '')) {
-                    setValidationError('');
-                  }
-                }}
-                placeholder="Ej. Juan Pérez"
-                className={`bg-zinc-50 px-3 py-2 border transition-all text-sm rounded-lg outline-none ${
-                  isNameInvalid 
-                    ? 'border-red-500 text-red-950 focus:border-red-600 bg-red-50/10 placeholder-red-400' 
-                    : 'border-zinc-200 text-zinc-900 placeholder-zinc-450 focus:border-zinc-950'
-                }`}
-              />
-            </div>
+          {/* Autenticación dinámica en el Checkout */}
+          {!currentUser && (
+            <div className="bg-zinc-50 border border-zinc-200 rounded-xl overflow-hidden mb-2">
+              <div className="flex border-b border-zinc-200">
+                <button
+                  type="button"
+                  onClick={() => setAuthMode('register')}
+                  className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${authMode === 'register' ? 'bg-zinc-950 text-white' : 'text-zinc-500 hover:bg-zinc-100'}`}
+                >
+                  <UserPlus size={14} /> Nuevo Cliente
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuthMode('login')}
+                  className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${authMode === 'login' ? 'bg-zinc-950 text-white' : 'text-zinc-500 hover:bg-zinc-100'}`}
+                >
+                  <LogIn size={14} /> Ya tengo cuenta
+                </button>
+              </div>
 
-            <div className="flex flex-col gap-1">
-              <span className={`text-[10px] uppercase font-bold tracking-wider flex items-center gap-1 transition-colors ${isPhoneInvalid ? 'text-red-650' : 'text-zinc-500'}`}>
-                <Phone size={12} className={isPhoneInvalid ? 'text-red-650' : 'text-zinc-500'} /> Teléfono Móvil (WhatsApp) *
-              </span>
-              <input
-                type="tel"
-                required
-                value={clientPhone}
-                onChange={(e) => {
-                  setClientPhone(e.target.value);
-                  if (validationError) {
-                    setValidationError('');
-                  }
-                }}
-                placeholder="Ej. +584124976451 o 04124976451"
-                className={`bg-zinc-50 px-3 py-2 border transition-all text-sm rounded-lg outline-none ${
-                  isPhoneInvalid 
-                    ? 'border-red-500 text-red-950 focus:border-red-600 bg-red-50/10 placeholder-red-400' 
-                    : 'border-zinc-200 text-zinc-900 placeholder-zinc-450 focus:border-zinc-950'
-                }`}
-              />
+              <div className="p-4 flex flex-col gap-3">
+                {authMode === 'register' ? (
+                  <>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[9px] uppercase font-bold text-zinc-500 flex items-center gap-1"><User size={10} /> Nombre Completo</span>
+                      <input type="text" value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Ej. Juan Pérez" className="bg-white border border-zinc-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-950" />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[9px] uppercase font-bold text-zinc-500 flex items-center gap-1"><Mail size={10} /> Correo Electrónico</span>
+                      <input type="email" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} placeholder="juan@email.com" className="bg-white border border-zinc-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-950" />
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] uppercase font-bold text-zinc-500 flex items-center gap-1"><Mail size={10} /> Correo o Teléfono</span>
+                    <input type="text" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} placeholder="Correo o +58..." className="bg-white border border-zinc-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-950" />
+                  </div>
+                )}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[9px] uppercase font-bold text-zinc-500 flex items-center gap-1"><Phone size={10} /> Teléfono Móvil</span>
+                  <input type="tel" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} placeholder="+58412..." className="bg-white border border-zinc-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-950" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[9px] uppercase font-bold text-zinc-500 flex items-center gap-1"><Lock size={10} /> Contraseña</span>
+                  <input type="password" value={clientPassword} onChange={(e) => setClientPassword(e.target.value)} placeholder="••••••••" className="bg-white border border-zinc-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-950" />
+                </div>
+              </div>
             </div>
-          </div>
+          )}
+
+          {currentUser && (
+            <div className="p-4 bg-violet-50 border border-violet-100 rounded-xl flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-violet-600 text-white rounded-full flex items-center justify-center font-bold">{currentUser.nombre[0]}</div>
+                <div>
+                  <p className="text-xs font-bold text-zinc-900">Comprando como {currentUser.nombre}</p>
+                  <p className="text-[10px] text-zinc-500">{currentUser.email || currentUser.telefono}</p>
+                </div>
+              </div>
+              <span className="text-[9px] bg-violet-200 text-violet-700 px-2 py-1 rounded font-bold uppercase">Sincronizado</span>
+            </div>
+          )}
 
           {/* PAYMENT METHODS SELECTOR WITH DESIGN SPEC */}
           <div className="flex flex-col gap-2 mt-1">

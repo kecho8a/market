@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { Producto, Order, StoreConfig, InAppNotification, OrderItem, AppUser } from '../types/store';
+import { Producto, Order, StoreConfig, InAppNotification, OrderItem, AppUser, Coupon } from '../types/store';
 import { supabase } from './supabaseClient';
 
 interface AppContextProps {
   products: Producto[];
   orders: Order[];
   config: StoreConfig;
+  coupons: Coupon[];
   notifications: InAppNotification[];
   cart: { item: Producto; quantity: number }[];
   isAdminAuthenticated: boolean;
@@ -18,10 +19,11 @@ interface AppContextProps {
   toggleCurrency: () => void;
   users: AppUser[];
   currentUser: AppUser | null;
-  registerUser: (nombre: string, telefono: string, contrasena: string) => Promise<AppUser>;
-  loginUser: (telefono: string, contrasena: string) => Promise<AppUser | null>;
+  registerUser: (nombre: string, email: string, telefono: string, contrasena: string) => Promise<AppUser>;
+  loginUser: (identifier: string, contrasena: string) => Promise<AppUser | null>;
   logoutUser: () => void;
   updateUser: (updated: Partial<AppUser>) => void;
+  sendPasswordResetEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
   updateUserByAdmin: (userId: string, updated: Partial<AppUser>) => void;
   requestPart: (nombre: string, telefono: string, descripcion: string, imagenUrl?: string) => void;
   
@@ -38,8 +40,13 @@ interface AppContextProps {
   clearCart: () => void;
   
   // Checkout & Order Actions
-  createOrder: (orderData: Omit<Order, 'id' | 'subtotal_usd' | 'total_usd' | 'total_bs' | 'fecha' | 'status'>, preGeneratedId?: string) => Promise<Order | null>;
+  createOrder: (orderData: Omit<Order, 'id' | 'subtotal_usd' | 'total_usd' | 'total_bs' | 'fecha' | 'status'> & { descuento_cupon_usd?: number; cupon_codigo?: string }, preGeneratedId?: string) => Promise<Order | null>;
   updateOrderStatus: (orderId: string, status: Order['status'], estimatedTime?: string) => void;
+
+  // Coupon Actions
+  addCoupon: (coupon: Omit<Coupon, 'id' | 'usage_count'>) => Promise<void>;
+  updateCoupon: (id: string, updated: Partial<Coupon>) => Promise<void>;
+  deleteCoupon: (id: string) => Promise<void>;
   
   // Config Actions
   updateConfig: (newConfig: Partial<StoreConfig>) => void;
@@ -447,6 +454,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [coupons, setCoupons] = useState<Coupon[]>(() => {
+    const saved = localStorage.getItem('trv_coupons');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const [config, setConfig] = useState<StoreConfig>(() => {
     const saved = localStorage.getItem('trv_config');
     if (saved) {
@@ -677,6 +689,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [products]);
 
   useEffect(() => {
+    localStorage.setItem('trv_coupons', JSON.stringify(coupons));
+  }, [coupons]);
+
+  useEffect(() => {
     localStorage.setItem('trv_users', JSON.stringify(users));
   }, [users]);
 
@@ -734,6 +750,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (dbConfig) {
         setConfig(prev => ({ ...prev, tasa_cambio: dbConfig.tasa_cambio }));
       }
+
+      // Cargar cupones
+      const { data: dbCoupons } = await supabase.from('coupons').select('*');
+      if (dbCoupons) setCoupons(dbCoupons as Coupon[]);
       
       // Cargar datos del usuario si está autenticado para persistencia real
       if (currentUser) {
@@ -920,7 +940,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Orders Management
-  const createOrder = async (orderData: Omit<Order, 'id' | 'subtotal_usd' | 'total_usd' | 'total_bs' | 'fecha' | 'status'>, preGeneratedId?: string) => {
+  const createOrder = async (orderData: Omit<Order, 'id' | 'subtotal_usd' | 'total_usd' | 'total_bs' | 'fecha' | 'status'> & { descuento_cupon_usd?: number; cupon_codigo?: string }, preGeneratedId?: string) => {
     // Recalculate Totals securely
     const items = cart.map(item => ({
       part_id: item.item.id,
@@ -943,7 +963,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     console.log('Discount Percent:', discountPercent, 'Payment Method:', orderData.metodo_pago);
     
     const discountAmount = (subtotal || 0) * ((discountPercent || 0) / 100);
-    const subtotalAfterDiscount = (subtotal || 0) - (discountAmount || 0);
+    const subtotalAfterDiscount = (subtotal || 0) - (discountAmount || 0) - (orderData.descuento_cupon_usd || 0);
     
     console.log('Discount Amount:', discountAmount, 'Costo Envío:', orderData.costo_envio_usd);
     
@@ -985,8 +1005,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: newOrder.id,
       cliente_nombre: newOrder.cliente_nombre,
       cliente_telefono: newOrder.cliente_telefono,
+      cliente_email: newOrder.cliente_email,
       cliente_uid: newOrder.usuario_id,
       items: newOrder.items,
+      descuento_cupon_usd: orderData.descuento_cupon_usd || 0,
+      cupon_codigo: orderData.cupon_codigo || null,
       subtotal_usd: newOrder.subtotal_usd,
       costo_envio_usd: newOrder.costo_envio_usd,
       total_usd: newOrder.total_usd,
@@ -1073,11 +1096,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // --- COUPON MANAGEMENT ---
+  const addCoupon = async (coupon: Omit<Coupon, 'id' | 'usage_count'>) => {
+    const { data, error } = await supabase.from('coupons').insert([coupon]).select().single();
+    if (error) {
+      console.error('Error adding coupon:', error);
+      return;
+    }
+    if (data) setCoupons(prev => [...prev, data as Coupon]);
+  };
+
+  const updateCoupon = async (id: string, updated: Partial<Coupon>) => {
+    const { error } = await supabase.from('coupons').update(updated).eq('id', id);
+    if (error) {
+      console.error('Error updating coupon:', error);
+      return;
+    }
+    setCoupons(prev => prev.map(c => c.id === id ? { ...c, ...updated } : c));
+  };
+
+  const deleteCoupon = async (id: string) => {
+    const { error } = await supabase.from('coupons').delete().eq('id', id);
+    if (error) return;
+    setCoupons(prev => prev.filter(c => c.id !== id));
+  };
+
   // User Management Implementation
-  const registerUser = async (nombre: string, telefono: string, contrasena: string): Promise<AppUser> => {
+  const registerUser = async (nombre: string, email: string, telefono: string, contrasena: string): Promise<AppUser> => {
+    // 1. Registrar primero en Supabase Auth para obtener el UID oficial
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: email.trim().toLowerCase(),
+      password: contrasena.trim(),
+      options: { data: { nombre: nombre.trim(), telefono: telefono.trim() } }
+    });
+
+    if (authError) {
+      console.error('Auth signUp error:', authError.message);
+      throw authError;
+    }
+
     const newUser: AppUser = {
-      id: `user-${Date.now()}`,
+      id: authData.user?.id || `user-${Date.now()}`, // Sincronizar con el ID de Auth
       nombre: nombre.trim(),
+      email: email.trim().toLowerCase(),
       telefono: telefono.trim(),
       contrasena: contrasena.trim(),
       createdAt: new Date().toISOString()
@@ -1087,6 +1148,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { error } = await supabase.from('usuarios_clientes').insert([{
       id: newUser.id,
       nombre: newUser.nombre,
+      email: newUser.email,
       telefono: newUser.telefono,
       contrasena: newUser.contrasena
     }]);
@@ -1112,16 +1174,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newUser;
   };
 
-  const loginUser = async (telefono: string, contrasena: string): Promise<AppUser | null> => {
+  const loginUser = async (identifier: string, contrasena: string): Promise<AppUser | null> => {
     // 1. Try local list first for speed
-    let user = users.find(u => u.telefono.trim() === telefono.trim() && u.contrasena.trim() === contrasena.trim());
+    const cleanId = identifier.trim().toLowerCase();
+    let user = users.find(u => (u.telefono.trim() === cleanId || u.email?.toLowerCase() === cleanId) && u.contrasena.trim() === contrasena.trim());
     
     // 2. If not found locally, check Supabase
     if (!user) {
       const { data, error } = await supabase
         .from('usuarios_clientes')
         .select('*')
-        .eq('telefono', telefono.trim())
+        .or(`telefono.eq.${identifier},email.eq.${cleanId}`)
         .eq('contrasena', contrasena.trim())
         .limit(1)
         .single();
@@ -1130,6 +1193,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         user = {
           id: data.id,
           nombre: data.nombre,
+          email: data.email,
           telefono: data.telefono,
           contrasena: data.contrasena,
           createdAt: data.created_at || new Date().toISOString()
@@ -1153,6 +1217,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return user;
     }
     return null;
+  };
+
+  const sendPasswordResetEmail = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/profile?reset=true`,
+    });
+    if (error) return { success: false, error: error.message };
+    return { success: true };
   };
 
   const logoutUser = () => {
@@ -1399,6 +1471,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       parts: products,
       orders,
       config,
+      coupons,
       notifications,
       cart,
       isAdminAuthenticated,
@@ -1411,9 +1484,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       registerUser,
       loginUser,
       logoutUser,
+      sendPasswordResetEmail,
       updateUser,
       updateUserByAdmin,
       // Catalog CRUD compatibility: map legacy API names to current implementations
+      addCoupon,
+      updateCoupon,
+      deleteCoupon,
       addPart: addProduct,
       updatePart: updateProduct,
       deletePart: deleteProduct,

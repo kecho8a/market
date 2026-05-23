@@ -1,6 +1,6 @@
 -- ==========================================================================
 -- SCRIPT DE ESQUEMA DEFINITIVO PARA MARKETO PWA
--- ESTE ES EL SCRIPT CORRECTO Y ACTUALIZADO
+-- ESTADO: CONSOLIDADO, SEGURO Y AUTOMATIZADO (FIDELIZACIÓN + STOCK)
 -- ==========================================================================
 
 -- Habilitar extensión uuid-ossp
@@ -12,7 +12,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS store_config (
     id SERIAL PRIMARY KEY,
     site_nombre TEXT NOT NULL DEFAULT 'Marketo',
-    telefono_soporte TEXT NOT NULL DEFAULT '+584124976451',
+    telefono_soporte TEXT NOT NULL DEFAULT '+584124058904',
     direccion_fisica TEXT NOT NULL DEFAULT 'Av. Bolívar Norte con Calle 140, Sector Las Acacias, Valencia, Carabobo',
     tienda_lat NUMERIC(10, 6) NOT NULL DEFAULT 10.198300,
     tienda_lng NUMERIC(10, 6) NOT NULL DEFAULT -68.004400,
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS store_config (
     transferencia_discount_percent NUMERIC(5,2) NOT NULL DEFAULT 0.00,
     tasa_cambio NUMERIC(10,2) NOT NULL DEFAULT 36.50,
     logo_url TEXT DEFAULT '',
-    theme_color VARCHAR(10) NOT NULL DEFAULT '#7c3aed',
+    theme_color VARCHAR(10) NOT NULL DEFAULT '#f8f7fa',
     favicon_url TEXT DEFAULT '',
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     categories TEXT[] DEFAULT ARRAY['Lácteos y Quesos', 'Carnes y Aves', 'Charcutería', 'Frutas y Verduras', 'Víveres y Despensa', 'Panadería y Pastelería', 'Bebidas y Jugos', 'Snacks y Dulces']::TEXT[]
@@ -46,6 +46,7 @@ ALTER TABLE store_config ADD COLUMN IF NOT EXISTS banner_url_1 TEXT NOT NULL DEF
 ALTER TABLE store_config ADD COLUMN IF NOT EXISTS banner_url_2 TEXT NOT NULL DEFAULT 'https://images.unsplash.com/photo-1607349913338-fca6f7fc42d0?auto=format&fit=crop&q=80&w=1200';
 ALTER TABLE store_config ADD COLUMN IF NOT EXISTS banner_url_3 TEXT NOT NULL DEFAULT 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&q=80&w=1200';
 ALTER TABLE store_config ADD COLUMN IF NOT EXISTS categories TEXT[] DEFAULT ARRAY['Lácteos y Quesos', 'Carnes y Aves', 'Charcutería', 'Frutas y Verduras', 'Víveres y Despensa', 'Panadería y Pastelería', 'Bebidas y Jugos', 'Snacks y Dulces']::TEXT[];
+ALTER TABLE store_config ADD COLUMN IF NOT EXISTS delivery_gratis BOOLEAN NOT NULL DEFAULT FALSE;
 
 INSERT INTO store_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
@@ -55,6 +56,7 @@ INSERT INTO store_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 CREATE TABLE IF NOT EXISTS usuarios_clientes (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::TEXT,
     nombre TEXT NOT NULL,
+    email TEXT UNIQUE,
     telefono VARCHAR(20) UNIQUE NOT NULL,
     contrasena TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -87,12 +89,6 @@ CREATE TABLE IF NOT EXISTS products (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-ALTER TABLE products ADD COLUMN IF NOT EXISTS seccion TEXT DEFAULT '';
-ALTER TABLE products ADD COLUMN IF NOT EXISTS subseccion TEXT DEFAULT '';
-ALTER TABLE products ADD COLUMN IF NOT EXISTS marca TEXT DEFAULT 'Genérica';
-ALTER TABLE products ADD COLUMN IF NOT EXISTS delivery_gratis BOOLEAN NOT NULL DEFAULT FALSE;
-ALTER TABLE products ADD COLUMN IF NOT EXISTS detalle_adicional TEXT DEFAULT '';
-
 -- ----------------------------------------------------------------------------
 -- 4. orders
 -- ----------------------------------------------------------------------------
@@ -100,6 +96,7 @@ CREATE TABLE IF NOT EXISTS orders (
     id VARCHAR(50) PRIMARY KEY,
     cliente_nombre TEXT NOT NULL,
     cliente_telefono TEXT NOT NULL,
+    cliente_email TEXT,
     cliente_uid TEXT,
     metodo_pago VARCHAR(50) NOT NULL DEFAULT 'Efectivo',
     direccion_envio TEXT DEFAULT '',
@@ -109,6 +106,8 @@ CREATE TABLE IF NOT EXISTS orders (
     items JSONB DEFAULT '[]',
     subtotal_usd NUMERIC(10,2) NOT NULL DEFAULT 0.00,
     costo_envio_usd NUMERIC(10,2) NOT NULL DEFAULT 0.00,
+    descuento_cupon_usd NUMERIC(10,2) DEFAULT 0.00,
+    cupon_codigo TEXT,
     total_usd NUMERIC(10,2) NOT NULL DEFAULT 0.00,
     total_bs NUMERIC(15,2) NOT NULL DEFAULT 0.00,
     status VARCHAR(30) NOT NULL DEFAULT 'Pendiente',
@@ -117,14 +116,19 @@ CREATE TABLE IF NOT EXISTS orders (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS cliente_uid TEXT;
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS items JSONB DEFAULT '[]';
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS costo_envio_usd NUMERIC(10,2) NOT NULL DEFAULT 0.00;
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS lat NUMERIC(10, 6);
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS lng NUMERIC(10, 6);
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS direccion_envio TEXT DEFAULT '';
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS distancia_km NUMERIC(8, 2) DEFAULT 0;
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS tiempo_estimado_entrega TEXT DEFAULT '';
+-- ----------------------------------------------------------------------------
+-- 4.5 coupons (SISTEMA DE FIDELIZACIÓN)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS coupons (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(50) UNIQUE NOT NULL,
+    discount_percent NUMERIC(5,2) NOT NULL DEFAULT 0,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    usage_limit INTEGER,
+    usage_count INTEGER DEFAULT 0,
+    valid_until TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
 -- ----------------------------------------------------------------------------
 -- 5. notifications
@@ -141,6 +145,40 @@ CREATE TABLE IF NOT EXISTS notifications (
 );
 
 -- ----------------------------------------------------------------------------
+-- 5.5 FUNCIONES Y TRIGGERS (AUTOMATIZACIÓN)
+-- ----------------------------------------------------------------------------
+
+-- Función para reducir stock y aumentar contador de cupones automáticamente
+CREATE OR REPLACE FUNCTION public.handle_new_order_actions()
+RETURNS TRIGGER AS $$
+DECLARE
+    item RECORD;
+BEGIN
+    -- 1. Reducir Stock de productos
+    FOR item IN SELECT * FROM jsonb_to_recordset(NEW.items) AS x(part_id uuid, cantidad int)
+    LOOP
+        UPDATE public.products
+        SET stock = GREATEST(0, stock - item.cantidad)
+        WHERE id = item.part_id;
+    END LOOP;
+
+    -- 2. Incrementar contador de uso de cupón si existe
+    IF NEW.cupon_codigo IS NOT NULL THEN
+        UPDATE public.coupons
+        SET usage_count = usage_count + 1
+        WHERE code = NEW.cupon_codigo;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER trigger_order_completion
+AFTER INSERT ON public.orders
+FOR EACH ROW
+EXECUTE FUNCTION public.handle_new_order_actions();
+
+-- ----------------------------------------------------------------------------
 -- 6. POLÍTICAS RLS Y SEGURIDAD
 -- ----------------------------------------------------------------------------
 ALTER TABLE store_config ENABLE ROW LEVEL SECURITY;
@@ -148,6 +186,7 @@ ALTER TABLE usuarios_clientes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
 
 -- Permisos base (evitan 401 por privilegios)
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
@@ -168,45 +207,44 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='store_config' AND policyname='Escritura config admin') THEN
-    CREATE POLICY "Escritura config admin" ON store_config FOR ALL TO anon, authenticated USING (id = 1) WITH CHECK (id = 1);
+    CREATE POLICY "Escritura config admin" ON store_config FOR ALL TO authenticated USING (id = 1);
   END IF;
 
   -- ============================
   -- products (RLS para Stock y CRUD)
   -- ============================
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='products' AND policyname='Lectura productos activos') THEN
-    CREATE POLICY "Lectura productos activos" ON products FOR SELECT TO anon, authenticated USING (activo = true);
+    CREATE POLICY "Lectura productos activos" ON products FOR SELECT USING (activo = true);
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='products' AND policyname='Gestion productos admin') THEN
-    CREATE POLICY "Gestion productos admin" ON products FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+    CREATE POLICY "Gestion productos admin" ON products FOR ALL TO authenticated USING (true);
   END IF;
 
   -- ============================
   -- orders (IMPORTANTE)
   -- ============================
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='orders' AND policyname='orders_insert_allow_anon') THEN
-    CREATE POLICY "orders_insert_allow_anon" ON orders FOR INSERT TO anon, authenticated WITH CHECK (true);
+    CREATE POLICY "orders_insert_allow_anon" ON orders FOR INSERT WITH CHECK (true);
   END IF;
 
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='orders' AND policyname='orders_select_allow_all') THEN
-    CREATE POLICY "orders_select_allow_all" ON orders FOR SELECT TO anon, authenticated USING (true);
-  END IF;
-
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='orders' AND policyname='orders_update_allow_all') THEN
-    CREATE POLICY "orders_update_allow_all" ON orders FOR UPDATE TO anon, authenticated USING (true);
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='orders' AND policyname='orders_select_own_or_admin') THEN
+    CREATE POLICY "orders_select_own_or_admin" ON orders 
+      FOR SELECT 
+      TO authenticated 
+      USING (auth.uid()::text = cliente_uid OR auth.jwt() ->> 'email' = 'admin@marketo.com.ve'); -- Cambiar por email real
   END IF;
 
   -- ============================
   -- usuarios_clientes
   -- ============================
 
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='usuarios_clientes' AND policyname='Lectura de usuarios') THEN
-    CREATE POLICY "Lectura de usuarios" ON usuarios_clientes FOR SELECT TO anon, authenticated USING (true);
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='usuarios_clientes' AND policyname='Lectura propia') THEN
+    CREATE POLICY "Lectura propia" ON usuarios_clientes FOR SELECT TO authenticated USING (auth.uid()::text = id);
   END IF;
 
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='usuarios_clientes' AND policyname='Actualizar usuarios') THEN
-    CREATE POLICY "Actualizar usuarios" ON usuarios_clientes FOR UPDATE TO anon, authenticated USING (true);
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='usuarios_clientes' AND policyname='Update propio') THEN
+    CREATE POLICY "Update propio" ON usuarios_clientes FOR UPDATE TO authenticated USING (auth.uid()::text = id);
   END IF;
 
   -- ============================
@@ -229,6 +267,17 @@ BEGIN
     CREATE POLICY "notifications_update_allow_all" ON notifications
       FOR UPDATE
       TO anon, authenticated USING (true);
+  END IF;
+
+  -- ============================
+  -- coupons
+  -- ============================
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='coupons' AND policyname='Lectura cupones publica') THEN
+    CREATE POLICY "Lectura cupones publica" ON coupons FOR SELECT TO anon, authenticated USING (active = true);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='coupons' AND policyname='Gestion cupones admin') THEN
+    CREATE POLICY "Gestion cupones admin" ON coupons FOR ALL TO authenticated USING (true);
   END IF;
 
 END $$;

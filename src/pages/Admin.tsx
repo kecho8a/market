@@ -1,11 +1,11 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useApp } from '../store/AppContext';
 import { Producto, Order } from '../types/store';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, LineChart, Line } from 'recharts';
 import { 
   Plus, Edit, Trash2, Camera, Landmark, Settings, ShoppingBag, BarChart3, 
   Search, CheckCircle, Truck, PackageCheck, AlertTriangle, Send, Bell, Ticket,
-  Receipt, Printer, Check, X, MessageSquare, ExternalLink, Upload, DollarSign, Package, ShoppingCart, User
+  Receipt, Printer, Check, X, MessageSquare, ExternalLink, Upload, DollarSign, Package, ShoppingCart, User, Download, FileSpreadsheet
 } from 'lucide-react';
 import { SEOHead } from '../components/SEOHead';
 import { EditProductForm } from '../components/EditProductForm';
@@ -62,6 +62,8 @@ export const Admin: React.FC<AdminProps> = ({
     updateAdminCredentials, adminUser, adminPass, users, updateUserByAdmin,
     addCategory, deleteCategory, updateCategory
   } = useApp();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Temporary local state for credential editing
   const [newAdminUser, setNewAdminUser] = useState(adminUser);
@@ -127,6 +129,11 @@ export const Admin: React.FC<AdminProps> = ({
 
   // Filter state for orders
   const [orderFilter, setOrderFilter] = useState<'Todos' | 'Pendiente' | 'Procesando' | 'Enviado'>('Todos');
+
+  // Coupon Form State
+  const [newCouponCode, setNewCouponCode] = useState('');
+  const [newCouponDiscount, setNewCouponDiscount] = useState(5);
+  const [newCouponLimit, setNewCouponLimit] = useState<number | ''>('');
 
   // Open CRUD Editor Helper
   const openEditor = (part: Producto | null = null) => {
@@ -242,11 +249,135 @@ export const Admin: React.FC<AdminProps> = ({
     setBroadcastTipo('todos');
   };
 
+  const exportOrdersToCSV = () => {
+    if (orders.length === 0) {
+      alert("No hay pedidos para exportar.");
+      return;
+    }
+
+    const headers = ["ID", "Fecha", "Cliente", "Email", "Telefono", "Cupon", "Desc Cupon", "Metodo Pago", "Total USD", "Total Bs", "Status", "Direccion"];
+    const rows = orders.map(order => [
+      order.id,
+      `"${order.fecha}"`,
+      `"${order.cliente_nombre.replace(/"/g, '""')}"`,
+      order.cliente_email || "N/A",
+      order.cliente_telefono,
+      order.cupon_codigo || "N/A",
+      (Number(order.descuento_cupon_usd) || 0).toFixed(2),
+      order.metodo_pago,
+      order.total_usd.toFixed(2),
+      order.total_bs.toFixed(2),
+      order.status,
+      `"${order.direccion_envio.replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = [headers.join(","), ...rows.map(row => row.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `pedidos_marketo_${new Date().toISOString().split('T')[0]}.csv`);
+    link.click();
+  };
+
+  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (!text) return;
+
+      // Analizador robusto de CSV que maneja valores entrecomillados
+      const parseCSV = (str: string) => {
+        const rows = [];
+        let row: string[] = [];
+        let col = '';
+        let inQuotes = false;
+        for (let i = 0; i < str.length; i++) {
+          const char = str[i];
+          if (char === '"') inQuotes = !inQuotes;
+          else if (char === ',' && !inQuotes) { row.push(col.trim()); col = ''; }
+          else if ((char === '\n' || char === '\r') && !inQuotes) {
+            if (col || row.length) {
+              row.push(col.trim());
+              rows.push(row);
+              row = [];
+              col = '';
+            }
+            if (char === '\r' && str[i+1] === '\n') i++;
+          } else col += char;
+        }
+        if (col || row.length) { row.push(col.trim()); rows.push(row); }
+        return rows;
+      };
+
+      const rows = parseCSV(text);
+      if (rows.length < 2) {
+        alert("El archivo está vacío o no tiene el formato correcto.");
+        return;
+      }
+
+      const headers = rows[0].map(h => h.toLowerCase());
+      const importedProducts = rows.slice(1).map(row => {
+        const p: any = {};
+        headers.forEach((h, i) => {
+          let val: any = row[i]?.replace(/^"|"$/g, '').replace(/""/g, '"');
+          if (['precio_usd', 'stock', 'anio_inicio', 'anio_fin'].includes(h)) val = parseFloat(val) || 0;
+          else if (h.startsWith('es_') || h === 'delivery_gratis') val = val?.toLowerCase() === 'true';
+          else if (h === 'imagen_urls') val = val ? val.split(';') : [];
+          p[h] = val;
+        });
+        
+        // Valores por defecto para campos obligatorios
+        if (!p.categoria) p.categoria = config.categories?.[0] || 'Lácteos y Quesos';
+        return p;
+      }).filter(p => p.codigo && p.nombre);
+
+      let addedCount = 0;
+      let updatedCount = 0;
+
+      importedProducts.forEach(p => {
+        // Buscar si el producto ya existe mediante su código SKU
+        const existingPart = parts.find(ep => ep.codigo === p.codigo);
+        
+        if (existingPart) {
+          updatePart(existingPart.id, p);
+          updatedCount++;
+        } else {
+          addPart(p);
+          addedCount++;
+        }
+      });
+
+      alert(`¡Importación finalizada!\n\nSe han agregado ${addedCount} productos nuevos.\nSe han actualizado ${updatedCount} productos existentes.`);
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset para permitir re-importar el mismo archivo
+  };
+
+  const downloadCSVTemplate = () => {
+    const headers = ["codigo", "nombre", "descripcion", "categoria", "seccion", "subseccion", "marca", "condicion", "anio_inicio", "anio_fin", "precio_usd", "stock", "imagen_urls", "es_promo", "es_nuevo", "es_mas_vendido", "delivery_gratis", "detalle_adicional"];
+    const exampleRow = [
+      "LCT-LECH-001", "Leche Entera 1L", "Leche de vaca pasteurizada premium", "Lácteos y Quesos", "Pasillo 1", "Lácteos", "Campestre", "Nacional", "2024", "2026", "1.80", "100", "https://images.unsplash.com/photo-1550583724-b2692b85b150?q=80;https://images.unsplash.com/photo-1563636619-e9143da7973b?q=80", "false", "true", "false", "true", "Mantener refrigerado entre 2 y 4 grados"
+    ];
+    
+    const csvContent = [headers.join(","), exampleRow.join(",")].join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "plantilla_importacion_marketo.csv");
+    link.click();
+  };
+
   // --------------------------------------------------------------------------------
   // RECHARTS ANALYTICAL METRICS COMPUTATION
   // --------------------------------------------------------------------------------
   const reportTotals = useMemo(() => {
     const totalVentasUsd = orders.reduce((acc, o) => acc + (Number(o.total_usd) || 0), 0);
+    const totalAhorroCuponesUsd = orders.reduce((acc, o) => acc + (Number(o.descuento_cupon_usd) || 0), 0);
     const totalPedidosCount = orders.length;
     let partsSold = 0;
     
@@ -258,6 +389,7 @@ export const Admin: React.FC<AdminProps> = ({
 
     return {
       salesUSD: totalVentasUsd,
+      couponSavingsUSD: totalAhorroCuponesUsd,
       salesBs: totalVentasUsd * (Number(config.tasa_cambio) || 1),
       ordersCount: totalPedidosCount,
       partsSoldCount: partsSold
@@ -296,6 +428,40 @@ export const Admin: React.FC<AdminProps> = ({
     return Object.keys(datesMap).map((k) => ({
       fecha: k,
       Ventas: parseFloat(Number(datesMap[k] || 0).toFixed(2)),
+    }));
+  }, [orders]);
+
+  // Chart: daily coupon usage calculation
+  const couponUsageChartData = useMemo(() => {
+    const datesMap: { [date: string]: number } = {};
+    const now = new Date();
+    // Pre-populate last 7 days with zeros for consistency
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(now.getDate() - i);
+      datesMap[d.toLocaleDateString([], { month: 'short', day: 'numeric' })] = 0;
+    }
+
+    orders.forEach(o => {
+      if (o.cupon_codigo) {
+        try {
+          const rawDate = new Date(o.fecha);
+          const key = rawDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+          if (datesMap[key] !== undefined) {
+            datesMap[key] += 1;
+          } else {
+            datesMap[key] = 1;
+          }
+        } catch (e) {
+          const key = o.fecha.split(' ')[0] || 'Hoy';
+          if (datesMap[key] !== undefined) datesMap[key] += 1;
+        }
+      }
+    });
+
+    return Object.keys(datesMap).map((k) => ({
+      fecha: k,
+      Usos: datesMap[k],
     }));
   }, [orders]);
 
@@ -378,6 +544,7 @@ export const Admin: React.FC<AdminProps> = ({
           { key: 'orders', label: 'Pedidos', icon: ShoppingBag },
           { key: 'notifications', label: 'Alertas', icon: Bell },
           { key: 'customers', label: 'Clientes', icon: User },
+          { key: 'coupons', label: 'Cupones', icon: Ticket },
           { key: 'settings', label: 'Ajustes', icon: Landmark }
         ].map(sect => {
           const Icon = sect.icon;
@@ -403,7 +570,7 @@ export const Admin: React.FC<AdminProps> = ({
       {adminSection === 'reports' && (
         <div className="flex flex-col gap-5">
           {/* Quick Metrics Cards grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             <div className="p-4 border border-slate-200 rounded-xl bg-white shadow-sm hover:border-violet-300 transition-all duration-300 group">
               <div className="flex justify-between items-start">
                 <span className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Ingresos (USD)</span>
@@ -440,9 +607,18 @@ export const Admin: React.FC<AdminProps> = ({
               </div>
               <p className="text-xl font-bold font-mono text-slate-900 mt-1">{reportTotals.partsSoldCount}</p>
             </div>
+            <div className="p-4 border border-slate-200 rounded-xl bg-white shadow-sm hover:border-pink-300 transition-all duration-300 group">
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Ahorro Cupones</span>
+                <div className="p-1.5 rounded-lg bg-pink-50 text-pink-600 transition-all">
+                  <Ticket size={14} />
+                </div>
+              </div>
+              <p className="text-xl font-bold font-mono text-slate-900 mt-1">${reportTotals.couponSavingsUSD.toFixed(1)}</p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Chart 1: Revenue line chart */}
             <div className="p-4 border border-slate-200 rounded-lg bg-white shadow-sm flex flex-col gap-2">
               <h4 className="text-xs font-bold font-display text-slate-900 uppercase tracking-wider">Flujo Diario de Ventas (USD)</h4>
@@ -472,6 +648,21 @@ export const Admin: React.FC<AdminProps> = ({
                 </ResponsiveContainer>
               </div>
             </div>
+
+            {/* Chart 3: Coupon Usage line chart */}
+            <div className="p-4 border border-slate-200 rounded-lg bg-white shadow-sm flex flex-col gap-2">
+              <h4 className="text-xs font-bold font-display text-slate-900 uppercase tracking-wider">Uso Diario de Cupones (Redenciones)</h4>
+              <div className="w-full h-[220px] text-[10px] font-mono mt-3">
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={couponUsageChartData}>
+                    <XAxis dataKey="fecha" stroke="#64748b" />
+                    <YAxis stroke="#64748b" allowDecimals={false} />
+                    <Tooltip contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', color: '#0f172a' }} />
+                    <Line type="monotone" dataKey="Usos" stroke="#ec4899" strokeWidth={2.5} activeDot={{ r: 8 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -482,13 +673,36 @@ export const Admin: React.FC<AdminProps> = ({
           <div className="flex justify-between items-center bg-slate-100 p-4 rounded-xl border border-slate-200">
             <span className="text-xs font-bold font-display text-slate-800">Editar o Cargar Productos</span>
             
-            <button
-              type="button"
-              onClick={() => openEditor(null)}
-              className="bg-violet-600 hover:bg-violet-700 text-white font-semibold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer"
-            >
-              <Plus size={13} /> Agregar Articulo
-            </button>
+            <div className="flex gap-2">
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleImportCSV} 
+                accept=".csv" 
+                className="hidden" 
+              />
+              <button
+                type="button"
+                onClick={downloadCSVTemplate}
+                className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+              >
+                <FileSpreadsheet size={13} /> Plantilla CSV
+              </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+              >
+                <Upload size={13} /> Importar CSV/Excel
+              </button>
+              <button
+                type="button"
+                onClick={() => openEditor(null)}
+                className="bg-violet-600 hover:bg-violet-700 text-white font-semibold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+              >
+                <Plus size={13} /> Agregar Articulo
+              </button>
+            </div>
           </div>
 
           {/* CRUD Search field */}
@@ -579,21 +793,30 @@ export const Admin: React.FC<AdminProps> = ({
       {/* ----------------- SUBSECTION 3: ORDERS MANAGEMENT & REAL-TIME EMULATOR ----------------- */}
       {adminSection === 'orders' && (
         <div className="flex flex-col gap-4">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col lg:flex-row justify-between items-center gap-3">
             <h4 className="text-xs uppercase font-mono font-bold text-[#a1a1aa] tracking-wider">Cola de Pedidos Recibidos</h4>
             
-            {/* Status filters */}
-            <div className="flex gap-1 text-[10px] font-mono bg-slate-100 p-1 border border-slate-200 rounded-lg">
-              {['Todos', 'Pendiente', 'Procesando', 'Enviado'].map(f => (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => setOrderFilter(f as any)}
-                  className={`px-3 py-1.5 rounded-md cursor-pointer ${orderFilter === f ? 'bg-violet-600 text-white font-bold' : 'text-slate-600 hover:text-slate-800'}`}
-                >
-                  {f}
-                </button>
-              ))}
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+              <button
+                onClick={exportOrdersToCSV}
+                className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer w-full sm:w-auto"
+              >
+                <Download size={14} /> Exportar CSV
+              </button>
+              
+              {/* Status filters */}
+              <div className="flex gap-1 text-[10px] font-mono bg-slate-100 p-1 border border-slate-200 rounded-lg overflow-x-auto no-scrollbar w-full sm:w-auto">
+                {['Todos', 'Pendiente', 'Procesando', 'Enviado'].map(f => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setOrderFilter(f as any)}
+                    className={`px-3 py-1.5 rounded-md cursor-pointer whitespace-nowrap ${orderFilter === f ? 'bg-violet-600 text-white font-bold' : 'text-slate-600 hover:text-slate-800'}`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -609,8 +832,8 @@ export const Admin: React.FC<AdminProps> = ({
                   className="p-4 border border-slate-200 rounded-xl bg-slate-50 flex flex-col gap-3 shadow-sm hover:border-indigo-200 transition-colors"
                 >
                   {/* Title order row */}
-                  <div className="flex justify-between items-start border-b border-slate-200 pb-2.5">
-                     <div>
+                  <div className="flex flex-col sm:flex-row justify-between items-start gap-3 border-b border-slate-200 pb-2.5">
+                    <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-slate-900 font-mono">{order.id}</span>
                         <span className={`text-[9px] px-2 py-0.5 rounded-full font-mono font-bold ${order.status === 'Pendiente' ? 'bg-amber-100 text-amber-700' : order.status === 'Procesando' ? 'bg-indigo-100 text-indigo-700' : 'bg-violet-100 text-violet-750'}`}>
@@ -620,16 +843,20 @@ export const Admin: React.FC<AdminProps> = ({
                       <div className="text-[10px] text-slate-500 mt-1 font-mono">📅 {order.fecha}</div>
                     </div>
 
-                    <div className="text-right">
+                    <div className="sm:text-right flex flex-row sm:flex-col gap-2 sm:gap-0 items-center sm:items-end">
                       <div className="text-xs font-bold text-violet-600 font-mono">${(Number(order.total_usd) || 0).toFixed(2)}</div>
                       <div className="text-[10px] text-violet-600 font-mono font-bold">{(Number(order.total_bs) || 0).toFixed(2)} Bs</div>
                     </div>
                   </div>
 
                   {/* Customer info */}
-                  <div className="grid grid-cols-2 text-xs text-slate-700 gap-1.5 font-mono">
-                    <div>👤 Cliente: <strong className="text-slate-900 font-sans">{order.cliente_nombre}</strong></div>
-                    <div>📞 Telf: <strong className="text-slate-900">{order.cliente_telefono}</strong></div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 text-xs text-slate-700 gap-1.5 font-mono">
+                    <div className="truncate">👤 Cliente: <strong className="text-slate-900 font-sans">{order.cliente_nombre}</strong></div>
+                    <div className="truncate">📞 Telf: <strong className="text-slate-900">{order.cliente_telefono}</strong></div>
+                    <div className="col-span-2">📧 Email: <strong className="text-slate-900">{order.cliente_email || 'No registrado'}</strong></div>
+                    {order.cupon_codigo && (
+                      <div className="col-span-2 text-violet-600">🎫 Cupón: <strong className="font-bold">{order.cupon_codigo} (-${(Number(order.descuento_cupon_usd) || 0).toFixed(2)})</strong></div>
+                    )}
                     <div className="col-span-2">📍 Destino: <strong className="text-slate-900">{order.direccion_envio}</strong></div>
                   </div>
 
@@ -637,23 +864,35 @@ export const Admin: React.FC<AdminProps> = ({
                   <div className="p-2.5 rounded-lg bg-slate-100 border border-slate-200 flex flex-col gap-1 text-[11px] font-mono">
                     {order.items.map(it => (
                       <div key={it.part_id} className="flex justify-between text-slate-600">
-                        <span>{it.cantidad}x {it.nombre}</span>
+                        <span className="truncate pr-2">{it.cantidad}x {it.nombre}</span>
                         <span>${(Number(it.precio_usd) * Number(it.cantidad || 1)).toFixed(2)}</span>
                       </div>
                     ))}
                   </div>
 
                   {/* Action transitions status with notifications dispatcher */}
-                  <div className="flex justify-between items-center pt-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setPrintingOrder(order)}
-                      className="bg-[#18181b] text-gray-300 border border-[#27272a] hover:text-white px-2.5 py-1 rounded-lg text-[11px] font-mono flex items-center gap-1 cursor-pointer hover:bg-[#27272a] transition-colors"
-                    >
-                      <Receipt size={12} /> Factura Digital
-                    </button>
+                  <div className="flex flex-col sm:flex-row justify-between items-center pt-2 gap-3">
+                    <div className="flex gap-2 w-full sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={() => setPrintingOrder(order)}
+                        className="flex-1 sm:flex-none bg-[#18181b] text-gray-300 border border-[#27272a] hover:text-white px-2.5 py-2 rounded-lg text-[11px] font-mono flex items-center justify-center gap-1 cursor-pointer hover:bg-[#27272a] transition-colors"
+                      >
+                        <Receipt size={12} /> Digital
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPrintingOrder(order);
+                          setTimeout(() => window.print(), 300);
+                        }}
+                        className="flex-1 sm:flex-none bg-indigo-600 text-white border border-indigo-500 hover:bg-indigo-700 px-2.5 py-2 rounded-lg text-[11px] font-mono flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-sm"
+                      >
+                        <Printer size={12} /> Imprimir Ticket
+                      </button>
+                    </div>
 
-                    <div className="flex gap-1 text-[10px] font-mono">
+                    <div className="flex gap-1 text-[10px] font-mono w-full sm:w-auto">
                       {order.status !== 'Enviado' && (
                         <button
                           type="button"
@@ -668,7 +907,7 @@ export const Admin: React.FC<AdminProps> = ({
                               'personal'
                             );
                           }}
-                          className="bg-violet-600 hover:bg-violet-700 text-white px-2.5 py-1.5 rounded-lg font-bold flex items-center gap-1 active:scale-95 transition-all text-[11px] cursor-pointer"
+                          className="bg-violet-600 hover:bg-violet-700 text-white px-3 py-2 rounded-lg font-bold flex items-center justify-center gap-1 active:scale-95 transition-all text-[11px] cursor-pointer w-full sm:w-auto"
                         >
                           Avanzar ➔
                         </button>
@@ -926,6 +1165,83 @@ export const Admin: React.FC<AdminProps> = ({
             ) : (
               <div className="text-center p-10 text-slate-500 bg-white rounded-xl border border-dashed">No hay clientes registrados.</div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ----------------- SUBSECTION: COUPON MANAGEMENT ----------------- */}
+      {adminSection === 'coupons' && (
+        <div className="flex flex-col gap-6">
+          <div className="p-4 border border-slate-200 rounded-xl bg-white shadow-sm flex flex-col gap-4">
+            <h4 className="text-xs font-bold font-display text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <Ticket size={16} className="text-violet-600" /> Crear Nuevo Cupón de Descuento
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Código del Cupón</label>
+                <input 
+                  type="text" 
+                  value={newCouponCode} 
+                  onChange={(e) => setNewCouponCode(e.target.value.toUpperCase().replace(/\s/g, ''))}
+                  placeholder="EJ: MARKETO10"
+                  className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono font-bold"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">% Descuento</label>
+                <input 
+                  type="number" 
+                  value={newCouponDiscount} 
+                  onChange={(e) => setNewCouponDiscount(Number(e.target.value))}
+                  className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Límite Usos (Opcional)</label>
+                <input 
+                  type="number" 
+                  value={newCouponLimit} 
+                  onChange={(e) => setNewCouponLimit(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs"
+                />
+              </div>
+              <button 
+                onClick={() => {
+                  if(!newCouponCode) return alert('Indique el código');
+                  addCoupon({ 
+                    code: newCouponCode, 
+                    discount_percent: newCouponDiscount, 
+                    active: true, 
+                    usage_limit: newCouponLimit === '' ? undefined : newCouponLimit 
+                  });
+                  setNewCouponCode('');
+                }}
+                className="bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs py-2.5 rounded-lg transition-colors cursor-pointer"
+              >
+                Guardar Cupón
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {coupons.map(coupon => (
+              <div key={coupon.id} className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col gap-2 relative">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-black font-mono text-violet-600">{coupon.code}</span>
+                  <span className="text-xs font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded">-{coupon.discount_percent}%</span>
+                </div>
+                <div className="text-[10px] text-slate-500 font-mono">
+                  Usos: {coupon.usage_count} / {coupon.usage_limit || '∞'}
+                </div>
+                <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-100">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={coupon.active} onChange={(e) => updateCoupon(coupon.id, { active: e.target.checked })} className="accent-violet-600" />
+                    <span className="text-[10px] font-bold uppercase text-slate-600">Activo</span>
+                  </label>
+                  <button onClick={() => deleteCoupon(coupon.id)} className="text-red-500 hover:text-red-700 transition-colors cursor-pointer"><Trash2 size={14}/></button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -1437,6 +1753,12 @@ export const Admin: React.FC<AdminProps> = ({
                 <span>DELIVERY EXPRESS:</span>
                 <span>${(Number(printingOrder.costo_envio_usd) || 0).toFixed(2)}</span>
               </div>
+              {printingOrder.cupon_codigo && (
+                <div className="flex justify-between text-violet-600 font-bold">
+                  <span>CUPÓN ({printingOrder.cupon_codigo}):</span>
+                  <span>-${(Number(printingOrder.descuento_cupon_usd) || 0).toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between font-extrabold text-sm border-t border-black pt-2">
                 <span>MONTO USD:</span>
                 <span>${(Number(printingOrder.total_usd) || 0).toFixed(2)}</span>
@@ -1451,6 +1773,7 @@ export const Admin: React.FC<AdminProps> = ({
             <div className="mt-4 p-2 bg-yellow-50/50 border border-yellow-100 text-[10px] leading-snug font-sans text-gray-850">
               <strong>Cliente:</strong> {printingOrder.cliente_nombre}<br />
               <strong>Telf:</strong> {printingOrder.cliente_telefono}<br />
+              <strong>Email:</strong> {printingOrder.cliente_email || 'No registrado'}<br />
               <strong>Filtro Zona:</strong> {printingOrder.direccion_envio} ({printingOrder.distancia_km} km)
             </div>
 
@@ -1463,7 +1786,7 @@ export const Admin: React.FC<AdminProps> = ({
             </div>
 
             {/* Close trigger button */}
-            <div className="absolute -bottom-14 left-0 right-0 z-40 flex justify-center">
+            <div className="absolute -bottom-14 left-0 right-0 z-40 flex justify-center print:hidden">
               <button
                 type="button"
                 onClick={() => setPrintingOrder(null)}

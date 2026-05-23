@@ -3,7 +3,7 @@ import { useApp } from '../store/AppContext';
 import { motion } from 'motion/react';
 import { supabase } from '../store/supabaseClient';
 import { 
-  User, Lock, Phone, UserPlus, LogIn, LogOut, Bell, Package, 
+  User, Lock, Phone, UserPlus, LogIn, LogOut, Bell, Package, Mail,
   CheckCircle, Clock, Truck, MapPin, Edit2, AlertCircle, Eye, EyeOff, Tag,
   Copy, Check, X
 } from 'lucide-react';
@@ -26,13 +26,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
     loginUser, 
     logoutUser, 
     updateUser,
+    sendPasswordResetEmail,
     markNotificationAsRead,
     addNotification,
     deleteNotification
   } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<'profile' | 'orders' | 'notifications'>('orders');
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot'>('login');
 
   // ── Delivery Timeline Modal (disparado al finalizar el checkout) ─────────────────
   const [activeOrderModalId, setActiveOrderModalId] = useState<string | null>(null);
@@ -90,17 +91,21 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
 
   // Input states
   const [regName, setRegName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
   const [regPhone, setRegPhone] = useState('');
   const [regPassword, setRegPassword] = useState('');
   
+  const [forgotEmail, setForgotEmail] = useState('');
   const [logPhone, setLogPhone] = useState('');
   const [logPassword, setLogPassword] = useState('');
 
   const [editName, setEditName] = useState(currentUser?.nombre || '');
+  const [editEmail, setEditEmail] = useState(currentUser?.email || '');
   const [editPhone, setEditPhone] = useState(currentUser?.telefono || '');
   const [editPassword, setEditPassword] = useState(currentUser?.contrasena || '');
 
   // Errors & Modals
+  const [resetSent, setResetSent] = useState(false);
   const [authError, setAuthError] = useState('');
   const [showReminderModal, setShowReminderModal] = useState<any>(null); // holds registered info to remind them
   const [updateSuccess, setUpdateSuccess] = useState(false);
@@ -133,7 +138,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!regName.trim() || !regPhone.trim() || !regPassword.trim()) {
+    if (!regName.trim() || !regEmail.trim() || !regPhone.trim() || !regPassword.trim()) {
       setAuthError('Todos los campos son obligatorios.');
       return;
     }
@@ -158,7 +163,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
     }
 
     setAuthError('');
-    const userCreated = await registerUser(regName.trim(), regPhone.trim(), regPassword.trim());
+    const userCreated = await registerUser(regName.trim(), regEmail.trim(), regPhone.trim(), regPassword.trim());
     
     // Set Edit states
     setEditName(userCreated.nombre);
@@ -176,6 +181,21 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
     setRegName('');
     setRegPhone('');
     setRegPassword('');
+  };
+
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail.trim()) {
+      setAuthError('Por favor ingrese su correo electrónico.');
+      return;
+    }
+    const res = await sendPasswordResetEmail(forgotEmail);
+    if (res.success) {
+      setResetSent(true);
+      setAuthError('');
+    } else {
+      setAuthError(res.error || 'Ocurrió un error al enviar el correo.');
+    }
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -450,13 +470,13 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
           {/* Tabs header */}
           <div className="flex border-b border-zinc-200">
             <button
-              onClick={() => { setAuthMode('login'); setAuthError(''); }}
-              className={`flex-1 py-3 text-xs font-bold uppercase font-display tracking-wider flex items-center justify-center gap-1.5 transition-all outline-none ${authMode === 'login' ? 'bg-zinc-950 text-white font-black' : 'bg-zinc-55 text-zinc-600 hover:bg-zinc-100'}`}
+              onClick={() => { setAuthMode('login'); setAuthError(''); setResetSent(false); }}
+              className={`flex-1 py-3 text-xs font-bold uppercase font-display tracking-wider flex items-center justify-center gap-1.5 transition-all outline-none ${authMode === 'login' || authMode === 'forgot' ? 'bg-zinc-950 text-white font-black' : 'bg-zinc-55 text-zinc-600 hover:bg-zinc-100'}`}
             >
               <LogIn size={14} /> Acceder
             </button>
             <button
-              onClick={() => { setAuthMode('register'); setAuthError(''); }}
+              onClick={() => { setAuthMode('register'); setAuthError(''); setResetSent(false); }}
               className={`flex-1 py-3 text-xs font-bold uppercase font-display tracking-wider flex items-center justify-center gap-1.5 transition-all outline-none ${authMode === 'register' ? 'bg-zinc-950 text-white font-black' : 'bg-zinc-55 text-zinc-600 hover:bg-zinc-100'}`}
             >
               <UserPlus size={14} /> Registrarse
@@ -466,9 +486,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
           <div className="p-5 flex flex-col gap-4">
             <div className="text-center">
               <p className="text-[11px] text-zinc-500 leading-relaxed">
-                {authMode === 'login' 
-                  ? 'Inicia sesion con tus datos personales para consultar el estado en tiempo real de tus compras.'
-                  : 'Registrate para recibir notificaciones de promociones, envios expres de alimentos y ver el estatus de tus ordenes.'}
+                {authMode === 'login' && 'Inicia sesión con tus datos personales para consultar el estado en tiempo real de tus compras.'}
+                {authMode === 'register' && 'Regístrate para recibir notificaciones de promociones, envíos exprés de alimentos y ver el estatus de tus órdenes.'}
+                {authMode === 'forgot' && 'Ingresa tu correo electrónico para recibir un enlace de recuperación de contraseña.'}
               </p>
             </div>
 
@@ -480,7 +500,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
             )}
 
             {/* LOGIN FORM */}
-            {authMode === 'login' ? (
+            {authMode === 'login' && !resetSent && (
               <form onSubmit={handleLoginSubmit} className="flex flex-col gap-3.5 text-xs">
                 <div className="flex flex-col gap-1.5">
                   <label className="font-bold text-zinc-650 flex items-center gap-1.5 uppercase font-mono text-[9px] tracking-wider">
@@ -526,9 +546,51 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                 >
                   Entrar a Mi Panel
                 </button>
+                
+                <button
+                  type="button"
+                  onClick={() => setAuthMode('forgot')}
+                  className="text-[10px] text-zinc-500 hover:text-violet-600 transition-colors font-medium mt-1 text-center"
+                >
+                  ¿Olvidó su contraseña?
+                </button>
               </form>
-            ) : (
-              /* REGISTER FORM */
+            )}
+
+            {/* FORGOT PASSWORD FORM */}
+            {authMode === 'forgot' && !resetSent && (
+              <form onSubmit={handleForgotSubmit} className="flex flex-col gap-3.5 text-xs">
+                <div className="flex flex-col gap-1.5">
+                  <label className="font-bold text-zinc-650 flex items-center gap-1.5 uppercase font-mono text-[9px] tracking-wider">
+                    <User size={11} className="text-violet-500" /> Correo Electrónico
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="ejemplo@correo.com"
+                    className="bg-zinc-50 px-3 py-2 border border-zinc-200 rounded-lg outline-none focus:border-zinc-950 text-sm"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="bg-violet-600 hover:bg-violet-750 text-white font-bold font-display uppercase tracking-wider py-2.5 rounded-lg text-xs mt-2 transition-transform cursor-pointer"
+                >
+                  Enviar Enlace de Recuperación
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuthMode('login')}
+                  className="text-[10px] text-zinc-500 hover:text-violet-600 transition-colors font-medium mt-1 text-center"
+                >
+                  Volver al Inicio de Sesión
+                </button>
+              </form>
+            )}
+
+            {/* REGISTER FORM */}
+            {authMode === 'register' && (
               <form onSubmit={handleRegisterSubmit} className="flex flex-col gap-3.5 text-xs">
                 <div className="flex flex-col gap-1.5">
                   <label className="font-bold text-zinc-650 flex items-center gap-1.5 uppercase font-mono text-[9px] tracking-wider">
@@ -540,6 +602,20 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                     value={regName}
                     onChange={(e) => setRegName(e.target.value)}
                     placeholder="Ej. Carlos Perez"
+                    className="bg-zinc-50 px-3 py-2 border border-zinc-200 rounded-lg outline-none focus:border-zinc-950 text-sm"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="font-bold text-zinc-650 flex items-center gap-1.5 uppercase font-mono text-[9px] tracking-wider">
+                    <Mail size={11} className="text-violet-500" /> Correo Electrónico
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={regEmail}
+                    onChange={(e) => setRegEmail(e.target.value)}
+                    placeholder="ejemplo@correo.com"
                     className="bg-zinc-50 px-3 py-2 border border-zinc-200 rounded-lg outline-none focus:border-zinc-950 text-sm"
                   />
                 </div>
