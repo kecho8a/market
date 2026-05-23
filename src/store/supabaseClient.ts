@@ -1,2 +1,2 @@
 ﻿/* ARCHIVO DUPLICADO ELIMINADO */
-/* Por favor, utilice exclusivamente src/store/supabaseClient.ts */
+/* Por favor, utilice exclusivamente src/store/supabaseClient.ts (con C mayúscula) */
