@@ -705,7 +705,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (rateValue) {
           const newRate = parseFloat(rateValue);
           // Rango de seguridad realista para evitar picos erróneos (ej. 526)
-          if (!isNaN(newRate) && newRate > 20 && newRate < 120) {
+          if (!isNaN(newRate) && newRate > 1 && newRate < 1000) {
             updateExchangeRate(newRate);
             localStorage.setItem('trv_last_rate_fetch', new Date().toDateString());
             console.log(`Rate updated to: ${newRate} Bs.`);
@@ -966,22 +966,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       fecha: new Date().toLocaleString()
     };
 
-    // Discount stock of our products
-    setProducts(prev => prev.map(p => {
-      const cartItem = cart.find(ci => ci.item.id === p.id);
-      if (cartItem) {
-        const nextStock = Math.max(0, p.stock - cartItem.quantity);
-        if (p.stock >= 5 && nextStock < 5) {
-          addNotification(
-            'Alerta de Stock Bajo (Admin)',
-            `El producto "${p.nombre}" (Código: ${p.codigo}) tiene un nivel de stock crítico de ${nextStock} unidades. Por favor, reabastecer a la brevedad.`,
-            'admin'
-          );
-        }
-        return { ...p, stock: nextStock };
+    // 1. Rebajar stock en Supabase (Persistencia Real)
+    for (const cartItem of cart) {
+      const nextStock = Math.max(0, cartItem.item.stock - cartItem.quantity);
+      await supabase.from('products').update({ stock: nextStock }).eq('id', cartItem.item.id);
+      
+      if (cartItem.item.stock >= 5 && nextStock < 5) {
+        addNotification(
+          'Alerta de Stock Bajo (Admin)',
+          `El producto "${cartItem.item.nombre}" tiene un nivel crítico de ${nextStock} unidades.`,
+          'admin'
+        );
       }
-      return p;
-    }));
+    }
 
     // Supabase Insert
     const { error } = await supabase.from('orders').insert([{
@@ -1000,7 +997,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       direccion_envio: newOrder.direccion_envio,
       distancia_km: newOrder.distancia_km,
       status: newOrder.status,
-      tiempo_estimado_entrega: newOrder.tiempo_estimado_entrega
+      tiempo_estimado_entrega: newOrder.tiempo_estimado_entrega,
+      fecha: new Date().toISOString()
     }]);
 
     if (error) {
@@ -1272,35 +1270,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Supabase Async Sync
       (async () => {
         try {
-          const updatePayload: any = {};
-          if (newSettings.site_nombre !== undefined) updatePayload.site_nombre = newSettings.site_nombre;
-          if (newSettings.telefono_soporte !== undefined) updatePayload.telefono_soporte = newSettings.telefono_soporte;
-          if (newSettings.direccion_fisica !== undefined) updatePayload.direccion_fisica = newSettings.direccion_fisica;
-          if (newSettings.tasa_cambio !== undefined) updatePayload.tasa_cambio = newSettings.tasa_cambio;
-          if (newSettings.logo_url !== undefined) updatePayload.logo_url = newSettings.logo_url;
-          if (newSettings.favicon_url !== undefined) updatePayload.favicon_url = newSettings.favicon_url;
-          if (newSettings.zelle_enabled !== undefined) updatePayload.zelle_enabled = newSettings.zelle_enabled;
-          if (newSettings.pagomovil_enabled !== undefined) updatePayload.pagomovil_enabled = newSettings.pagomovil_enabled;
-          if (newSettings.efectivo_enabled !== undefined) updatePayload.efectivo_enabled = newSettings.efectivo_enabled;
-          if (newSettings.transferencia_enabled !== undefined) updatePayload.transferencia_enabled = newSettings.transferencia_enabled;
-          
-          if (newSettings.coordenadas_tienda !== undefined) {
-            updatePayload.tienda_lat = newSettings.coordenadas_tienda.lat;
-            updatePayload.tienda_lng = newSettings.coordenadas_tienda.lng;
-          }
-          if (newSettings.banners !== undefined) {
-            if (newSettings.banners[0] !== undefined) updatePayload.banner_url_1 = newSettings.banners[0];
-            if (newSettings.banners[1] !== undefined) updatePayload.banner_url_2 = newSettings.banners[1];
-            if (newSettings.banners[2] !== undefined) updatePayload.banner_url_3 = newSettings.banners[2];
-          }
+          const updatePayload: any = { id: 1 }; // Siempre actualizamos la fila con id=1
+
+          // Mapeo dinámico de todas las llaves de newSettings a updatePayload
+          Object.keys(newSettings).forEach(key => {
+            const value = (newSettings as any)[key];
+            if (value !== undefined) {
+              if (key === 'coordenadas_tienda' && value) {
+                updatePayload.tienda_lat = value.lat;
+                updatePayload.tienda_lng = value.lng;
+              } else if (key === 'banners' && Array.isArray(value)) {
+                if (value[0] !== undefined) updatePayload.banner_url_1 = value[0];
+                if (value[1] !== undefined) updatePayload.banner_url_2 = value[1];
+                if (value[2] !== undefined) updatePayload.banner_url_3 = value[2];
+              } else {
+                updatePayload[key] = value;
+              }
+            }
+          });
           
           if (Object.keys(updatePayload).length > 0) {
-            const { data: existing } = await supabase.from('store_config').select('id').limit(1).single();
-            if (existing) {
-              await supabase.from('store_config').update(updatePayload).eq('id', existing.id);
-            } else {
-              await supabase.from('store_config').insert([updatePayload]);
-            }
+            await supabase.from('store_config').upsert(updatePayload);
           }
         } catch (e) {
           console.error('Failed to sync config', e);
@@ -1312,7 +1302,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateExchangeRate = (rate: number) => {
-    if (isNaN(rate) || rate <= 0 || rate > 200) {
+    if (isNaN(rate) || rate <= 0 || rate > 1000) {
       console.warn('Tasa de cambio rechazada por seguridad:', rate);
       return;
     }
