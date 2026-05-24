@@ -30,6 +30,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
   const [clientEmail, setClientEmail] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [clientPassword, setClientPassword] = useState('');
+  const [orderNotes, setOrderNotes] = useState('');
   const [selectedPayment, setSelectedPayment] = useState<'Pago Móvil' | 'Zelle' | 'Efectivo' | 'Transferencia'>('Pago Móvil');
   const [validationError, setValidationError] = useState('');
   
@@ -200,7 +201,8 @@ ${productosDetailText}
       lat: shippingLat,
       lng: shippingLng,
       direccion_envio: `${shippingZone} (Distancia: ${shippingDistance}km)`,
-      distancia_km: shippingDistance
+      distancia_km: shippingDistance,
+      notas_cliente: orderNotes
     }, preOrderId);
 
     if (created) {
@@ -444,6 +446,40 @@ ${productosDetailText}
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Coupon and Notes Section */}
+              <div className="flex flex-col gap-4 p-4 border border-zinc-200 rounded-lg bg-white shadow-sm">
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] font-bold uppercase text-zinc-500 tracking-wider">¿Tienes un cupón?</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value)}
+                      placeholder="CÓDIGO"
+                      className="flex-1 bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-violet-600 font-mono"
+                    />
+                    <button
+                      onClick={handleApplyCoupon}
+                      className="bg-zinc-900 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-zinc-800 transition-colors"
+                    >
+                      Aplicar
+                    </button>
+                  </div>
+                  {couponError && <span className="text-[10px] text-red-500 font-medium">{couponError}</span>}
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] font-bold uppercase text-zinc-500 tracking-wider">Notas del pedido (Opcional)</label>
+                  <textarea
+                    value={orderNotes}
+                    onChange={(e) => setOrderNotes(e.target.value)}
+                    placeholder="Ej: Por favor, los muslos de pollo sin piel..."
+                    className="w-full bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-violet-600 resize-none"
+                    rows={2}
+                  />
+                </div>
               </div>
 
               {/* Step 1 Recap totals */}

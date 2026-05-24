@@ -45,6 +45,11 @@ export const Admin: React.FC<AdminProps> = ({
   // New Order Modal State
   const [incomingOrder, setIncomingOrder] = useState<Order | null>(null);
   const [adminNote, setAdminNote] = useState('');
+  
+  // Múltiples modales abiertos
+  const [openOrderDetailIds, setOpenOrderDetailIds] = useState<string[]>([]);
+  const [statusUpdateTarget, setStatusUpdateTarget] = useState<{id: string, nextStatus: Order['status']} | null>(null);
+  const [estimatedTimeInput, setEstimatedTimeInput] = useState('');
 
   // State para edición de items de pedido
   const [editingOrderItems, setEditingOrderItems] = useState<Order | null>(null);
@@ -73,7 +78,7 @@ export const Admin: React.FC<AdminProps> = ({
   // Search input for inventory parts CRUD search
   const [crudSearch, setCrudSearch] = useState('');
 
-  // Sinc scanned part code to CRUD search if passed
+  // Sync scanned part code to CRUD search if passed
   React.useEffect(() => {
     if (scannedResultCode) {
       setCrudSearch(scannedResultCode);
@@ -221,6 +226,24 @@ export const Admin: React.FC<AdminProps> = ({
     updateOrderStatus(incomingOrder.id, status, '', adminNote);
     setIncomingOrder(null);
     setAdminNote('');
+  };
+
+  const toggleOrderDetail = (orderId: string) => {
+    setOpenOrderDetailIds(prev => 
+      prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]
+    );
+  };
+
+  const handleStatusAdvance = (order: Order) => {
+    const statusSequence: Order['status'][] = ['Pendiente', 'Procesando', 'En preparación', 'En camino', 'Entregado'];
+    const currentIndex = statusSequence.indexOf(order.status);
+    const nextStatus = statusSequence[currentIndex + 1];
+
+    if (nextStatus === 'En camino') {
+      setStatusUpdateTarget({ id: order.id, nextStatus });
+    } else if (nextStatus) {
+      updateOrderStatus(order.id, nextStatus);
+    }
   };
 
   const handleCreateBroadcast = (e: React.FormEvent) => {
@@ -950,11 +973,22 @@ export const Admin: React.FC<AdminProps> = ({
                     <div className="flex gap-2 w-full sm:w-auto">
                       <button
                         type="button"
-                        onClick={() => setEditingOrderItems(order)}
-                        className="flex-1 sm:flex-none bg-emerald-600 text-white border border-emerald-500 hover:bg-emerald-700 px-2.5 py-2 rounded-lg text-[11px] font-mono flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-sm"
+                        onClick={() => toggleOrderDetail(order.id)}
+                        className="flex-1 sm:flex-none bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 px-2.5 py-2 rounded-lg text-[11px] font-mono flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-sm"
                       >
-                        <Edit size={12} /> Modificar Productos
+                        <Eye size={12} /> {openOrderDetailIds.includes(order.id) ? 'Cerrar' : 'Ver Detalles'}
                       </button>
+                      
+                      {openOrderDetailIds.includes(order.id) && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingOrderItems(order)}
+                          className="flex-1 sm:flex-none bg-emerald-600 text-white border border-emerald-500 hover:bg-emerald-700 px-2.5 py-2 rounded-lg text-[11px] font-mono flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-sm"
+                        >
+                          <Edit size={12} /> Editar Items
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => setPrintingOrder(order)}
@@ -978,20 +1012,10 @@ export const Admin: React.FC<AdminProps> = ({
                       {order.status !== 'Enviado' && (
                         <button
                           type="button"
-                          onClick={() => {
-                            const nextStatus = order.status === 'Pendiente' ? 'Procesando' : 'Enviado';
-                            updateOrderStatus(order.id, nextStatus);
-                            
-                            // Send custom app alert to this client
-                            addNotification(
-                              `Despacho de Pedido ${order.id}`, 
-                              `Su pedido ya se encuentra en fase: ${nextStatus}. ¡Sintonice con soporte en Valencia para el delivery!`,
-                              'personal'
-                            );
-                          }}
-                          className="bg-violet-600 hover:bg-violet-700 text-white px-3 py-2 rounded-lg font-bold flex items-center justify-center gap-1 active:scale-95 transition-all text-[11px] cursor-pointer w-full sm:w-auto"
+                          onClick={() => handleStatusAdvance(order)}
+                          className="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg font-bold flex items-center justify-center gap-1 active:scale-95 transition-all text-[11px] cursor-pointer w-full sm:w-auto"
                         >
-                          Avanzar ➔
+                          {order.status === 'En preparación' ? 'Despachar (Pedido Saliendo) 🛵' : 'Siguiente Paso ➔'}
                         </button>
                       )}
                     </div>
@@ -1003,34 +1027,151 @@ export const Admin: React.FC<AdminProps> = ({
         </div>
       )}
 
-      {/* CENTRO DE MENSAJES UNIFICADO (Subsection 4) */}
+      {/* Modal para Tiempo Estimado (Pedido Saliendo) */}
+      {statusUpdateTarget && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl border-t-4 border-violet-600">
+            <h3 className="text-sm font-black uppercase mb-2">Despacho de Pedido: {statusUpdateTarget.id}</h3>
+            <p className="text-xs text-slate-500 mb-4">Ingrese el tiempo aproximado para que el cliente reciba su pedido en Valencia.</p>
+            
+            <div className="flex flex-col gap-3">
+              <input 
+                type="text" 
+                value={estimatedTimeInput}
+                onChange={(e) => setEstimatedTimeInput(e.target.value)}
+                placeholder="Ej: 20-30 minutos, Llega a las 2:00pm..."
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs outline-none focus:border-violet-500"
+                autoFocus
+              />
+              
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => {
+                    updateOrderStatus(statusUpdateTarget.id, statusUpdateTarget.nextStatus, estimatedTimeInput);
+                    setStatusUpdateTarget(null);
+                    setEstimatedTimeInput('');
+                  }}
+                  className="flex-1 bg-violet-600 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-widest"
+                >
+                  Confirmar Salida
+                </button>
+                <button onClick={() => setStatusUpdateTarget(null)} className="px-4 py-3 text-xs font-bold text-slate-400">Cancelar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MÓDULO DE COMUNICACIÓN (Subsection 4) */}
       {adminSection === 'notifications' && (
         <div className="flex flex-col gap-4">
-          <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <MessageSquare size={18} className="text-violet-600" /> Centro de Mensajes y Solicitudes
-            </h3>
-            <button onClick={() => clearAllNotifications()} className="text-[10px] text-slate-400 hover:text-red-500">Limpiar todo</button>
-          </div>
-          
-          <div className="grid grid-cols-1 gap-3">
-            {notifications.filter(n => n.tipo === 'request' || n.tipo === 'personal').map(msg => (
-              <div key={msg.id} className={`p-4 bg-white border rounded-xl flex flex-col gap-2 ${msg.leida ? 'opacity-60' : 'border-violet-200 shadow-md'}`}>
-                <div className="flex justify-between">
-                  <span className="text-[10px] font-bold text-violet-600 uppercase">{msg.titulo}</span>
-                  <span className="text-[10px] text-slate-400">{msg.fecha}</span>
-                </div>
-                <p className="text-xs text-slate-700 font-medium whitespace-pre-wrap">{msg.mensaje}</p>
-                <div className="flex justify-end gap-2 mt-2">
-                  {msg.destinatario_telefono && (
-                    <a href={`https://wa.me/${msg.destinatario_telefono.replace(/\D/g, '')}`} target="_blank" className="bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold">WhatsApp</a>
-                  )}
-                  <button onClick={() => toggleNotificationReadStatus(msg.id)} className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-[10px] font-bold">
-                    {msg.leida ? 'Marcar como Pendiente' : 'Marcar Leído'}
-                  </button>
-                </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Columna Izquierda: Central de Difusión (Push/Promociones) */}
+            <div className="flex flex-col gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                <Send size={18} className="text-violet-600" />
+                <h3 className="text-sm font-bold text-slate-900 uppercase">Difusión y Mensajería Push</h3>
               </div>
-            ))}
+              
+              <form onSubmit={handleCreateBroadcast} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Título de la Notificación</label>
+                  <input 
+                    type="text" 
+                    value={broadcastTitle}
+                    onChange={(e) => setBroadcastTitle(e.target.value)}
+                    placeholder="Ej: ¡Oferta Relámpago en Carnes! 🥩"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-violet-500 transition-all"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Tipo de Alcance</label>
+                  <select 
+                    value={broadcastTipo}
+                    onChange={(e) => setBroadcastTipo(e.target.value as any)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-violet-500"
+                  >
+                    <option value="todos">Todos los Clientes (Broadcast)</option>
+                    <option value="personal">Cliente Específico (Directo)</option>
+                  </select>
+                </div>
+
+                {broadcastTipo === 'personal' && (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Teléfono del Destinatario</label>
+                    <input 
+                      type="text" 
+                      value={broadcastDestinatarioTelefono}
+                      onChange={(e) => setBroadcastDestinatarioTelefono(e.target.value)}
+                      placeholder="Ej: 04124976451"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-mono"
+                    />
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Mensaje / Contenido</label>
+                  <textarea 
+                    value={broadcastMessage}
+                    onChange={(e) => setBroadcastMessage(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs outline-none focus:border-violet-500 min-h-[100px]"
+                    placeholder="Escribe aquí el contenido de la promoción u oferta..."
+                  />
+                </div>
+
+                <button type="submit" className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-widest transition-all shadow-lg shadow-violet-200">
+                  Enviar Notificación Push
+                </button>
+              </form>
+            </div>
+
+            {/* Columna Derecha: Bandeja de Entrada (Mensajes de Tienda) */}
+            <div className="flex flex-col gap-4 bg-slate-50 p-5 rounded-2xl border border-slate-200">
+              <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+                <div className="flex items-center gap-2">
+                  <Bell size={18} className="text-violet-600" />
+                  <h3 className="text-sm font-bold text-slate-900 uppercase">Mensajes Recibidos</h3>
+                </div>
+                <button onClick={() => clearAllNotifications()} className="text-[9px] font-bold text-slate-400 hover:text-red-500 uppercase">Limpiar todo</button>
+              </div>
+              
+              <div className="flex flex-col gap-3 max-h-[500px] overflow-y-auto pr-2 no-scrollbar">
+                {notifications.filter(n => n.tipo === 'request' || n.tipo === 'personal').length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 text-xs italic">No hay mensajes recientes.</div>
+                ) : (
+                  notifications.filter(n => n.tipo === 'request' || n.tipo === 'personal').map(msg => (
+                    <div key={msg.id} className={`p-4 bg-white border rounded-2xl flex flex-col gap-2 transition-all ${msg.leida ? 'opacity-60 border-slate-200' : 'border-violet-200 shadow-md ring-1 ring-violet-500/5'}`}>
+                      <div className="flex justify-between items-center">
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${msg.tipo === 'request' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                          {msg.tipo === 'request' ? 'Solicitud' : 'Mensaje'}
+                        </span>
+                        <span className="text-[9px] text-slate-400 font-mono">{msg.fecha}</span>
+                      </div>
+                      <h4 className="text-xs font-bold text-slate-800">{msg.titulo}</h4>
+                      <p className="text-[11px] text-slate-600 leading-relaxed whitespace-pre-wrap">{msg.mensaje}</p>
+                      <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-slate-50">
+                        {msg.destinatario_telefono && (
+                          <a 
+                            href={`https://wa.me/${msg.destinatario_telefono.replace(/\D/g, '')}`} 
+                            target="_blank" 
+                            className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-lg text-[10px] font-bold hover:bg-emerald-100 transition-colors"
+                          >
+                            <MessageSquare size={12} /> Responder WhatsApp
+                          </a>
+                        )}
+                        <button 
+                          onClick={() => toggleNotificationReadStatus(msg.id)} 
+                          className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-colors"
+                        >
+                          {msg.leida ? 'Pendiente' : 'Leído'}
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

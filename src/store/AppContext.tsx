@@ -539,6 +539,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     currentUserRef.current = currentUser;
   }, [currentUser]);
 
+  const playNotificationSound = () => {
+    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+    audio.play().catch(() => console.log('Audio playback blocked by browser'));
+  };
+
   useEffect(() => {
     let mainChannel: any = null;
 
@@ -564,9 +569,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         })
         // Escuchar cambios en Pedidos (CDC)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, payload => {
-          const updated = (payload as any)?.new;
+          const updated = payload.new as Order;
+          const old = payload.old as Order;
+
           if (!updated?.id) return;
           
+          // Si el status cambió, emitir sonido
+          if (old && old.status !== updated.status) {
+            playNotificationSound();
+          }
+
           setOrders(prev =>
             prev.map(o =>
               o.id === updated.id

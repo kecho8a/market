@@ -916,6 +916,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                         </div>
                         {/* Status badges */}
                         <div className="flex items-center gap-1.5">
+                          <button 
+                            onClick={() => { setActiveOrderModalId(order.id); setShowOrderTimelineModal(true); }}
+                            className="text-[9px] bg-violet-600 text-white px-2 py-0.5 rounded font-bold uppercase animate-pulse cursor-pointer"
+                          >
+                            Rastrear 🛵
+                          </button>
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase font-mono ${
                             order.status === 'Pendiente' ? 'bg-amber-100 text-amber-800 border-amber-300 border' :
                             order.status === 'Procesando' ? 'bg-blue-100 text-blue-800 border-blue-300 border' :
