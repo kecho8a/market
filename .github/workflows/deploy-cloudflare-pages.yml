@@ -34,5 +34,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CF_PAGES_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          projectName: market
-          directory: ./dist
+          command: pages deploy ./dist --project-name=market
