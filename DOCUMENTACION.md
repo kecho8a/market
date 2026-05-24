@@ -22,6 +22,11 @@ Esta documentación proporciona una guía detallada sobre la arquitectura, insta
    ```
    El sistema estará disponible por defecto en `http://localhost:3000`.
 
+4. **Habilitar Git Hooks**:
+   ```bash
+   chmod +x scripts/verify-types.sh
+   ```
+
 ---
 
 ## 2. Arquitectura del Sistema
@@ -87,10 +92,14 @@ El sistema incluye un buscador inteligente en `AppContext.tsx` (`searchPartsSema
 
 ## 5. Corrección de Errores Comunes
 
-### Errores de Construcción (Build Errors)
-Si `npm run build` falla:
-- Verifica que no haya errores de TypeScript ejecutando `npm run lint`.
-- Asegúrate de que todas las imágenes externas en `config` tengan una política de referer adecuada si falla la carga.
+### Protección de Código (CI Local)
+El sistema cuenta con un **Hook de Pre-commit**. No podrás hacer `git commit` si existen errores de tipos.
+
+**Para verificar tipos manualmente:**
+```bash
+npm run type-check
+```
+Si el commit falla, revisa la consola para identificar la línea exacta en archivos como `AppContext.tsx` o `Admin.tsx`.
 
 ### Error: "ReferenceError: X is not defined"
 Esto sucede usualmente cuando se usa un componente de `lucide-react` sin importarlo.

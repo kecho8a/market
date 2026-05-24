@@ -776,17 +776,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const { data: dbProducts } = await supabase.from('products').select('*').eq('activo', true);
       if (dbProducts) setProducts(dbProducts as Producto[]);
       
-      // Cargar configuración de la tienda incluyendo el estado abierta/cerrada
-      const { data: dbConfig } = await supabase.from('store_config').select('*').single();
-      if (dbConfig) {
-         setConfig(prev => ({ ...prev, ...dbConfig, coordenadas_tienda: { lat: dbConfig.tienda_lat, lng: dbConfig.tienda_lng } }));
-      }
-      
-      // BUG FIX: Cargar configuración COMPLETA, no solo la tasa
+      // Cargar configuración COMPLETA de la tienda
       const { data: dbConfig } = await supabase.from('store_config').select('*').single();
       if (dbConfig) {
         setConfig(prev => ({
           ...prev,
+          esta_abierta: dbConfig.esta_abierta,
           site_nombre: dbConfig.site_nombre || prev.site_nombre,
           telefono_soporte: dbConfig.telefono_soporte || prev.telefono_soporte,
           direccion_fisica: dbConfig.direccion_fisica || prev.direccion_fisica,
