@@ -291,13 +291,14 @@ BEGIN
   -- ============================
   -- store_config
   -- ============================
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='store_config' AND policyname='Lectura config publica') THEN
-    CREATE POLICY "Lectura config publica" ON store_config FOR SELECT USING (true);
-  END IF;
+  DROP POLICY IF EXISTS "Lectura config publica" ON store_config;
+  CREATE POLICY "Lectura config publica" ON store_config FOR SELECT USING (true);
 
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='store_config' AND policyname='Escritura config admin') THEN
-    CREATE POLICY "Escritura config admin" ON store_config FOR ALL TO authenticated USING (id = 1);
-  END IF;
+  DROP POLICY IF EXISTS "Escritura config admin" ON store_config;
+  DROP POLICY IF EXISTS "Allow all updates only to admin" ON store_config;
+  CREATE POLICY "Allow all updates only to admin" ON store_config 
+    FOR ALL TO authenticated 
+    USING (auth.jwt() ->> 'email' = 'kecho8a@gmail.com');
 
   -- ============================
   -- products (RLS para Stock y CRUD)
@@ -306,9 +307,12 @@ BEGIN
     CREATE POLICY "Lectura productos activos" ON products FOR SELECT USING (activo = true);
   END IF;
 
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='products' AND policyname='Gestion productos admin') THEN
-    CREATE POLICY "Gestion productos admin" ON products FOR ALL TO authenticated USING (true);
-  END IF;
+  DROP POLICY IF EXISTS "Gestion productos admin" ON products;
+  DROP POLICY IF EXISTS "Allow admin changes to catalog" ON products;
+  CREATE POLICY "Allow admin changes to catalog" ON products 
+    FOR ALL TO authenticated 
+    USING (auth.jwt() ->> 'email' = 'kecho8a@gmail.com')
+    WITH CHECK (auth.jwt() ->> 'email' = 'kecho8a@gmail.com');
 
   -- ============================
   -- orders (IMPORTANTE)
@@ -324,22 +328,29 @@ BEGIN
     USING (
       auth.uid()::text = cliente_uid 
       OR 
-      (auth.jwt() ->> 'email' = 'admin@marketo.com.ve')
+      (auth.jwt() ->> 'email' = 'kecho8a@gmail.com')
       OR
       (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
     );
 
   -- Política de actualización para Admin (necesaria para cambiar status)
   DROP POLICY IF EXISTS "orders_update_admin" ON orders;
-  CREATE POLICY "orders_update_admin" ON orders FOR UPDATE USING (auth.jwt() ->> 'email' = 'admin@marketo.com.ve');
+  CREATE POLICY "orders_update_admin" ON orders 
+    FOR ALL TO authenticated 
+    USING (auth.jwt() ->> 'email' = 'kecho8a@gmail.com')
+    WITH CHECK (auth.jwt() ->> 'email' = 'kecho8a@gmail.com');
 
   -- ============================
   -- usuarios_clientes
   -- ============================
+  DROP POLICY IF EXISTS "Lectura propia" ON usuarios_clientes;
+  CREATE POLICY "Admin lee todos los clientes" ON usuarios_clientes 
+    FOR SELECT TO authenticated 
+    USING (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
 
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='usuarios_clientes' AND policyname='Lectura propia') THEN
-    CREATE POLICY "Lectura propia" ON usuarios_clientes FOR SELECT TO authenticated USING (auth.uid()::text = id);
-  END IF;
+  CREATE POLICY "Cliente lee su propio perfil" ON usuarios_clientes 
+    FOR SELECT TO authenticated 
+    USING (auth.uid()::text = id);
 
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='usuarios_clientes' AND policyname='Update propio') THEN
     CREATE POLICY "Update propio" ON usuarios_clientes FOR UPDATE TO authenticated USING (auth.uid()::text = id);
@@ -356,9 +367,10 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='notifications' AND policyname='notifications_select_allow_all') THEN
-    CREATE POLICY "notifications_select_allow_all" ON notifications
-      FOR SELECT
-      TO anon, authenticated USING (true);
+    DROP POLICY IF EXISTS "notifications_select_allow_all" ON notifications;
+    CREATE POLICY "Lectura de notificaciones" ON notifications
+      FOR SELECT TO anon, authenticated 
+      USING (tipo = 'todos' OR destinatario_telefono = (SELECT telefono FROM usuarios_clientes WHERE id = auth.uid()::text) OR auth.jwt() ->> 'email' = 'kecho8a@gmail.com');
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='notifications' AND policyname='notifications_update_allow_all') THEN

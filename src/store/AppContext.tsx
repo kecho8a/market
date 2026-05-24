@@ -1177,16 +1177,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString()
     };
 
-    // Ya no es estrictamente necesario insertar aquí porque el TRIGGER lo hará.
-    // Pero lo intentamos por si el trigger tiene lag, ignorando errores de RLS.
-    await supabase.from('usuarios_clientes').insert([{
-        id: newUser.id,
-        nombre: newUser.nombre,
-        email: newUser.email,
-        telefono: newUser.telefono,
-        contrasena: newUser.contrasena
-    }]);
-    
+    // NOTA: El insert en 'usuarios_clientes' lo maneja el Trigger 'on_auth_user_created' 
+    // en la base de datos para evitar errores 409 de duplicidad y asegurar atomicidad.
+
     setUsers(prev => {
       // Remove any existing user with the same phone to avoid duplicates
       const filtered = prev.filter(u => u.telefono.trim() !== newUser.telefono.trim());
