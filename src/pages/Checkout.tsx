@@ -89,7 +89,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
 
     // Reproducir sonido de celebración (Aplausos)
     const applause = new Audio('https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3');
-    applause.play().catch(() => console.log('Audio playback blocked by browser'));
+    applause.play().catch((err) => console.error('❌ Marketo: Error al reproducir aplausos:', err.message));
     
     // Disparar animación de celebración (Cohetes y Papelillo)
     setShowCelebration(true);

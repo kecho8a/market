@@ -564,7 +564,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ? 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3' // Sonido de Caja Registradora para nuevos pedidos
       : 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; // Sonido Ding para actualizaciones
     const audio = new Audio(soundUrl);
-    audio.play().catch(() => console.log('Audio playback blocked by browser'));
+    
+    audio.play().catch((err) => {
+      if (err.name === 'NotAllowedError') {
+        console.warn('📢 Marketo: El audio requiere una interacción previa del usuario para reproducirse.');
+      } else {
+        console.error('❌ Marketo: Error al reproducir audio (CSP o Red):', err.message);
+      }
+    });
 
     if (hapticEnabledRef.current && typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       if (type === 'update' && status === 'En camino') {
