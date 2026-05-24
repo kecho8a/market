@@ -36,7 +36,9 @@ CREATE TABLE IF NOT EXISTS store_config (
     theme_color VARCHAR(10) NOT NULL DEFAULT '#f8f7fa',
     favicon_url TEXT DEFAULT '',
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    categories TEXT[] DEFAULT ARRAY['Lácteos y Quesos', 'Carnes y Aves', 'Charcutería', 'Frutas y Verduras', 'Víveres y Despensa', 'Panadería y Pastelería', 'Bebidas y Jugos', 'Snacks y Dulces']::TEXT[]
+    categories TEXT[] DEFAULT ARRAY['Lácteos y Quesos', 'Carnes y Aves', 'Charcutería', 'Frutas y Verduras', 'Víveres y Despensa', 'Panadería y Pastelería', 'Bebidas y Jugos', 'Snacks y Dulces']::TEXT[],
+    esta_abierta BOOLEAN NOT NULL DEFAULT TRUE,
+    mensaje_cierre TEXT DEFAULT 'Hoy no trabajamos. Volveremos pronto.'
 );
 
 -- Asegurarse de que las columnas existan por si la tabla ya estaba creada con la otra versión
@@ -47,6 +49,7 @@ ALTER TABLE store_config ADD COLUMN IF NOT EXISTS banner_url_2 TEXT NOT NULL DEF
 ALTER TABLE store_config ADD COLUMN IF NOT EXISTS banner_url_3 TEXT NOT NULL DEFAULT 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&q=80&w=1200';
 ALTER TABLE store_config ADD COLUMN IF NOT EXISTS categories TEXT[] DEFAULT ARRAY['Lácteos y Quesos', 'Carnes y Aves', 'Charcutería', 'Frutas y Verduras', 'Víveres y Despensa', 'Panadería y Pastelería', 'Bebidas y Jugos', 'Snacks y Dulces']::TEXT[];
 ALTER TABLE store_config ADD COLUMN IF NOT EXISTS delivery_gratis BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE store_config ADD COLUMN IF NOT EXISTS esta_abierta BOOLEAN NOT NULL DEFAULT TRUE;
 
 INSERT INTO store_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
@@ -87,9 +90,11 @@ CREATE TABLE IF NOT EXISTS products (
     delivery_gratis BOOLEAN NOT NULL DEFAULT FALSE,
     detalle_adicional TEXT DEFAULT '',
     activo BOOLEAN NOT NULL DEFAULT TRUE,
+    disponibilidad TEXT DEFAULT 'Disponible', -- 'Disponible', 'Agotado', 'En Reposición'
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+ALTER TABLE products ADD COLUMN IF NOT EXISTS disponibilidad TEXT DEFAULT 'Disponible';
 -- ----------------------------------------------------------------------------
 -- 4. orders
 -- ----------------------------------------------------------------------------
@@ -113,6 +118,7 @@ CREATE TABLE IF NOT EXISTS orders (
     total_bs NUMERIC(15,2) NOT NULL DEFAULT 0.00,
     status VARCHAR(30) NOT NULL DEFAULT 'Pendiente',
     tiempo_estimado_entrega TEXT DEFAULT '',
+    notas_admin TEXT DEFAULT '',
     fecha TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -121,6 +127,7 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS cliente_email TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS cliente_uid TEXT;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS descuento_cupon_usd NUMERIC(10,2) DEFAULT 0.00;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS cupon_codigo TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS notas_admin TEXT DEFAULT '';
 
 -- ----------------------------------------------------------------------------
 -- 4.6 push_subscriptions (SISTEMA DE NOTIFICACIONES PUSH)
@@ -419,3 +426,51 @@ VALUES
 ('PAN-BAGU-ART', 'Pan Baguette Masa Madre 250g', 'Pan tipo baguette artesanal.', 'Panadería y Pastelería', 'Pasillo 4 - Panaderia', 'Panes Frescos', 'El Rey', 'Nacional', 2000, 2026, 1.20, 40, ARRAY['https://images.unsplash.com/photo-1549931319-a545dcf3bc73?auto=format&fit=crop&q=80&w=500'], true, true, false, false, 'Corteza crujiente.'),
 ('SNC-CHOC-DAR', 'Chocolate Oscuro 70% Cacao 80g', 'Chocolate gourmet 70% cacao Carenero.', 'Snacks y Dulces', 'Pasillo 3 - Despensa', 'Confiteria y Snacks', 'El Rey', 'Nacional', 2000, 2026, 3.50, 50, ARRAY['https://images.unsplash.com/photo-1511381939415-e44015466834?auto=format&fit=crop&q=80&w=500'], true, true, true, false, 'Cacao venezolano.')
 ON CONFLICT (codigo) DO NOTHING;
+-- ==========================================================================
+-- CONFIGURACIÓN DE REALTIME (COMPATIBLE CON PLAN GRATUITO)
+-- ==========================================================================
+
+-- 1. Asegurar que la publicación exista
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+        CREATE PUBLICATION supabase_realtime;
+    END IF;
+END $$;
+
+-- 2. Agregar tablas a la publicación para escuchar cambios (CDC)
+ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.products;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.store_config;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+
+-- ==========================================================================
+-- MANTENIMIENTO AUTOMÁTICO (LIMPIEZA DE NOTIFICACIONES ANTIGUAS)
+-- ==========================================================================
+
+-- 1. Crear la función de limpieza
+CREATE OR REPLACE FUNCTION public.delete_old_notifications()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER -- Se ejecuta con privilegios de creador para evitar problemas de RLS
+AS $$
+BEGIN
+  -- Eliminamos notificaciones de más de 15 días para ahorrar espacio en el plan gratuito
+  -- Puedes ajustar el intervalo a '30 days' si prefieres conservar más historial
+  DELETE FROM public.notifications
+  WHERE created_at < NOW() - INTERVAL '15 days';
+
+  -- Eliminamos pedidos cancelados de más de 3 meses
+  -- Esto ayuda a mantener la tabla de orders ligera y eficiente
+  DELETE FROM public.orders
+  WHERE status = 'Cancelado'
+  AND created_at < NOW() - INTERVAL '3 months';
+END;
+$$;
+
+-- 2. Programación de la tarea (Requiere extensión pg_cron)
+-- Nota: Para que esto funcione, debes habilitar 'pg_cron' en el dashboard de Supabase:
+-- Database -> Extensions -> Buscar 'pg_cron' y activarlo.
+
+-- Una vez activado, ejecuta manualmente esta línea en el SQL Editor:
+-- SELECT cron.schedule('limpiar-notificaciones-diario', '0 0 * * *', 'SELECT public.delete_old_notifications()');

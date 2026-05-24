@@ -41,7 +41,8 @@ interface AppContextProps {
   
   // Checkout & Order Actions
   createOrder: (orderData: Omit<Order, 'id' | 'subtotal_usd' | 'total_usd' | 'total_bs' | 'fecha' | 'status'> & { descuento_cupon_usd?: number; cupon_codigo?: string }, preGeneratedId?: string) => Promise<Order | null>;
-  updateOrderStatus: (orderId: string, status: Order['status'], estimatedTime?: string) => void;
+  updateOrderStatus: (orderId: string, status: Order['status'], estimatedTime?: string, notas?: string) => void;
+  updateOrderItems: (orderId: string, newItems: OrderItem[]) => Promise<void>;
 
   // Coupon Actions
   addCoupon: (coupon: Omit<Coupon, 'id' | 'usage_count'>) => Promise<void>;
@@ -539,14 +540,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [currentUser]);
 
   useEffect(() => {
-    let configChannel: any = null;
-    let ordersChannel: any = null;
-    let productsChannel: any = null;
+    let mainChannel: any = null;
 
     try {
-      // 1) Canal de Configuración (Tasa de Cambio)
-      configChannel = supabase
-        .channel('realtime_config')
+      // CANAL UNIFICADO PARA BROADCAST Y POSTGRES CHANGES
+      mainChannel = supabase.channel('marketo_realtime_system');
+
+      mainChannel
+        // Escuchar cambios en Configuración
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'store_config' }, payload => {
           const newRow = (payload as any)?.new;
           if (newRow) {
@@ -561,15 +562,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }));
           }
         })
-        .subscribe();
-
-      // 2) Canal de Pedidos (Estatus en tiempo real)
-      ordersChannel = supabase
-        .channel('realtime_orders')
+        // Escuchar cambios en Pedidos (CDC)
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, payload => {
           const updated = (payload as any)?.new;
           if (!updated?.id) return;
-
+          
           setOrders(prev =>
             prev.map(o =>
               o.id === updated.id
@@ -594,11 +591,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
           }
         })
-        .subscribe();
+        // Escuchar Pedidos Nuevos vía BROADCAST (Ultra Rápido)
+        .on('broadcast', { event: 'new_order_broadcast' }, (payload: any) => {
+          const newOrder = payload.payload;
+          setOrders(prev => [newOrder, ...prev]);
+          window.dispatchEvent(new CustomEvent('new_order_received', { detail: newOrder }));
+          
+          if ('Notification' in window && Notification.permission === 'granted') {
+             new Notification('¡NUEVO PEDIDO!', { body: `Cliente: ${newOrder.cliente_nombre} - Total: $${newOrder.total_usd}` });
+          }
+        })
+        // Escuchar Notificaciones (CDC)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, payload => {
+          const newNotif = payload.new as InAppNotification;
+          
+          // Validar si es para todos o específicamente para el usuario actual
+          const cu = currentUserRef.current;
+          const isForMe = newNotif.tipo === 'todos' || 
+                         (cu && newNotif.destinatario_telefono === cu.telefono) ||
+                         (isAdminAuthenticated && newNotif.tipo === 'request');
 
-      // 3) Canal de Productos (Catálogo en tiempo real)
-      productsChannel = supabase
-        .channel('realtime_products')
+          if (isForMe) {
+            setNotifications(prev => [newNotif, ...prev]);
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification(newNotif.titulo, { body: newNotif.mensaje });
+            }
+          }
+        })
+        // Escuchar cambios en Productos (CDC)
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'products' },
@@ -668,16 +688,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             });
           }
         )
-        .subscribe();
+        .subscribe((status: string) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Conectado al sistema Realtime de Marketo');
+          }
+        });
+
     } catch (e) {
       console.error('Realtime channels failed:', e);
     }
 
     setIsGlobalLoading(false);
     return () => {
-      if (configChannel) supabase.removeChannel(configChannel);
-      if (ordersChannel) supabase.removeChannel(ordersChannel);
-      if (productsChannel) supabase.removeChannel(productsChannel);
+      if (mainChannel) supabase.removeChannel(mainChannel);
     };
   }, [currentUser]);
   useEffect(() => {
@@ -752,7 +775,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Cargar productos de Supabase
       const { data: dbProducts } = await supabase.from('products').select('*').eq('activo', true);
       if (dbProducts) setProducts(dbProducts as Producto[]);
-
+      
+      // Cargar configuración de la tienda incluyendo el estado abierta/cerrada
+      const { data: dbConfig } = await supabase.from('store_config').select('*').single();
+      if (dbConfig) {
+         setConfig(prev => ({ ...prev, ...dbConfig, coordenadas_tienda: { lat: dbConfig.tienda_lat, lng: dbConfig.tienda_lng } }));
+      }
+      
       // BUG FIX: Cargar configuración COMPLETA, no solo la tasa
       const { data: dbConfig } = await supabase.from('store_config').select('*').single();
       if (dbConfig) {
@@ -776,17 +805,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (dbCoupons) setCoupons(dbCoupons as Coupon[]);
 
       // BUG FIX: Si es admin, cargar TODO. Si es cliente, cargar lo propio.
-      const isAdmin = localStorage.getItem('trv_admin_auth') === 'true';
+      const { data: { session } } = await supabase.auth.getSession();
+      const isAdmin = session?.user.email === 'kecho8a@gmail.com' || session?.user.app_metadata?.role === 'admin';
 
       if (isAdmin) {
-        const { data: allOrders } = await supabase.from('orders').select('*').order('fecha', { ascending: false });
-        if (allOrders) setOrders(allOrders as Order[]);
+        setIsAdminAuthenticated(true);
+        // Cargar TODO para el admin ignorando filtros de usuario
+        const [ordersRes, usersRes, notifsRes] = await Promise.all([
+          supabase.from('orders').select('*').order('fecha', { ascending: false }),
+          supabase.from('usuarios_clientes').select('*'),
+          supabase.from('notifications').select('*').order('created_at', { ascending: false })
+        ]);
 
-        const { data: allUsers } = await supabase.from('usuarios_clientes').select('*');
-        if (allUsers) setUsers(allUsers.map(u => ({ ...u, createdAt: u.created_at })));
-
-        const { data: allNotifs } = await supabase.from('notifications').select('*').order('id', { ascending: false });
-        if (allNotifs) setNotifications(allNotifs as InAppNotification[]);
+        if (ordersRes.data) setOrders(ordersRes.data as Order[]);
+        if (usersRes.data) setUsers(usersRes.data.map(u => ({ ...u, createdAt: u.created_at, contrasena: 'managed' })));
+        if (notifsRes.data) setNotifications(notifsRes.data as InAppNotification[]);
       } else if (currentUser) {
         // Cargar Pedidos del usuario (por teléfono o ID)
         const { data: dbOrders } = await supabase.from('orders')
@@ -1063,6 +1096,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setOrders(prev => [newOrder, ...prev]);
     clearCart();
 
+    // BROADCAST: Enviar señal inmediata al Admin sin esperar a la DB
+    supabase.channel('marketo_realtime_system').send({
+      type: 'broadcast',
+      event: 'new_order_broadcast',
+      payload: newOrder
+    });
+
     // Trigger Notification for the store and the client
     addNotification('Nuevo Pedido Recibido', `Pedido ${newOrder.id} fue procesado correctamente para ${newOrder.cliente_nombre}.`);
 
@@ -1086,8 +1126,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newOrder;
   };
 
-  const updateOrderStatus = (orderId: string, status: Order['status'], estimatedTime?: string) => {
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status, tiempo_estimado_entrega: estimatedTime !== undefined ? estimatedTime : o.tiempo_estimado_entrega } : o));
+  const updateOrderStatus = (orderId: string, status: Order['status'], estimatedTime?: string, notas?: string) => {
+    setOrders(prev => prev.map(o => o.id === orderId ? { 
+      ...o, 
+      status, 
+      tiempo_estimado_entrega: estimatedTime !== undefined ? estimatedTime : o.tiempo_estimado_entrega,
+      notas_admin: notas !== undefined ? notas : o.notas_admin 
+    } : o));
     
     // Find who placed the order and send a profile notification
     const orderObj = orders.find(o => o.id === orderId);
@@ -1120,11 +1165,76 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (estimatedTime !== undefined) {
         updatePayload.tiempo_estimado_entrega = estimatedTime;
       }
+      if (notas !== undefined) {
+        updatePayload.notas_admin = notas;
+      }
       supabase.from('orders')
         .update(updatePayload)
         .eq('id', orderId)
         .then(({ error }) => { if (error) console.error('Update order status error:', error); });
     }
+  };
+
+  const updateOrderItems = async (orderId: string, newItems: OrderItem[]) => {
+    const originalOrder = orders.find(o => o.id === orderId);
+    if (!originalOrder) return;
+
+    const oldItems = originalOrder.items;
+
+    // Lógica para sincronizar stock automáticamente
+    const stockChanges = new Map<string, number>();
+
+    // Restamos las cantidades viejas del balance (las devolvemos al stock teóricamente)
+    oldItems.forEach(item => {
+      stockChanges.set(item.part_id, -(item.cantidad || 0));
+    });
+
+    // Sumamos las cantidades nuevas (las restamos del stock teóricamente)
+    newItems.forEach(item => {
+      const current = stockChanges.get(item.part_id) || 0;
+      stockChanges.set(item.part_id, current + (item.cantidad || 0));
+    });
+
+    // Aplicar cambios en la base de datos
+    for (const [partId, diff] of stockChanges.entries()) {
+      if (diff === 0) continue;
+      const { data: p } = await supabase.from('products').select('stock').eq('id', partId).single();
+      if (p) {
+        const nextStock = Math.max(0, p.stock - diff);
+        await supabase.from('products').update({ stock: nextStock }).eq('id', partId);
+      }
+    }
+
+    // Recalcular totales basados en la nueva lista de items
+    const subtotal = newItems.reduce((acc, item) => acc + (item.precio_usd * item.cantidad), 0);
+    
+    let discountPercent = 0;
+    if (originalOrder.metodo_pago === 'Pago Móvil') discountPercent = config.pagomovil_discount_percent || 0;
+    else if (originalOrder.metodo_pago === 'Zelle') discountPercent = config.zelle_discount_percent || 0;
+    else if (originalOrder.metodo_pago === 'Efectivo') discountPercent = config.efectivo_discount_percent || 0;
+    else if (originalOrder.metodo_pago === 'Transferencia') discountPercent = config.transferencia_discount_percent || 0;
+
+    const discountAmount = subtotal * (discountPercent / 100);
+    const subtotalAfterDiscount = subtotal - discountAmount - (originalOrder.descuento_cupon_usd || 0);
+    const totalUsd = subtotalAfterDiscount + (originalOrder.costo_envio_usd || 0);
+    const totalBs = totalUsd * config.tasa_cambio;
+
+    const updatePayload = {
+      items: newItems,
+      subtotal_usd: subtotal,
+      total_usd: totalUsd,
+      total_bs: totalBs
+    };
+
+    const { error } = await supabase.from('orders').update(updatePayload).eq('id', orderId);
+    if (error) {
+      console.error('Update order items error:', error);
+      throw error;
+    }
+
+    // Actualizar estado local y notificar al cliente
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, ...updatePayload } : o));
+    addNotification('Pedido Modificado', `Se han actualizado los productos de tu pedido ${orderId}. El nuevo total es $${totalUsd.toFixed(2)}.`, 'personal', originalOrder.cliente_telefono);
   };
 
   // --- COUPON MANAGEMENT ---
@@ -1482,9 +1592,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem('trv_admin_auth');
   };
 
-  const updateAdminCredentials = (user: string, pass: string) => {
-    setAdminUser(user.trim() || 'admin');
-    setAdminPass(pass.trim() || 'admin123');
+  const updateAdminCredentials = async (email: string, pass: string) => {
+    const { error } = await supabase.auth.updateUser({
+      email: email.trim(),
+      password: pass.trim()
+    });
+    if (error) {
+      alert('Error al actualizar credenciales: ' + error.message);
+    } else {
+      alert('Credenciales de acceso administrativo actualizadas correctamente en Supabase Auth.');
+    }
   };
 
   return (
@@ -1524,6 +1641,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       clearCart,
       createOrder,
       updateOrderStatus,
+      updateOrderItems,
       updateConfig,
       updateExchangeRate,
       fetchExchangeRate,

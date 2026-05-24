@@ -219,6 +219,20 @@ export const Home: React.FC<HomeProps> = ({
 
   return (
     <div className="flex flex-col gap-6 pb-24">
+      {/* AVISO DE TIENDA CERRADA */}
+      {!config.esta_abierta && (
+        <div className="sticky top-4 z-[60] mx-1">
+          <div className="bg-rose-600 text-white p-4 rounded-2xl shadow-xl flex items-center gap-4 border border-rose-500 animate-in slide-in-from-top-4">
+            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center shrink-0">
+              <AlertTriangle size={24} />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm uppercase">Hoy no trabajamos</h4>
+              <p className="text-xs text-white/90">Estamos tomando un descanso. Puedes ver el catálogo, pero el procesamiento de pedidos está pausado.</p>
+            </div>
+          </div>
+        </div>
+      )}
       <SEOHead title="Supermercado Express Marketo en Valencia" type="home" />
       <h1 className="sr-only">Supermercado Premium en Valencia con Delivery | Compra Víveres, Carnes, Quesos y Frescos en Naguanagua y San Diego</h1>
 

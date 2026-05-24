@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useApp } from '../store/AppContext';
-import { Producto, Order } from '../types/store';
+import { Producto, Order, OrderItem } from '../types/store';
 import { supabase, uploadFileToStorage, compressImage } from '../store/supabaseClient';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, LineChart, Line } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line } from 'recharts';
 import { 
   Plus, Edit, Trash2, Camera, Landmark, Settings, ShoppingBag, BarChart3, 
   Search, CheckCircle, Truck, PackageCheck, AlertTriangle, Send, Bell, Ticket,
@@ -27,7 +27,7 @@ export const Admin: React.FC<AdminProps> = ({
   const { 
     parts, orders, config, notifications, 
     addPart, updatePart, deletePart, updateConfig, updateExchangeRate, 
-    updateOrderStatus, addNotification, toggleNotificationReadStatus,
+    updateOrderStatus, updateOrderItems, addNotification, toggleNotificationReadStatus,
     updateAdminCredentials, adminUser, adminPass, users, updateUserByAdmin,
     addCategory, deleteCategory, updateCategory, 
     coupons, addCoupon, updateCoupon, deleteCoupon
@@ -40,7 +40,35 @@ export const Admin: React.FC<AdminProps> = ({
   const [newAdminPass, setNewAdminPass] = useState(adminPass);
 
   // Navigation within admin panel: 'inventory' | 'orders' | 'settings' | 'reports' | 'notifications' | 'customers'
-  const [adminSection, setAdminSection] = useState<'inventory' | 'orders' | 'settings' | 'reports' | 'notifications' | 'customers'>('reports');
+  const [adminSection, setAdminSection] = useState<'inventory' | 'orders' | 'settings' | 'reports' | 'notifications' | 'customers' | 'coupons'>('reports');
+
+  // New Order Modal State
+  const [incomingOrder, setIncomingOrder] = useState<Order | null>(null);
+  const [adminNote, setAdminNote] = useState('');
+
+  // State para edición de items de pedido
+  const [editingOrderItems, setEditingOrderItems] = useState<Order | null>(null);
+  const [tempEditItems, setTempEditItems] = useState<OrderItem[]>([]);
+  const [orderEditSearch, setOrderEditSearch] = useState('');
+
+  useEffect(() => {
+    if (editingOrderItems) {
+      setTempEditItems([...editingOrderItems.items]);
+    }
+  }, [editingOrderItems]);
+
+  const filteredCatalogForEdit = useMemo(() => {
+    if (!orderEditSearch.trim()) return [];
+    return parts.filter(p => p.nombre.toLowerCase().includes(orderEditSearch.toLowerCase()) || p.codigo.toLowerCase().includes(orderEditSearch.toLowerCase())).slice(0, 5);
+  }, [parts, orderEditSearch]);
+
+  useEffect(() => {
+    const handleNewOrder = (e: any) => {
+      setIncomingOrder(e.detail);
+    };
+    window.addEventListener('new_order_received', handleNewOrder);
+    return () => window.removeEventListener('new_order_received', handleNewOrder);
+  }, []);
 
   // Search input for inventory parts CRUD search
   const [crudSearch, setCrudSearch] = useState('');
@@ -124,6 +152,7 @@ export const Admin: React.FC<AdminProps> = ({
       setFormNuevo(part.es_nuevo);
       setFormVendido(part.es_mas_vendido);
       setFormDetalleAdicional(part.detalle_adicional || '');
+      setFormDisponibilidad((part as any).disponibilidad || 'Disponible');
     } else {
       setEditingPart(null);
       setFormCodigo('');
@@ -141,6 +170,7 @@ export const Admin: React.FC<AdminProps> = ({
       setFormNuevo(true);
       setFormVendido(false);
       setFormDetalleAdicional('');
+      setFormDisponibilidad('Disponible');
     }
     setIsEditorOpen(true);
   };
@@ -170,7 +200,8 @@ export const Admin: React.FC<AdminProps> = ({
       es_promo: formPromo,
       es_nuevo: formNuevo,
       es_mas_vendido: formVendido,
-      detalle_adicional: formDetalleAdicional.trim()
+      detalle_adicional: formDetalleAdicional.trim(),
+      disponibilidad: formDisponibilidad
     };
 
     if (editingPart) {
@@ -182,6 +213,13 @@ export const Admin: React.FC<AdminProps> = ({
     }
 
     setIsEditorOpen(false);
+  };
+
+  const handleProcessIncomingOrder = (status: Order['status']) => {
+    if (!incomingOrder) return;
+    updateOrderStatus(incomingOrder.id, status, '', adminNote);
+    setIncomingOrder(null);
+    setAdminNote('');
   };
 
   const handleCreateBroadcast = (e: React.FormEvent) => {
@@ -484,25 +522,37 @@ export const Admin: React.FC<AdminProps> = ({
       {/* DASHBOARD TOP HEADER BAR */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-200 pb-4 gap-3 bg-white p-4 rounded-xl shadow-sm">
         <div>
-          <span className="text-[11px] font-mono text-violet-600 font-bold uppercase tracking-wider">Control Total y Logística de Despacho Marketo</span>
+          <span className="text-[11px] font-mono text-violet-600 font-bold uppercase tracking-wider">Control Total • Marketo Supermarket</span>
           <h2 className="text-[21px] font-bold font-display text-slate-900">Dashboard Administrativo</h2>
         </div>
 
-        {/* Action Quick Rate Input */}
-        <div className="p-2.5 rounded-lg border border-violet-100 bg-violet-50/40 flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs text-slate-700">
-            <Landmark size={14} className="text-violet-600" />
-            <span>Tasa de Cambio (Bs):</span>
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Switch de Tienda Abierta/Cerrada */}
+          <button
+            onClick={() => updateConfig({ esta_abierta: !config.esta_abierta })}
+            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all border flex items-center gap-2 ${
+              config.esta_abierta 
+              ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+              : 'bg-rose-50 text-rose-700 border-rose-200'
+            }`}
+          >
+            <div className={`w-2 h-2 rounded-full ${config.esta_abierta ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+            {config.esta_abierta ? 'Tienda: Operativa' : 'Hoy No Trabajamos'}
+          </button>
+
+          <div className="p-2.5 rounded-lg border border-violet-100 bg-violet-50/40 flex items-center gap-3">
+            <div className="flex items-center gap-1.5 text-xs text-slate-700">
+              <Landmark size={14} className="text-violet-600" />
+              <span>Tasa:</span>
+            </div>
+            <input
+              type="number"
+              step="0.01"
+              value={config.tasa_cambio}
+              onChange={(e) => updateExchangeRate(Number(e.target.value))}
+              className="w-16 bg-white border border-slate-300 rounded-lg px-1 py-1 text-center font-mono text-xs font-bold"
+            />
           </div>
-          <input
-            type="number"
-            step="0.01"
-            value={config.tasa_cambio}
-            onChange={(e) => updateExchangeRate(Number(e.target.value))}
-            className="w-20 bg-white border border-slate-300 rounded-lg px-2 py-1 text-center font-mono text-xs text-slate-900 font-bold focus:outline-none focus:border-violet-500"
-            title="Modificar tasa del Bolívar en tiempo real"
-            placeholder="36.5"
-          />
         </div>
       </div>
 
@@ -720,9 +770,14 @@ export const Admin: React.FC<AdminProps> = ({
                   <div>
                     <div className="flex gap-2 items-center">
                       <h5 className="text-xs font-bold text-slate-900 line-clamp-1">{part.nombre}</h5>
-                      {part.activo === false && (
-                        <span className="bg-red-100 text-red-600 text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Inactivo</span>
-                      )}
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border ${
+                        (part as any).disponibilidad === 'Agotado' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                        (part as any).disponibilidad === 'En Reposición' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                        part.activo === false ? 'bg-slate-100 text-slate-500 border-slate-200' :
+                        'bg-emerald-50 text-emerald-600 border-emerald-100'
+                      }`}>
+                        {(part as any).disponibilidad || (part.activo ? 'Disponible' : 'Inactivo')}
+                      </span>
                     </div>
                     <div className="text-[10px] text-slate-500 font-mono flex gap-2 mt-0.5">
                       <span className="text-violet-600 font-bold">COD: {part.codigo}</span>
@@ -756,6 +811,55 @@ export const Admin: React.FC<AdminProps> = ({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE NUEVO PEDIDO EN TIEMPO REAL */}
+      {incomingOrder && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md">
+          <div className="w-full max-w-md bg-white rounded-2xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="p-5 bg-violet-600 text-white flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <ShoppingBag size={20} />
+                <h3 className="font-bold uppercase tracking-tighter">¡Nuevo Pedido Entrante!</h3>
+              </div>
+              <span className="text-xs font-mono bg-white/20 px-2 py-1 rounded">{incomingOrder.id}</span>
+            </div>
+            <div className="p-6 flex flex-col gap-4">
+              <div className="text-sm">
+                <p className="font-bold text-slate-900">{incomingOrder.cliente_nombre}</p>
+                <p className="text-slate-500">{incomingOrder.cliente_telefono}</p>
+                <div className="mt-3 p-3 bg-slate-50 rounded-lg border border-slate-100 font-mono text-xs">
+                   {incomingOrder.items.map((it, idx) => (
+                     <div key={idx} className="flex justify-between">
+                       <span>{it.cantidad}x {it.nombre}</span>
+                       <span className="font-bold">${it.precio_usd}</span>
+                     </div>
+                   ))}
+                   <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between font-bold text-violet-600">
+                     <span>TOTAL</span>
+                     <span>${incomingOrder.total_usd}</span>
+                   </div>
+                </div>
+              </div>
+              
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Nota para el cliente (Ej: Sin stock de x, cambio por y)</label>
+                <textarea 
+                  value={adminNote}
+                  onChange={(e) => setAdminNote(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl p-3 text-xs focus:ring-2 focus:ring-violet-500 outline-none"
+                  placeholder="Escriba aquí si hay algún cambio o mensaje especial..."
+                  rows={2}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <button onClick={() => handleProcessIncomingOrder('Procesando')} className="bg-emerald-600 text-white font-bold py-3 rounded-xl text-xs uppercase shadow-lg shadow-emerald-200">Aceptar Pedido</button>
+                <button onClick={() => setIncomingOrder(null)} className="bg-slate-100 text-slate-600 font-bold py-3 rounded-xl text-xs uppercase">Ver Luego</button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -843,6 +947,13 @@ export const Admin: React.FC<AdminProps> = ({
                   {/* Action transitions status with notifications dispatcher */}
                   <div className="flex flex-col sm:flex-row justify-between items-center pt-2 gap-3">
                     <div className="flex gap-2 w-full sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={() => setEditingOrderItems(order)}
+                        className="flex-1 sm:flex-none bg-emerald-600 text-white border border-emerald-500 hover:bg-emerald-700 px-2.5 py-2 rounded-lg text-[11px] font-mono flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-sm"
+                      >
+                        <Edit size={12} /> Modificar Productos
+                      </button>
                       <button
                         type="button"
                         onClick={() => setPrintingOrder(order)}
@@ -1212,6 +1323,140 @@ export const Admin: React.FC<AdminProps> = ({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DETALLADO PARA EDITAR PRODUCTOS DE UN PEDIDO */}
+      {editingOrderItems && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-2xl bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+            <div className="p-4 bg-emerald-600 text-white flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <Edit size={18} />
+                <h3 className="font-bold uppercase text-xs tracking-wider">Editor de Pedido: {editingOrderItems.id}</h3>
+              </div>
+              <button onClick={() => setEditingOrderItems(null)} className="hover:rotate-90 transition-transform"><X size={18}/></button>
+            </div>
+            
+            <div className="p-4 flex-1 overflow-y-auto flex flex-col gap-5">
+              <div className="flex flex-col gap-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Items actuales en el pedido</span>
+                {tempEditItems.length === 0 ? (
+                  <div className="text-center py-6 text-slate-400 text-xs border border-dashed rounded-xl italic">No hay productos. Agrega uno abajo.</div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {tempEditItems.map((item, idx) => (
+                      <div key={idx} className="flex justify-between items-center p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-slate-800">{item.nombre}</span>
+                          <span className="text-[10px] text-slate-500 font-mono">SKU: {item.codigo} • ${item.precio_usd}</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center border border-slate-200 rounded-lg bg-white overflow-hidden shadow-inner">
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                const next = [...tempEditItems];
+                                next[idx].cantidad = Math.max(1, next[idx].cantidad - 1);
+                                setTempEditItems(next);
+                              }}
+                              className="px-2.5 py-1 text-slate-500 hover:bg-slate-100 transition-colors"
+                            >-</button>
+                            <span className="px-3 text-xs font-bold font-mono text-slate-900 border-x border-slate-200">{item.cantidad}</span>
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                const next = [...tempEditItems];
+                                next[idx].cantidad += 1;
+                                setTempEditItems(next);
+                              }}
+                              className="px-2.5 py-1 text-slate-500 hover:bg-slate-100 transition-colors"
+                            >+</button>
+                          </div>
+                          <button 
+                            onClick={() => setTempEditItems(prev => prev.filter((_, i) => i !== idx))}
+                            className="text-rose-500 hover:bg-rose-50 p-2 rounded-lg transition-colors"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-3 border-t border-slate-100 pt-4">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Buscar y agregar nuevos productos</span>
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3 top-3 text-slate-400" />
+                    <input 
+                      type="text" 
+                      placeholder="Nombre del producto o código SKU..."
+                      value={orderEditSearch}
+                      onChange={(e) => setOrderEditSearch(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-emerald-500 transition-all"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex flex-col gap-1.5 max-h-[180px] overflow-y-auto pr-1">
+                  {filteredCatalogForEdit.map(p => (
+                    <button 
+                      key={p.id}
+                      onClick={() => {
+                        const existingIdx = tempEditItems.findIndex(item => item.part_id === p.id);
+                        if (existingIdx > -1) {
+                          const next = [...tempEditItems];
+                          next[existingIdx].cantidad += 1;
+                          setTempEditItems(next);
+                        } else {
+                          setTempEditItems(prev => [...prev, { part_id: p.id, nombre: p.nombre, codigo: p.codigo, precio_usd: p.precio_usd, cantidad: 1 }]);
+                        }
+                        setOrderEditSearch('');
+                      }}
+                      className="flex justify-between items-center p-2.5 bg-white hover:bg-emerald-50 border border-slate-100 rounded-xl transition-all text-left"
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-[11px] font-bold text-slate-700">{p.nombre}</span>
+                        <span className="text-[10px] text-slate-500 font-mono">${p.precio_usd} • Stock: {p.stock}</span>
+                      </div>
+                      <Plus size={14} className="text-emerald-600" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5 bg-slate-50 border-t border-slate-200 flex flex-col gap-3">
+              <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Nuevo Total Estimado:</span>
+                <div className="text-right">
+                  <div className="text-xl font-black text-emerald-600 font-mono">
+                    ${tempEditItems.reduce((acc, it) => acc + (it.precio_usd * it.cantidad), 0).toFixed(2)}
+                  </div>
+                  <div className="text-[9px] font-mono text-slate-400 uppercase">
+                    Original: ${editingOrderItems.total_usd.toFixed(2)}
+                  </div>
+                </div>
+              </div>
+              <button 
+                onClick={async () => {
+                  try {
+                    await updateOrderItems(editingOrderItems.id, tempEditItems);
+                    setEditingOrderItems(null);
+                    alert('Pedido actualizado y cliente notificado.');
+                  } catch (e) {
+                    alert('Error al guardar los cambios en el pedido.');
+                  }
+                }}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-4 rounded-xl text-xs uppercase tracking-widest shadow-lg shadow-emerald-200 active:scale-[0.98] transition-all"
+              >
+                Guardar Cambios y Notificar Cliente
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1653,7 +1898,8 @@ export const Admin: React.FC<AdminProps> = ({
                 es_nuevo: updatedPart.es_nuevo,
                 es_mas_vendido: updatedPart.es_mas_vendido,
                 delivery_gratis: updatedPart.delivery_gratis,
-                detalle_adicional: updatedPart.detalle_adicional
+                detalle_adicional: updatedPart.detalle_adicional,
+                disponibilidad: (updatedPart as any).disponibilidad
               };
               if (editingPart) {
                 updatePart(editingPart.id, payload);
@@ -1797,4 +2043,111 @@ export const Admin: React.FC<AdminProps> = ({
       )}
     </div>
   );
+};
+            <div className="border-t border-dashed border-black mt-3 pt-3 text-xs flex flex-col gap-1 font-mono">
+              <div className="flex justify-between">
+                <span>SUBTOTAL:</span>
+                <span>${(Number(printingOrder.subtotal_usd) || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>DELIVERY EXPRESS:</span>
+                <span>${(Number(printingOrder.costo_envio_usd) || 0).toFixed(2)}</span>
+              </div>
+              {printingOrder.cupon_codigo && (
+                <div className="flex justify-between text-violet-600 font-bold">
+                  <span>CUPÓN ({printingOrder.cupon_codigo}):</span>
+                  <span>-${(Number(printingOrder.descuento_cupon_usd) || 0).toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-extrabold text-sm border-t border-black pt-2">
+                <span>MONTO USD:</span>
+                <span>${(Number(printingOrder.total_usd) || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between font-bold text-gray-700 text-xs">
+                <span>EQUIVALENTE BS:</span>
+                <span>{(Number(printingOrder.total_usd || 0) * Number(config.tasa_cambio || 1)).toFixed(2)} Bs</span>
+              </div>
+            </div>
+
+            {/* Client specifics instructions footer */}
+            <div className="mt-4 p-2 bg-yellow-50/50 border border-yellow-100 text-[10px] leading-snug font-sans text-gray-850">
+              <strong>Cliente:</strong> {printingOrder.cliente_nombre}<br />
+              <strong>Telf:</strong> {printingOrder.cliente_telefono}<br />
+              <strong>Email:</strong> {printingOrder.cliente_email || 'No registrado'}<br />
+              <strong>Filtro Zona:</strong> {printingOrder.direccion_envio} ({printingOrder.distancia_km} km)
+            </div>
+
+            {/* Barcode scanner mockup image at the bottom of the bill receipt */}
+            <div className="flex flex-col items-center mt-5 pt-3 border-t border-dashed border-black">
+              <div className="w-full h-8 bg-black/10 rounded flex items-center justify-center text-[8px] tracking-[6px] text-gray-500 font-bold overflow-hidden select-none">
+                |||| | || || | |||| || | || ||| ||
+              </div>
+              <p className="text-[9px] text-gray-400 font-mono mt-1">¡Gracias por preferirnos en Valencia!</p>
+            </div>
+
+            {/* Close trigger button */}
+            <div className="absolute -bottom-14 left-0 right-0 z-40 flex justify-center print:hidden">
+              <button
+                type="button"
+                onClick={() => setPrintingOrder(null)}
+                className="bg-black text-[#7c3aed] border border-[#7c3aed]/40 shadow-xl px-5 py-2.5 text-xs font-bold uppercase rounded-lg flex items-center gap-1 hover:bg-zinc-900 transition-all font-mono cursor-pointer"
+              >
+                <X size={15} /> Cerrar Ficha Recibo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sleek Custom Toast Notification for Admin Actions */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-[100] max-w-sm w-[90vw] sm:w-[320px] bg-[#18181b]/95 border border-violet-500/40 px-4 py-3.5 rounded-xl shadow-2xl backdrop-blur-md transition-all duration-300 flex items-start gap-3 animate-fade-in-up">
+          <div className="bg-violet-500/10 p-2 rounded-lg border border-violet-500/20 shrink-0">
+            <Bell size={16} className="text-violet-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-xs font-bold text-violet-300 font-display leading-tight">{toastTitle}</h4>
+            <p className="text-[11px] text-zinc-300 mt-1 leading-relaxed font-sans">{toastMessage}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setToastMessage('');
+              setToastTitle('');
+            }}
+            className="text-zinc-400 hover:text-white text-[10px] font-mono uppercase bg-zinc-800/40 hover:bg-zinc-800 px-1.5 py-0.5 rounded cursor-pointer shrink-0"
+          >
+            Esc
+          </button>
+        </div>
+      )}
+    </div>
+  );
+      {/* CENTRO DE MENSAJES UNIFICADO */}
+      {adminSection === 'notifications' && (
+        <div className="flex flex-col gap-4">
+          <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <MessageSquare size={18} className="text-violet-600" /> Centro de Mensajes y Solicitudes
+            </h3>
+            <button onClick={() => setNotifications([])} className="text-[10px] text-slate-400 hover:text-red-500">Limpiar todo</button>
+          </div>
+          
+          <div className="grid grid-cols-1 gap-3">
+            {notifications.filter(n => n.tipo === 'request' || n.tipo === 'personal').map(msg => (
+              <div key={msg.id} className={`p-4 bg-white border rounded-xl flex flex-col gap-2 ${msg.leida ? 'opacity-60' : 'border-violet-200 shadow-md'}`}>
+                <div className="flex justify-between">
+                  <span className="text-[10px] font-bold text-violet-600 uppercase">{msg.titulo}</span>
+                  <span className="text-[10px] text-slate-400">{msg.fecha}</span>
+                </div>
+                <p className="text-xs text-slate-700 font-medium">{msg.mensaje}</p>
+                <div className="flex justify-end gap-2 mt-2">
+                  <a href={`https://wa.me/${msg.destinatario_telefono}`} target="_blank" className="bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold">WhatsApp</a>
+                  <button onClick={() => toggleNotificationReadStatus(msg.id)} className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-[10px] font-bold">Marcar Leído</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 };
