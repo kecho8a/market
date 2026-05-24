@@ -111,10 +111,16 @@ export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
           setValidationError('Todos los campos de registro son obligatorios.');
           return;
         }
-        const registered = await registerUser(clientName, clientEmail, clientPhone, clientPassword);
-        if (registered) {
-          finalUserId = registered.id;
-          finalClientEmail = registered.email || '';
+        try {
+          const registered = await registerUser(clientName, clientEmail, clientPhone, clientPassword);
+          if (registered) {
+            finalUserId = registered.id;
+            finalClientEmail = registered.email || '';
+          }
+        } catch (error: any) {
+          setValidationError(error.message || 'Error al crear la cuenta. Intente nuevamente.');
+          setIsProcessing(false);
+          return;
         }
       }
     }

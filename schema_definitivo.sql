@@ -167,6 +167,35 @@ CREATE TABLE IF NOT EXISTS notifications (
 -- 5.5 FUNCIONES Y TRIGGERS (AUTOMATIZACIÓN)
 -- ----------------------------------------------------------------------------
 
+-- Función para sincronizar perfiles automáticamente desde Auth
+CREATE OR REPLACE FUNCTION public.handle_auth_user_created()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO public.usuarios_clientes (id, nombre, email, telefono, contrasena)
+    VALUES (
+        NEW.id::text,
+        COALESCE(NEW.raw_user_meta_data->>'nombre', 'Usuario Nuevo'),
+        NEW.email,
+        COALESCE(NEW.raw_user_meta_data->>'telefono', ''),
+        'auth_managed' -- La contraseña real vive en auth.users
+    )
+    ON CONFLICT (id) DO NOTHING;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger de Sincronización (Ejecuta como superuser)
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_auth_user_created();
+
+-- Política de inserción para usuarios_clientes (Respaldo para inserción manual si se requiere)
+DROP POLICY IF EXISTS "Permitir inserción anonima" ON usuarios_clientes;
+CREATE POLICY "Permitir inserción anonima" ON usuarios_clientes 
+FOR INSERT WITH CHECK (true);
+
+
 -- Función robusta para acciones post-pedido (Stock, Cupones y Notificaciones Automáticas)
 CREATE OR REPLACE FUNCTION public.handle_new_order_actions()
 RETURNS TRIGGER AS $$

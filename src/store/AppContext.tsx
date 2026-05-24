@@ -1162,7 +1162,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     if (authError) {
-      console.error('Auth signUp error:', authError.message);
+      if (authError.status === 429) {
+        throw new Error("Límite de intentos alcanzado. Por favor, espere un minuto antes de intentar de nuevo.");
+      }
       throw authError;
     }
 
@@ -1175,18 +1177,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString()
     };
 
-    // Insert into Supabase
-    const { error } = await supabase.from('usuarios_clientes').insert([{
-      id: newUser.id,
-      nombre: newUser.nombre,
-      email: newUser.email,
-      telefono: newUser.telefono,
-      contrasena: newUser.contrasena
+    // Ya no es estrictamente necesario insertar aquí porque el TRIGGER lo hará.
+    // Pero lo intentamos por si el trigger tiene lag, ignorando errores de RLS.
+    await supabase.from('usuarios_clientes').insert([{
+        id: newUser.id,
+        nombre: newUser.nombre,
+        email: newUser.email,
+        telefono: newUser.telefono,
+        contrasena: newUser.contrasena
     }]);
-
-    if (error) {
-      console.error('Error inserting user to Supabase:', error);
-    }
     
     setUsers(prev => {
       // Remove any existing user with the same phone to avoid duplicates
