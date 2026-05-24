@@ -14,6 +14,10 @@ interface AppContextProps {
   toggleFavorite: (partId: string) => void;
   isFavorite: (partId: string) => boolean;
   
+  // Haptic Feedback
+  hapticEnabled: boolean;
+  toggleHaptic: () => void;
+  
   // User Management
   displayCurrency: 'USD' | 'BS';
   toggleCurrency: () => void;
@@ -511,6 +515,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return (localStorage.getItem('trv_currency') as 'USD' | 'BS') || 'USD';
   });
 
+  const [hapticEnabled, setHapticEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('trv_haptic_enabled');
+    return saved === null ? true : saved === 'true';
+  });
+
+  const hapticEnabledRef = useRef(hapticEnabled);
+  useEffect(() => {
+    hapticEnabledRef.current = hapticEnabled;
+  }, [hapticEnabled]);
+
+  const toggleHaptic = () => {
+    const newVal = !hapticEnabled;
+    setHapticEnabled(newVal);
+    localStorage.setItem('trv_haptic_enabled', String(newVal));
+  };
+
   const toggleCurrency = () => {
     const newCurrency = displayCurrency === 'USD' ? 'BS' : 'USD';
     setDisplayCurrency(newCurrency);
@@ -539,9 +559,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     currentUserRef.current = currentUser;
   }, [currentUser]);
 
-  const playNotificationSound = () => {
-    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+  const playNotificationSound = (type: 'new' | 'update', status?: Order['status']) => {
+    const soundUrl = type === 'new' 
+      ? 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3' // Sonido de Caja Registradora para nuevos pedidos
+      : 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; // Sonido Ding para actualizaciones
+    const audio = new Audio(soundUrl);
     audio.play().catch(() => console.log('Audio playback blocked by browser'));
+
+    if (hapticEnabledRef.current && typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      if (type === 'update' && status === 'En camino') {
+        navigator.vibrate(100); // Vibración corta para avisar al cliente que su pedido salió
+      }
+      if (type === 'new') {
+        navigator.vibrate([200, 100, 200]);
+      }
+    }
   };
 
   useEffect(() => {
@@ -576,7 +608,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           
           // Si el status cambió, emitir sonido
           if (old && old.status !== updated.status) {
-            playNotificationSound();
+            playNotificationSound('update', updated.status);
           }
 
           setOrders(prev =>
@@ -608,6 +640,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const newOrder = payload.payload;
           setOrders(prev => [newOrder, ...prev]);
           window.dispatchEvent(new CustomEvent('new_order_received', { detail: newOrder }));
+          playNotificationSound('new');
           
           if ('Notification' in window && Notification.permission === 'granted') {
              new Notification('¡NUEVO PEDIDO!', { body: `Cliente: ${newOrder.cliente_nombre} - Total: $${newOrder.total_usd}` });
@@ -755,11 +788,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Daily Exchange Rate Update Routine
   const fetchExchangeRate = async () => {
     try {
-      console.log('Fetching latest exchange rate from BCV...');
+      console.log('🔍 Marketo: Verificando tasa de cambio oficial BCV...');
       const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
       if (response.ok) {
         const data = await response.json();
-        // DolarAPI usa 'valor' para la tasa oficial del BCV
+        // DolarAPI retorna el campo 'valor' con la tasa oficial
         const rateValue = data.valor;
         if (rateValue) {
           const newRate = parseFloat(rateValue);
@@ -767,7 +800,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (!isNaN(newRate) && newRate > 1 && newRate < 1000) {
             updateExchangeRate(newRate);
             localStorage.setItem('trv_last_rate_fetch', new Date().toDateString());
-            console.log(`Rate updated to: ${newRate} Bs.`);
+            console.log(`✅ Tasa BCV actualizada automáticamente: ${newRate} Bs.`);
           } else {
             console.warn('Tasa de cambio fuera de rango lógico, ignorando:', newRate);
           }
@@ -1667,7 +1700,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       adminPass,
       requestPart,
       displayCurrency,
-      toggleCurrency
+      toggleCurrency,
+      hapticEnabled,
+      toggleHaptic
     }}>
       {children}
     </AppContext.Provider>

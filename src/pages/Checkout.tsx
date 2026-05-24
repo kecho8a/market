@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../store/AppContext';
-import { ListOrdered, Edit2, Trash2, MapPin, Phone, User, Landmark, Compass, Smartphone, CheckCircle, Info, X, Mail, Lock, LogIn, UserPlus } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { ListOrdered, Edit2, Trash2, MapPin, Phone, User, Landmark, Compass, Smartphone, CheckCircle, Info, X, Mail, Lock, LogIn, UserPlus, Rocket } from 'lucide-react';
 import { LeafletMap } from '../components/LeafletMap';
 import { SEOHead } from '../components/SEOHead';
 
@@ -21,6 +22,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
   const [couponInput, setCouponInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
   const [couponError, setCouponError] = useState('');
+  const [showCelebration, setShowCelebration] = useState(false);
 
   // Check if any item in the cart has free delivery
   const hasFreeDeliveryItem = cart.some(item => item.item.delivery_gratis);
@@ -84,6 +86,14 @@ export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
 
     setAppliedCoupon(found);
     setCouponInput('');
+
+    // Reproducir sonido de celebración (Aplausos)
+    const applause = new Audio('https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3');
+    applause.play().catch(() => console.log('Audio playback blocked by browser'));
+    
+    // Disparar animación de celebración (Cohetes y Papelillo)
+    setShowCelebration(true);
+    setTimeout(() => setShowCelebration(false), 3000);
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
@@ -342,6 +352,42 @@ ${productosDetailText}
   return (
     <div className="flex flex-col gap-6 pb-24 text-zinc-900">
       <SEOHead title="Checkout Rápido" />
+
+      {/* Animación de Celebración de Cupón (Papelillos y Cohetes) */}
+      <AnimatePresence>
+        {showCelebration && (
+          <div className="fixed inset-0 pointer-events-none z-[300] flex items-center justify-center overflow-hidden">
+            {[...Array(40)].map((_, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 1, scale: 0, x: 0, y: 100 }}
+                animate={{ 
+                  opacity: [1, 1, 0],
+                  scale: [0, 1.5, 0.5],
+                  x: (Math.random() - 0.5) * 800,
+                  y: -(Math.random() * 600 + 200),
+                  rotate: Math.random() * 1080
+                }}
+                transition={{ 
+                  duration: 2.5, 
+                  ease: [0.23, 1, 0.32, 1], // easeOutQuint para suavidad
+                  delay: Math.random() * 0.15 
+                }}
+                className="absolute"
+              >
+                {i % 10 === 0 ? (
+                  <Rocket size={32} className="text-violet-600 fill-violet-200" />
+                ) : (
+                  <div 
+                    className={`w-2.5 h-5 rounded-sm shadow-sm ${['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-blue-500', 'bg-rose-500'][i % 5]}`}
+                    style={{ transform: `rotate(${Math.random() * 90}deg)` }}
+                  />
+                )}
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Processing Overlay - Feedback Visual Global */}
       {isProcessing && (

@@ -29,11 +29,29 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
     sendPasswordResetEmail,
     markNotificationAsRead,
     addNotification,
-    deleteNotification
+    deleteNotification,
+    hapticEnabled,
+    toggleHaptic
   } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<'profile' | 'orders' | 'notifications'>('orders');
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot'>('login');
+
+  // ── Lógica de Popup Automático de Instalación (PWA) ────────────────────────
+  const [showAutoPopup, setShowAutoPopup] = useState(false);
+
+  useEffect(() => {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const hasSeenThisSession = sessionStorage.getItem('marketo_install_popup_shown');
+
+    if (deferredPrompt && !isStandalone && !hasSeenThisSession) {
+      const timer = setTimeout(() => {
+        setShowAutoPopup(true);
+        sessionStorage.setItem('marketo_install_popup_shown', 'true');
+      }, 3000); // Aparece 3 segundos después de cargar para mejor UX
+      return () => clearTimeout(timer);
+    }
+  }, [deferredPrompt]);
 
   // ── Delivery Timeline Modal (disparado al finalizar el checkout) ─────────────────
   const [activeOrderModalId, setActiveOrderModalId] = useState<string | null>(null);
@@ -332,6 +350,52 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
   return (
     <div className="flex flex-col gap-6 pb-24 text-zinc-900 bg-white">
       <SEOHead title={currentUser ? `Panel de ${currentUser.nombre}` : "Panel de Usuario"} />
+
+      {/* Pop-up de Instalación Automática (PWA) */}
+      {showAutoPopup && deferredPrompt && (
+        <div className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <motion.div 
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-zinc-200 overflow-hidden mb-16 sm:mb-0"
+          >
+            <div className="p-5 flex flex-col gap-4">
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-violet-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-violet-200">
+                    <Package size={24} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-zinc-900 uppercase tracking-tight">Instalar Marketo App</h4>
+                    <p className="text-[11px] text-zinc-500 font-medium leading-tight">Acceso instantáneo, notificaciones push y mejor rendimiento sin usar el navegador.</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowAutoPopup(false)} className="text-zinc-400 hover:text-zinc-600 p-1 cursor-pointer">
+                  <X size={18} />
+                </button>
+              </div>
+              
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => {
+                    if (onInstallClick) onInstallClick();
+                    setShowAutoPopup(false);
+                  }}
+                  className="w-full bg-violet-600 hover:bg-violet-700 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest shadow-lg shadow-violet-200 transition-all active:scale-95 cursor-pointer"
+                >
+                  Descargar e Instalar
+                </button>
+                <button
+                  onClick={() => setShowAutoPopup(false)}
+                  className="w-full bg-zinc-50 hover:bg-zinc-100 text-zinc-500 font-bold py-2.5 rounded-xl text-[10px] uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  Quizás más tarde
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* Delivery Timeline Modal (llamativo, animado) */}
       {showOrderTimelineModal && modalOrder && (
