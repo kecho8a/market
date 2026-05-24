@@ -59,6 +59,46 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
     }
   }, []);
 
+  // Función auxiliar para convertir la llave VAPID de Base64 a Uint8Array
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  };
+
+  const subscribeUserToPush = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !currentUser) return;
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      
+      // Suscribirse al servidor de Push del navegador (FCM/Apple/Mozilla)
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY)
+      });
+
+      // Extraer llaves y endpoint para la DB
+      const subJSON = subscription.toJSON();
+      
+      const { error } = await supabase.from('push_subscriptions').upsert({
+        user_id: currentUser.id,
+        endpoint: subJSON.endpoint,
+        p256dh: subJSON.keys?.p256dh,
+        auth_secret: subJSON.keys?.auth
+      }, { onConflict: 'user_id, endpoint' });
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error al registrar suscripción push en Supabase:', err);
+    }
+  };
+
   const requestNotificationPermission = async () => {
     if (typeof window === 'undefined' || !('Notification' in window)) {
       return;
@@ -68,6 +108,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
       const res = await Notification.requestPermission();
       setNotificationPermission(res as any);
       if (res === 'granted') {
+        // Si el usuario acepta, procedemos a crear la suscripción push real
+        await subscribeUserToPush();
+        
         new Notification('¡Notificaciones Habilitadas!', {
           body: '¡Excelente! Ahora recibirás actualizaciones rápidas de tus pedidos y promociones de Marketo.',
           icon: 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&q=80&w=100',

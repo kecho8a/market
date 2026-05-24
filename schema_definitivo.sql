@@ -123,6 +123,19 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS descuento_cupon_usd NUMERIC(10,2) DE
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS cupon_codigo TEXT;
 
 -- ----------------------------------------------------------------------------
+-- 4.6 push_subscriptions (SISTEMA DE NOTIFICACIONES PUSH)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.push_subscriptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    endpoint TEXT NOT NULL,
+    p256dh TEXT NOT NULL,
+    auth_secret TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, endpoint)
+);
+
+-- ----------------------------------------------------------------------------
 -- 4.5 coupons (SISTEMA DE FIDELIZACIÓN)
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS coupons (
@@ -154,31 +167,72 @@ CREATE TABLE IF NOT EXISTS notifications (
 -- 5.5 FUNCIONES Y TRIGGERS (AUTOMATIZACIÓN)
 -- ----------------------------------------------------------------------------
 
--- Función para reducir stock y aumentar contador de cupones automáticamente
+-- Función robusta para acciones post-pedido (Stock, Cupones y Notificaciones Automáticas)
 CREATE OR REPLACE FUNCTION public.handle_new_order_actions()
 RETURNS TRIGGER AS $$
 DECLARE
-    item RECORD;
+    item_json jsonb;
+    v_part_id uuid;
+    v_cantidad int;
+    v_notif_id text;
 BEGIN
-    -- 1. Reducir Stock de productos
-    FOR item IN SELECT * FROM jsonb_to_recordset(NEW.items) AS x(part_id uuid, cantidad int)
+    -- 1. Procesar Stock con resiliencia de mapeo
+    FOR item_json IN SELECT jsonb_array_elements(NEW.items)
     LOOP
-        UPDATE public.products
-        SET stock = GREATEST(0, stock - item.cantidad)
-        WHERE id = item.part_id;
+        BEGIN
+            -- Intentar mapear múltiples posibles nombres de campos del frontend
+            v_part_id := (COALESCE(item_json->>'part_id', item_json->>'id', item_json->>'producto_id'))::uuid;
+            v_cantidad := (COALESCE(item_json->>'cantidad', item_json->>'quantity', item_json->>'qty'))::int;
+
+            IF v_part_id IS NOT NULL THEN
+                UPDATE public.products
+                SET stock = GREATEST(0, stock - v_cantidad)
+                WHERE id = v_part_id;
+            END IF;
+        EXCEPTION WHEN OTHERS THEN
+            -- Logear error pero no romper la transacción del pedido
+            RAISE WARNING 'Error actualizando stock para item %: %', v_part_id, SQLERRM;
+        END;
     END LOOP;
 
-    -- 2. Incrementar contador de uso de cupón si existe
+    -- 2. Gestión de Cupones
     IF NEW.cupon_codigo IS NOT NULL THEN
         UPDATE public.coupons
         SET usage_count = usage_count + 1
         WHERE code = NEW.cupon_codigo;
     END IF;
 
+    -- 3. Inserción Automática de Notificación (Atomicidad asegurada)
+    v_notif_id := 'notif-' || encode(gen_random_bytes(6), 'hex');
+    
+    INSERT INTO public.notifications (
+        id, 
+        titulo, 
+        mensaje, 
+        fecha, 
+        tipo, 
+        destinatario_telefono, 
+        leida
+    ) VALUES (
+        v_notif_id,
+        'Nuevo Pedido: ' || NEW.id,
+        'El cliente ' || NEW.cliente_nombre || ' ha realizado una compra por $' || NEW.total_usd,
+        to_char(NOW(), 'DD/MM/YYYY HH24:MI'),
+        'admin',
+        NEW.cliente_telefono,
+        FALSE
+    );
+
+    RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+    -- En caso de error fatal, permitimos que el pedido se cree pero notificamos el fallo
+    RAISE WARNING 'Fallo crítico en trigger handle_new_order_actions: %', SQLERRM;
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Reiniciar el trigger
+DROP TRIGGER IF EXISTS trigger_order_completion ON public.orders;
 CREATE TRIGGER trigger_order_completion
 AFTER INSERT ON public.orders
 FOR EACH ROW
@@ -234,12 +288,21 @@ BEGIN
     CREATE POLICY "orders_insert_allow_anon" ON orders FOR INSERT WITH CHECK (true);
   END IF;
 
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='orders' AND policyname='orders_select_own_or_admin') THEN
-    CREATE POLICY "orders_select_own_or_admin" ON orders 
-      FOR SELECT 
-      TO authenticated 
-      USING (auth.uid()::text = cliente_uid OR auth.jwt() ->> 'email' = 'admin@marketo.com.ve'); -- Cambiar por email real
-  END IF;
+  -- Política de lectura optimizada para Admin y Clientes
+  DROP POLICY IF EXISTS "orders_select_own_or_admin" ON orders;
+  CREATE POLICY "orders_select_own_or_admin" ON orders 
+    FOR SELECT 
+    USING (
+      auth.uid()::text = cliente_uid 
+      OR 
+      (auth.jwt() ->> 'email' = 'admin@marketo.com.ve')
+      OR
+      (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
+    );
+
+  -- Política de actualización para Admin (necesaria para cambiar status)
+  DROP POLICY IF EXISTS "orders_update_admin" ON orders;
+  CREATE POLICY "orders_update_admin" ON orders FOR UPDATE USING (auth.jwt() ->> 'email' = 'admin@marketo.com.ve');
 
   -- ============================
   -- usuarios_clientes
@@ -284,6 +347,17 @@ BEGIN
 
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='coupons' AND policyname='Gestion cupones admin') THEN
     CREATE POLICY "Gestion cupones admin" ON coupons FOR ALL TO authenticated USING (true);
+  END IF;
+
+  -- ============================
+  -- push_subscriptions
+  -- ============================
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='push_subscriptions' AND policyname='manage_own_push_subscriptions') THEN
+    ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
+    CREATE POLICY "manage_own_push_subscriptions" ON public.push_subscriptions
+      FOR ALL 
+      TO authenticated 
+      USING (auth.uid() = user_id);
   END IF;
 
 END $$;
