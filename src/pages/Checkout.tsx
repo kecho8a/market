@@ -193,7 +193,7 @@ ${productosDetailText}
       metodo_pago: selectedPayment,
       lat: shippingLat,
       lng: shippingLng,
-      direccion_envio: shippingZone,
+      direccion_envio: `${shippingZone} (Distancia: ${shippingDistance}km)`,
       distancia_km: shippingDistance
     }, preOrderId);
 

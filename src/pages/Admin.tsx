@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useApp } from '../store/AppContext';
 import { Producto, Order } from '../types/store';
+import { supabase, uploadFileToStorage, compressImage } from '../store/supabaseClient';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, LineChart, Line } from 'recharts';
 import { 
   Plus, Edit, Trash2, Camera, Landmark, Settings, ShoppingBag, BarChart3, 
@@ -9,38 +10,6 @@ import {
 } from 'lucide-react';
 import { SEOHead } from '../components/SEOHead';
 import { EditProductForm } from '../components/EditProductForm';
-
-const compressImage = (file: File, callback: (base64: string) => void, formatOverride?: 'image/webp' | 'image/jpeg') => {
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const MAX_WIDTH = 600;
-      let width = img.width;
-      let height = img.height;
-
-      if (width > MAX_WIDTH) {
-        height = Math.round((height * MAX_WIDTH) / width);
-        width = MAX_WIDTH;
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(img, 0, 0, width, height);
-        const format = formatOverride || (file.type === 'image/webp' ? 'image/webp' : 'image/jpeg');
-        const compressedBase64 = canvas.toDataURL(format, 0.75);
-        callback(compressedBase64);
-      } else {
-        callback(e.target?.result as string);
-      }
-    };
-    img.src = e.target?.result as string;
-  };
-  reader.readAsDataURL(file);
-};
 
 interface AdminProps {
   onOpenScanner: () => void;
@@ -1396,14 +1365,16 @@ export const Admin: React.FC<AdminProps> = ({
                 <input
                   type="file"
                   accept="image/png, image/jpeg"
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (file) {
-                      const reader = new FileReader();
-                      reader.onloadend = () => {
-                        updateConfig({ logo_url: reader.result as string });
-                      };
-                      reader.readAsDataURL(file);
+                      try {
+                        const compressed = await compressImage(file, { maxWidth: 400, format: 'image/png' });
+                        const url = await uploadFileToStorage(compressed, 'settings', 'logos');
+                        updateConfig({ logo_url: url });
+                      } catch (err) {
+                        alert('Error al subir el logo: ' + (err as any).message);
+                      }
                     }
                   }}
                   className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500"
@@ -1418,14 +1389,16 @@ export const Admin: React.FC<AdminProps> = ({
                 <input
                   type="file"
                   accept="image/png, image/jpeg, image/x-icon"
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (file) {
-                      const reader = new FileReader();
-                      reader.onloadend = () => {
-                        updateConfig({ favicon_url: reader.result as string });
-                      };
-                      reader.readAsDataURL(file);
+                      try {
+                        const compressed = await compressImage(file, { maxWidth: 64, format: 'image/png' });
+                        const url = await uploadFileToStorage(compressed, 'settings', 'favicons');
+                        updateConfig({ favicon_url: url });
+                      } catch (err) {
+                        alert('Error al subir el favicon: ' + (err as any).message);
+                      }
                     }
                   }}
                   className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500"

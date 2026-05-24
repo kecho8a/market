@@ -549,8 +549,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .channel('realtime_config')
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'store_config' }, payload => {
           const newRow = (payload as any)?.new;
-          if (newRow?.tasa_cambio !== undefined) {
-            setConfig(prev => ({ ...prev, tasa_cambio: Number(newRow.tasa_cambio) }));
+          if (newRow) {
+            setConfig(prev => ({
+              ...prev,
+              ...newRow,
+              tasa_cambio: Number(newRow.tasa_cambio) || prev.tasa_cambio,
+              coordenadas_tienda: newRow.tienda_lat ? { lat: newRow.tienda_lat, lng: newRow.tienda_lng } : prev.coordenadas_tienda,
+              banners: [newRow.banner_url_1, newRow.banner_url_2, newRow.banner_url_3].filter(Boolean).length > 0 
+                ? [newRow.banner_url_1, newRow.banner_url_2, newRow.banner_url_3].filter(Boolean)
+                : prev.banners
+            }));
           }
         })
         .subscribe();
@@ -745,29 +753,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const { data: dbProducts } = await supabase.from('products').select('*').eq('activo', true);
       if (dbProducts) setProducts(dbProducts as Producto[]);
 
-      // Cargar configuración
+      // BUG FIX: Cargar configuración COMPLETA, no solo la tasa
       const { data: dbConfig } = await supabase.from('store_config').select('*').single();
       if (dbConfig) {
-        setConfig(prev => ({ ...prev, tasa_cambio: dbConfig.tasa_cambio }));
+        setConfig(prev => ({
+          ...prev,
+          site_nombre: dbConfig.site_nombre || prev.site_nombre,
+          telefono_soporte: dbConfig.telefono_soporte || prev.telefono_soporte,
+          direccion_fisica: dbConfig.direccion_fisica || prev.direccion_fisica,
+          tasa_cambio: dbConfig.tasa_cambio || prev.tasa_cambio,
+          coordenadas_tienda: { lat: dbConfig.tienda_lat, lng: dbConfig.tienda_lng },
+          banners: [dbConfig.banner_url_1, dbConfig.banner_url_2, dbConfig.banner_url_3].filter(Boolean),
+          pagomovil_data: dbConfig.pagomovil_data,
+          zelle_data: dbConfig.zelle_data,
+          efectivo_data: dbConfig.efectivo_data,
+          transferencia_data: dbConfig.transferencia_data
+        }));
       }
 
       // Cargar cupones
       const { data: dbCoupons } = await supabase.from('coupons').select('*');
       if (dbCoupons) setCoupons(dbCoupons as Coupon[]);
-      
-      // Cargar datos del usuario si está autenticado para persistencia real
-      if (currentUser) {
+
+      // BUG FIX: Si es admin, cargar TODO. Si es cliente, cargar lo propio.
+      const isAdmin = localStorage.getItem('trv_admin_auth') === 'true';
+
+      if (isAdmin) {
+        const { data: allOrders } = await supabase.from('orders').select('*').order('fecha', { ascending: false });
+        if (allOrders) setOrders(allOrders as Order[]);
+
+        const { data: allUsers } = await supabase.from('usuarios_clientes').select('*');
+        if (allUsers) setUsers(allUsers.map(u => ({ ...u, createdAt: u.created_at })));
+
+        const { data: allNotifs } = await supabase.from('notifications').select('*').order('id', { ascending: false });
+        if (allNotifs) setNotifications(allNotifs as InAppNotification[]);
+      } else if (currentUser) {
         // Cargar Pedidos del usuario (por teléfono o ID)
         const { data: dbOrders } = await supabase.from('orders')
           .select('*')
-          .or(`cliente_telefono.eq.${currentUser.telefono},cliente_uid.eq.${currentUser.id}`)
+          .or(`cliente_telefono.eq."${currentUser.telefono}",cliente_uid.eq."${currentUser.id}"`)
           .order('fecha', { ascending: false });
         if (dbOrders) setOrders(dbOrders as Order[]);
 
         // Cargar Notificaciones (Globales y personales)
         const { data: dbNotifs } = await supabase.from('notifications')
           .select('*')
-          .or(`tipo.eq.todos,destinatario_telefono.eq.${currentUser.telefono}`)
+          .or(`tipo.eq.todos,destinatario_telefono.eq."${currentUser.telefono}"`)
           .order('id', { ascending: false });
         if (dbNotifs) setNotifications(dbNotifs as InAppNotification[]);
       }
@@ -778,7 +809,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsGlobalLoading(false);
     };
     initData();
-  }, [currentUser]); // Eliminado lastFetch de aquí para evitar ReferenceError
+  }, [currentUser, isAdminAuthenticated]); // Re-ejecutar al cambiar login o admin
 
   const toggleFavorite = (partId: string) => {
     setFavorites(prev => 

@@ -2,38 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Producto } from '../types/store';
 import { X, Upload, Camera, Plus, Trash2 } from 'lucide-react';
 import { useApp } from '../store/AppContext';
-
-const compressImage = (file: File, callback: (base64: string) => void, formatOverride?: 'image/webp' | 'image/jpeg') => {
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const MAX_WIDTH = 600;
-      let width = img.width;
-      let height = img.height;
-
-      if (width > MAX_WIDTH) {
-        height = Math.round((height * MAX_WIDTH) / width);
-        width = MAX_WIDTH;
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(img, 0, 0, width, height);
-        const format = formatOverride || (file.type === 'image/webp' ? 'image/webp' : 'image/jpeg');
-        const compressedBase64 = canvas.toDataURL(format, 0.75);
-        callback(compressedBase64);
-      } else {
-        callback(e.target?.result as string);
-      }
-    };
-    img.src = e.target?.result as string;
-  };
-  reader.readAsDataURL(file);
-};
+import { uploadFileToStorage, compressImage } from '../store/supabaseClient';
 
 interface EditProductFormProps {
   part: Producto;
@@ -405,26 +374,20 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({ part, onSubmit
                   type="file"
                   accept="image/*"
                   multiple
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const files = e.target.files;
                     if (files && files.length > 0) {
-                      const newImages: string[] = [];
-                      let processedCount = 0;
-                      
                       for (let i = 0; i < files.length; i++) {
                         const file = files[i];
-                        if (file) {
-                          compressImage(file, (base64) => {
-                            newImages.push(base64);
-                            processedCount++;
-                            
-                            if (processedCount === files.length) {
-                              setFormImages(prev => {
-                                const currentImages = prev.filter(img => img.trim() !== '');
-                                return [...currentImages, ...newImages];
-                              });
-                            }
-                          }, uploadFormat);
+                        try {
+                          const compressed = await compressImage(file, { maxWidth: 800, format: uploadFormat });
+                          const url = await uploadFileToStorage(compressed, 'products', 'catalog');
+                          setFormImages(prev => {
+                            const currentImages = prev.filter(img => img.trim() !== '');
+                            return [...currentImages, url];
+                          });
+                        } catch (err) {
+                          console.error("Error subiendo imagen:", err);
                         }
                       }
                     }
