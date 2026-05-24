@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Camera, CameraOff, Sparkles, RefreshCcw, AlertCircle, Volume2 } from 'lucide-react';
+import { Camera, CameraOff, Sparkles, RefreshCcw, AlertCircle, Volume2, Zap, ZapOff } from 'lucide-react';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { useApp } from '../store/AppContext';
 
 interface BarcodeScannerProps {
@@ -9,51 +10,85 @@ interface BarcodeScannerProps {
 
 export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScanSuccess, onClose }) => {
   const { parts } = useApp();
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanStatus, setScanStatus] = useState<string>('Iniciando cámara...');
+  const [isTorchSupported, setIsTorchSupported] = useState(false);
+  const [isTorchOn, setIsTorchOn] = useState(false);
   const [availableSKUs] = useState<string[]>(() => {
     // Collect SKU codes from existing products
     return parts.map(p => p.codigo);
   });
   const [selectedSimulatedSKU, setSelectedSimulatedSKU] = useState<string>('');
 
-  // Start live stream
   useEffect(() => {
-    let activeStream: MediaStream | null = null;
-    
-    const startCam = async () => {
+    const startScanner = async () => {
       try {
-        setScanStatus('Solicitando permisos de cámara...');
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
-        });
-        
-        activeStream = stream;
-        streamRef.current = stream;
-        
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          setHasPermission(true);
-          setScanStatus('Buscando códigos de barra / SKU en el visor...');
+        const html5QrCode = new Html5Qrcode("scanner-viewport");
+        scannerRef.current = html5QrCode;
+
+        const config = { 
+          fps: 15, 
+          qrbox: { width: 280, height: 160 },
+          formatsToSupport: [ 
+            Html5QrcodeSupportedFormats.EAN_13, 
+            Html5QrcodeSupportedFormats.EAN_8, 
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.QR_CODE 
+          ]
+        };
+
+        await html5QrCode.start(
+          { facingMode: "environment" },
+          config,
+          (decodedText) => {
+            handleSimulateScan(decodedText);
+          },
+          () => {} // Ignoramos errores de frame no detectado para evitar saturar la consola
+        );
+
+        // Detectar si el dispositivo soporta linterna (torch)
+        try {
+          const track = html5QrCode.getRunningTrack();
+          const capabilities = track.getCapabilities() as any;
+          if (capabilities.torch) {
+            setIsTorchSupported(true);
+          }
+        } catch (e) {
+          console.log("Linterna no soportada en este hardware/navegador");
         }
+
+        setHasPermission(true);
+        setScanStatus('Escáner activo: Apunte al código de barras...');
       } catch (err) {
-        console.warn("Could not acquire actual camera feed:", err);
+        console.error("Scanner Error:", err);
         setHasPermission(false);
-        setScanStatus('Cámara física no disponible en este dispositivo. Simula el escaneo con el selector rápido.');
+        setScanStatus('Error: Cámara no disponible. Use el emulador abajo.');
       }
     };
 
-    startCam();
+    startScanner();
 
-    // Clean up
     return () => {
-      if (activeStream) {
-        activeStream.getTracks().forEach(track => track.stop());
+      if (scannerRef.current) {
+        scannerRef.current.stop().catch(e => console.error("Error al detener cámara:", e));
       }
     };
   }, []);
+
+  const toggleTorch = async () => {
+    if (!scannerRef.current || !isTorchSupported) return;
+    try {
+      const nextState = !isTorchOn;
+      const track = scannerRef.current.getRunningTrack();
+      await (track as any).applyConstraints({
+        advanced: [{ torch: nextState }]
+      });
+      setIsTorchOn(nextState);
+    } catch (err) {
+      console.error("Error al controlar la linterna:", err);
+    }
+  };
 
   // Make an interactive audio feedback beep using Web Audio API!
   const triggerBeepSuccess = () => {
@@ -105,15 +140,9 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScanSuccess, o
 
         {/* Viewfinder Window */}
         <div className="relative aspect-video w-full bg-[#0b0c10] flex items-center justify-center overflow-hidden border-b border-white/5">
-          {hasPermission === true ? (
-            <video 
-              ref={videoRef}
-              autoPlay 
-              playsInline 
-              muted
-              className="w-full h-full object-cover scale-x-102 opacity-75"
-            />
-          ) : (
+          <div id="scanner-viewport" className="w-full h-full overflow-hidden" />
+          
+          {hasPermission === false && (
             <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center text-gray-500 bg-[#0f1218]">
               <CameraOff size={36} className="text-gray-600 mb-2" />
               <p className="text-xs uppercase tracking-wider font-mono font-bold text-yellow-500/80 mb-1 flex items-center gap-1">
@@ -123,6 +152,19 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScanSuccess, o
                 El entorno no tiene acceso directo a la cámara. Usa el emulador de escaneo premium estructurado abajo.
               </p>
             </div>
+          )}
+
+          {/* Torch Toggle Button */}
+          {isTorchSupported && hasPermission && (
+            <button
+              type="button"
+              onClick={toggleTorch}
+              className={`absolute top-4 left-4 z-20 p-2.5 rounded-full transition-all border ${
+                isTorchOn ? 'bg-yellow-400 text-black border-yellow-300' : 'bg-black/40 text-white border-white/20'
+              }`}
+            >
+              {isTorchOn ? <Zap size={18} /> : <ZapOff size={18} />}
+            </button>
           )}
 
           {/* Glowing laser target guidelines */}

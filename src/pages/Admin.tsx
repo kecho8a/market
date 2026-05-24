@@ -6,7 +6,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, L
 import { 
   Plus, Edit, Trash2, Camera, Landmark, Settings, ShoppingBag, BarChart3, 
   Search, CheckCircle, Truck, PackageCheck, AlertTriangle, Send, Bell, Ticket,
-  Receipt, Printer, Check, X, MessageSquare, ExternalLink, Upload, DollarSign, Package, ShoppingCart, User, Download, FileSpreadsheet
+  Receipt, Printer, Check, X, MessageSquare, ExternalLink, Upload, DollarSign, Package, ShoppingCart, User, Download, FileSpreadsheet, Eye, EyeOff
 } from 'lucide-react';
 import { SEOHead } from '../components/SEOHead';
 import { EditProductForm } from '../components/EditProductForm';
@@ -41,6 +41,7 @@ export const Admin: React.FC<AdminProps> = ({
 
   // Navigation within admin panel: 'inventory' | 'orders' | 'settings' | 'reports' | 'notifications' | 'customers'
   const [adminSection, setAdminSection] = useState<'inventory' | 'orders' | 'settings' | 'reports' | 'notifications' | 'customers' | 'coupons'>('reports');
+  const [showAdminPass, setShowAdminPass] = useState(false);
 
   // New Order Modal State
   const [incomingOrder, setIncomingOrder] = useState<Order | null>(null);
@@ -1757,13 +1758,22 @@ export const Admin: React.FC<AdminProps> = ({
                   placeholder="Usuario"
                   className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500"
                 />
-                <input
-                  type="text"
-                  value={newAdminPass}
-                  onChange={(e) => setNewAdminPass(e.target.value)}
-                  placeholder="Contraseña"
-                  className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500"
-                />
+                <div className="relative">
+                  <input
+                    type={showAdminPass ? "text" : "password"}
+                    value={newAdminPass}
+                    onChange={(e) => setNewAdminPass(e.target.value)}
+                    placeholder="Contraseña"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500 pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminPass(!showAdminPass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                  >
+                    {showAdminPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={() => {
