@@ -1002,191 +1002,34 @@ export const Admin: React.FC<AdminProps> = ({
         </div>
       )}
 
-      {/* ----------------- SUBSECTION 4: WEB PUSH BROADCASTER & IN-APP NOTIFICATIONS ----------------- */}
+      {/* CENTRO DE MENSAJES UNIFICADO (Subsection 4) */}
       {adminSection === 'notifications' && (
         <div className="flex flex-col gap-4">
-          <div className="p-4 border border-slate-200 rounded-lg bg-white shadow-sm flex flex-col gap-3">
-            <span className="text-xs font-bold font-display text-slate-900 uppercase tracking-wider flex items-center gap-1"><Bell size={14} className="text-violet-600" /> Emitir Comunicado / Web Push</span>
-            <p className="text-[11px] text-slate-500 leading-normal">Permite redactar y disparar un mensaje de alerta push en tiempo real a todos los motorizados o clientes suscritos en Valencia, Carabobo.</p>
-
-            <form onSubmit={handleCreateBroadcast} className="flex flex-col gap-3.5 text-xs text-slate-900">
-              {/* Type Selection Field */}
-              <div className="flex flex-col gap-1">
-                <span className="font-semibold text-slate-700">Tipo de Notificación *</span>
-                <select
-                  value={broadcastTipo}
-                  onChange={(e) => setBroadcastTipo(e.target.value as 'todos' | 'personal' | 'admin')}
-                  className="bg-slate-50 border border-slate-300 text-slate-900 rounded-lg px-3 py-2 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
-                >
-                  <option value="todos">Todos los Usuarios (Público / Promoción)</option>
-                  <option value="personal">Personal / Dirigida (Cliente específico por Teléfono)</option>
-                  <option value="admin">Administrador (Uso interno)</option>
-                </select>
-              </div>
-
-              {/* Optional Client Phone Field */}
-              {broadcastTipo === 'personal' && (
-                <div className="flex flex-col gap-1 border-l-2 border-violet-500 pl-3 py-1 bg-violet-50/50 rounded-r-lg transition-all animate-fade-in animate-duration-300">
-                  <span className="font-semibold text-violet-700">Teléfono del destinatario *</span>
-                  <input
-                    type="text"
-                    required
-                    value={broadcastDestinatarioTelefono}
-                    onChange={(e) => setBroadcastDestinatarioTelefono(e.target.value)}
-                    placeholder="Ej. +584124976451"
-                    className="bg-white border border-slate-300 rounded-lg px-3 py-2 tracking-wide outline-none focus:border-violet-500 font-mono text-xs"
-                  />
-                  <span className="text-[10px] text-slate-500">
-                    Solo el cliente registrado con este número recibirá este aviso en su sección "Avisos & Promociones".
-                  </span>
-                </div>
-              )}
-
-              <div className="flex flex-col gap-1">
-                <span className="font-semibold text-slate-700">Título de la Notificación *</span>
-                <input
-                  type="text"
-                  required
-                  value={broadcastTitle}
-                  onChange={(e) => setBroadcastTitle(e.target.value)}
-                  placeholder={
-                    broadcastTipo === 'todos' ? "Ej. ¡Descuento de 15% en quesos madurados!" :
-                    broadcastTipo === 'personal' ? "Ej. Su pedido de embutidos y carnes está listo" :
-                    "Ej. Alerta de Stock Bajo detectada en lomo de aguja"
-                  }
-                  className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-violet-500"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <span className="font-semibold text-slate-700">Contenido del mensaje *</span>
-                <textarea
-                  required
-                  rows={2.5}
-                  value={broadcastMessage}
-                  onChange={(e) => setBroadcastMessage(e.target.value)}
-                  placeholder="Detalle el aviso, marcas, ofertas o promoción..."
-                  className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-violet-500 font-sans text-xs"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="bg-violet-600 text-white font-bold text-xs py-2.5 px-4 rounded-lg flex items-center justify-center gap-1.5 self-end cursor-pointer hover:bg-violet-700 transition-all"
-              >
-                <Send size={13} /> 
-                {broadcastTipo === 'todos' ? 'Emitir Push masivo' :
-                 broadcastTipo === 'personal' ? 'Enviar Notificación Personal' :
-                 'Crear Alerta de Admin'}
-              </button>
-            </form>
+          <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <MessageSquare size={18} className="text-violet-600" /> Centro de Mensajes y Solicitudes
+            </h3>
+            <button onClick={() => clearAllNotifications()} className="text-[10px] text-slate-400 hover:text-red-500">Limpiar todo</button>
           </div>
-
-          {/* List processed notifications */}
-          <div className="flex flex-col gap-3">
-            <div className="flex justify-between items-center bg-slate-100 p-3 rounded-lg border border-slate-200">
-              <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-500">Historial de Comunicados y Solicitudes</span>
-            </div>
-            
-            {notifications.map(notif => {
-              const isAdminAlerta = notif.tipo === 'admin';
-              const isPersonalAlerta = notif.tipo === 'personal';
-              const isRequest = notif.tipo === 'request';
-              
-              return (
-                <div 
-                  key={notif.id} 
-                  className={`p-4 rounded-xl text-xs flex flex-col gap-3 border transition-colors shadow-sm bg-white hover:border-slate-300 ${
-                    isRequest
-                      ? 'border-indigo-200'
-                      : isAdminAlerta 
-                      ? 'border-amber-200' 
-                      : isPersonalAlerta
-                      ? 'border-violet-200'
-                      : 'border-slate-200'
-                  }`}
-                >
-                  <div className="flex justify-between items-start gap-2">
-                    <div className="flex flex-col gap-1">
-                      <h5 className={`font-bold text-[13px] ${
-                        isRequest ? 'text-indigo-700' :
-                        isAdminAlerta ? 'text-amber-700' : 
-                        isPersonalAlerta ? 'text-violet-700' : 
-                        'text-slate-800'
-                      }`}>
-                        {isRequest ? 'Petición de Alimento Especial:' : ''} {notif.titulo}
-                      </h5>
-                      <span className="text-slate-500 text-[10px] font-mono">📅 {notif.fecha}</span>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-1.5 shrink-0">
-                             <button
-                        type="button"
-                        onClick={() => toggleNotificationReadStatus(notif.id)}
-                        className={`text-[9.5px] font-bold px-2 py-1 rounded-md uppercase font-mono border flex items-center justify-center gap-1.5 transition-all hover:scale-105 active:scale-95 cursor-pointer ${
-                          notif.leida
-                            ? 'bg-violet-50 text-violet-600 border-violet-200'
-                            : 'bg-rose-50 text-rose-600 border-rose-200 shadow-sm'
-                        }`}
-                        title={notif.leida ? "Marcar como NO leída" : "Marcar como leída"}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full ${notif.leida ? 'bg-violet-500' : 'bg-rose-500 animate-pulse'}`} />
-                        <span>{notif.leida ? 'Leída' : 'Pendiente'}</span>
-                      </button>
-
-                      <span className={`text-[8.5px] font-bold font-mono uppercase tracking-wider px-2 py-0.5 rounded-md border ${
-                        isRequest ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
-                        isAdminAlerta ? 'bg-amber-50 text-amber-700 border-amber-200' : 
-                        isPersonalAlerta ? 'bg-violet-50 text-violet-700 border-violet-200' : 
-                        'bg-slate-50 text-slate-600 border-slate-200'
-                      }`}>
-                        {notif.tipo === 'request' ? 'solicitud' : notif.tipo}
-                      </span>
-                    </div>
-                  </div>
-
-                  <p className="text-slate-700 leading-relaxed text-[11.5px] font-sans bg-slate-50 p-3 rounded-lg border border-slate-100 whitespace-pre-wrap">{notif.mensaje}</p>
-
-                  {/* Destinatario section footer if exists */}
-                  {notif.destinatario_telefono && (
-                    <div className="flex justify-between items-center text-[10.5px] font-mono text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-100 mt-1">
-                      <span className="font-semibold">{isRequest ? 'Contacto del Cliente:' : 'Destinatario Telf:'}</span>
-                      <div className="flex gap-2 items-center">
-                        <strong className="text-violet-600 font-bold">{notif.destinatario_telefono}</strong>
-                        {isRequest && (
-                           <>
-                             <a 
-                               href={`https://wa.me/${notif.destinatario_telefono.replace(/[^0-9]/g, '')}`} 
-                               target="_blank" 
-                               className="text-white bg-green-500 hover:bg-green-600 px-2 py-0.5 rounded text-[9px] font-sans font-bold"
-                             >
-                               WhatsApp
-                             </a>
-                             <button
-                               onClick={() => {
-                                 const mensaje = prompt(`Responder a ${notif.destinatario_telefono}:`, '');
-                                 if (mensaje && mensaje.trim()) {
-                                   addNotification(
-                                     'Mensaje de Soporte',
-                                     mensaje.trim(),
-                                     'personal',
-                                     notif.destinatario_telefono
-                                   );
-                                   alert('Respuesta enviada al cliente.');
-                                 }
-                               }}
-                               className="text-white bg-violet-650 hover:bg-violet-750 px-2 py-0.5 rounded text-[9px] font-sans font-bold cursor-pointer transition-colors"
-                             >
-                               Responder In-App
-                             </button>
-                           </>
-                        )}
-                      </div>
-                    </div>
-                  )}
+          
+          <div className="grid grid-cols-1 gap-3">
+            {notifications.filter(n => n.tipo === 'request' || n.tipo === 'personal').map(msg => (
+              <div key={msg.id} className={`p-4 bg-white border rounded-xl flex flex-col gap-2 ${msg.leida ? 'opacity-60' : 'border-violet-200 shadow-md'}`}>
+                <div className="flex justify-between">
+                  <span className="text-[10px] font-bold text-violet-600 uppercase">{msg.titulo}</span>
+                  <span className="text-[10px] text-slate-400">{msg.fecha}</span>
                 </div>
-              );
-            })}
+                <p className="text-xs text-slate-700 font-medium whitespace-pre-wrap">{msg.mensaje}</p>
+                <div className="flex justify-end gap-2 mt-2">
+                  {msg.destinatario_telefono && (
+                    <a href={`https://wa.me/${msg.destinatario_telefono.replace(/\D/g, '')}`} target="_blank" className="bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold">WhatsApp</a>
+                  )}
+                  <button onClick={() => toggleNotificationReadStatus(msg.id)} className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-[10px] font-bold">
+                    {msg.leida ? 'Marcar como Pendiente' : 'Marcar Leído'}
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -2040,114 +1883,3 @@ export const Admin: React.FC<AdminProps> = ({
             Esc
           </button>
         </div>
-      )}
-    </div>
-  );
-};
-            <div className="border-t border-dashed border-black mt-3 pt-3 text-xs flex flex-col gap-1 font-mono">
-              <div className="flex justify-between">
-                <span>SUBTOTAL:</span>
-                <span>${(Number(printingOrder.subtotal_usd) || 0).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>DELIVERY EXPRESS:</span>
-                <span>${(Number(printingOrder.costo_envio_usd) || 0).toFixed(2)}</span>
-              </div>
-              {printingOrder.cupon_codigo && (
-                <div className="flex justify-between text-violet-600 font-bold">
-                  <span>CUPÓN ({printingOrder.cupon_codigo}):</span>
-                  <span>-${(Number(printingOrder.descuento_cupon_usd) || 0).toFixed(2)}</span>
-                </div>
-              )}
-              <div className="flex justify-between font-extrabold text-sm border-t border-black pt-2">
-                <span>MONTO USD:</span>
-                <span>${(Number(printingOrder.total_usd) || 0).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between font-bold text-gray-700 text-xs">
-                <span>EQUIVALENTE BS:</span>
-                <span>{(Number(printingOrder.total_usd || 0) * Number(config.tasa_cambio || 1)).toFixed(2)} Bs</span>
-              </div>
-            </div>
-
-            {/* Client specifics instructions footer */}
-            <div className="mt-4 p-2 bg-yellow-50/50 border border-yellow-100 text-[10px] leading-snug font-sans text-gray-850">
-              <strong>Cliente:</strong> {printingOrder.cliente_nombre}<br />
-              <strong>Telf:</strong> {printingOrder.cliente_telefono}<br />
-              <strong>Email:</strong> {printingOrder.cliente_email || 'No registrado'}<br />
-              <strong>Filtro Zona:</strong> {printingOrder.direccion_envio} ({printingOrder.distancia_km} km)
-            </div>
-
-            {/* Barcode scanner mockup image at the bottom of the bill receipt */}
-            <div className="flex flex-col items-center mt-5 pt-3 border-t border-dashed border-black">
-              <div className="w-full h-8 bg-black/10 rounded flex items-center justify-center text-[8px] tracking-[6px] text-gray-500 font-bold overflow-hidden select-none">
-                |||| | || || | |||| || | || ||| ||
-              </div>
-              <p className="text-[9px] text-gray-400 font-mono mt-1">¡Gracias por preferirnos en Valencia!</p>
-            </div>
-
-            {/* Close trigger button */}
-            <div className="absolute -bottom-14 left-0 right-0 z-40 flex justify-center print:hidden">
-              <button
-                type="button"
-                onClick={() => setPrintingOrder(null)}
-                className="bg-black text-[#7c3aed] border border-[#7c3aed]/40 shadow-xl px-5 py-2.5 text-xs font-bold uppercase rounded-lg flex items-center gap-1 hover:bg-zinc-900 transition-all font-mono cursor-pointer"
-              >
-                <X size={15} /> Cerrar Ficha Recibo
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Sleek Custom Toast Notification for Admin Actions */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-[100] max-w-sm w-[90vw] sm:w-[320px] bg-[#18181b]/95 border border-violet-500/40 px-4 py-3.5 rounded-xl shadow-2xl backdrop-blur-md transition-all duration-300 flex items-start gap-3 animate-fade-in-up">
-          <div className="bg-violet-500/10 p-2 rounded-lg border border-violet-500/20 shrink-0">
-            <Bell size={16} className="text-violet-400" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h4 className="text-xs font-bold text-violet-300 font-display leading-tight">{toastTitle}</h4>
-            <p className="text-[11px] text-zinc-300 mt-1 leading-relaxed font-sans">{toastMessage}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setToastMessage('');
-              setToastTitle('');
-            }}
-            className="text-zinc-400 hover:text-white text-[10px] font-mono uppercase bg-zinc-800/40 hover:bg-zinc-800 px-1.5 py-0.5 rounded cursor-pointer shrink-0"
-          >
-            Esc
-          </button>
-        </div>
-      )}
-    </div>
-  );
-      {/* CENTRO DE MENSAJES UNIFICADO */}
-      {adminSection === 'notifications' && (
-        <div className="flex flex-col gap-4">
-          <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <MessageSquare size={18} className="text-violet-600" /> Centro de Mensajes y Solicitudes
-            </h3>
-            <button onClick={() => setNotifications([])} className="text-[10px] text-slate-400 hover:text-red-500">Limpiar todo</button>
-          </div>
-          
-          <div className="grid grid-cols-1 gap-3">
-            {notifications.filter(n => n.tipo === 'request' || n.tipo === 'personal').map(msg => (
-              <div key={msg.id} className={`p-4 bg-white border rounded-xl flex flex-col gap-2 ${msg.leida ? 'opacity-60' : 'border-violet-200 shadow-md'}`}>
-                <div className="flex justify-between">
-                  <span className="text-[10px] font-bold text-violet-600 uppercase">{msg.titulo}</span>
-                  <span className="text-[10px] text-slate-400">{msg.fecha}</span>
-                </div>
-                <p className="text-xs text-slate-700 font-medium">{msg.mensaje}</p>
-                <div className="flex justify-end gap-2 mt-2">
-                  <a href={`https://wa.me/${msg.destinatario_telefono}`} target="_blank" className="bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold">WhatsApp</a>
-                  <button onClick={() => toggleNotificationReadStatus(msg.id)} className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-[10px] font-bold">Marcar Leído</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-};
