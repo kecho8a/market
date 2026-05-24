@@ -30,7 +30,7 @@ export const Admin: React.FC<AdminProps> = ({
     updateOrderStatus, updateOrderItems, addNotification, toggleNotificationReadStatus,
     updateAdminCredentials, adminUser, adminPass, users, updateUserByAdmin,
     addCategory, deleteCategory, updateCategory, 
-    coupons, addCoupon, updateCoupon, deleteCoupon
+    coupons, addCoupon, updateCoupon, deleteCoupon, clearAllNotifications
   } = useApp();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -103,6 +103,7 @@ export const Admin: React.FC<AdminProps> = ({
   const [formPromo, setFormPromo] = useState(false);
   const [formNuevo, setFormNuevo] = useState(false);
   const [formVendido, setFormVendido] = useState(false);
+  const [formDisponibilidad, setFormDisponibilidad] = useState<'Disponible' | 'Agotado' | 'En Reposición'>('Disponible');
 
   // Broadcaster states
   const [broadcastTitle, setBroadcastTitle] = useState('');
@@ -1883,3 +1884,7 @@ export const Admin: React.FC<AdminProps> = ({
             Esc
           </button>
         </div>
+      )}
+    </div>
+  );
+};
