@@ -1,0 +1,8 @@
+web-push no quedó instalado (npm ls muestra (empty)).
+
+Pendiente: ajustar estrategia.
+- Opción 1: instalar web-push con un workaround: limpiar node_modules/lock y reinstalar.
+- Opción 2: usar una librería menor o implementación fetch para VAPID manual.
+
+SW ya fue actualizado; backend todavía no.
+

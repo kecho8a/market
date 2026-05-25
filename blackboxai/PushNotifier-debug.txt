@@ -1,0 +1,4 @@
+Notas:
+- El SW ahora es robusto, pero si el backend WebPush no está enviando correctamente, no habrá push reales.
+- Próximo paso: editar push-notify.ts para que haga Web Push real (VAPID) contra push_subscriptions.
+

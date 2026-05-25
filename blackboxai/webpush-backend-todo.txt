@@ -1,0 +1,10 @@
+Pendiente para completar push real:
+1) `push-notify.ts` ahora tiene lógica para enviar Web Push, pero falta:
+   - resolver `webpush` import en runtime real de Cloudflare.
+   - asegurar variables de entorno: WEBHOOK_SECRET, SUPABASE_URL, SUPABASE_ANON_KEY, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY.
+   - confirmar estructura de tabla `push_subscriptions` (campos: endpoint, p256dh, auth_secret) y si aplica campo `telefono`.
+2) Cambiar el frontend para que el botón 'Enviar prueba' llame a este endpoint (webhook real), no solo Notification() local.
+3) Probar desde móvil: app en 2º plano -> verificar que el SW recibe event.push.
+
+Si quieres, hago el Paso 2 del front ahora.
+

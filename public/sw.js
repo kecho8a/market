@@ -1,36 +1,77 @@
-// Service Worker - Marketo Realtime Notifications
-self.addEventListener('push', (event) => {
-  if (!event.data) return;
+// Service Worker - Marketo Realtime Notifications (Premium)
 
-  const data = event.data.json();
-  const title = data.title || 'Marketo Supermercado';
-  
-  const options = {
-    body: data.body,
-    icon: '/icon.png', // Asegúrate de tener este icono en public
-    badge: '/badge.png',
-    vibrate: [200, 100, 200],
-    // La propiedad sound apunta a un archivo local
-    // Nota: El soporte varía. En Android funciona mejor si el archivo es pequeño.
-    sound: '/sounds/notification.mp3', 
-    data: {
-      url: data.url || '/'
-    },
-    actions: [
-      { action: 'open', title: 'Ver Pedido' }
-    ]
+const safeJsonParse = (value) => {
+  try {
+    return typeof value === 'string' ? JSON.parse(value) : value;
+  } catch {
+    return null;
+  }
+};
+
+const getFallbacks = () => {
+  return {
+    icon: '/icon.png',
+    badge: '/badge.png'
   };
+};
 
-  event.waitUntil(
-    self.registration.showNotification(title, options)
-  );
+self.addEventListener('push', (event) => {
+  try {
+    if (!event.data) return;
+
+    const raw = event.data.json();
+    const data = safeJsonParse(raw) || raw || {};
+
+    const title = data.title || 'Marketo Supermercado';
+    const body = data.body || '';
+
+    const { icon, badge } = getFallbacks();
+
+    // Dedupe: usa tag/id si viene
+    const tag = data.tag || data.id || `marketo-${title}`;
+
+    const urlToOpen = data.url || data.link_url || data.orderUrl || '/';
+
+    const options = {
+      body,
+      icon,
+      badge,
+      vibrate: [200, 100, 200],
+      renotify: true,
+      requireInteraction: !!data.requireInteraction,
+      // iOS/Chrome Android pueden ignorar sound desde Web Push (depende del SO).
+      sound: data.sound || '/sounds/notification.mp3',
+      image: data.image || undefined,
+      tag,
+      data: {
+        url: urlToOpen,
+        tag,
+        orderId: data.orderId || data.order_id || undefined
+      },
+      actions: Array.isArray(data.actions)
+        ? data.actions
+        : [{ action: 'open', title: 'Ver pedido' }]
+    };
+
+    event.waitUntil(self.registration.showNotification(title, options));
+  } catch (err) {
+    console.error('SW push handler error:', err);
+  }
 });
 
 self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  const urlToOpen = event.notification.data.url;
+  try {
+    event.notification.close();
 
-  event.waitUntil(
-    clients.openWindow(urlToOpen)
-  );
+    const urlToOpen = event.notification?.data?.url || '/';
+
+    event.waitUntil(clients.openWindow(urlToOpen));
+  } catch (err) {
+    console.error('SW notificationclick error:', err);
+  }
 });
+
+self.addEventListener('notificationclose', () => {
+  // hook opcional
+});
+
