@@ -169,8 +169,15 @@ CREATE TABLE IF NOT EXISTS notifications (
     tipo VARCHAR(20) NOT NULL DEFAULT 'todos',
     destinatario_telefono VARCHAR(20) DEFAULT '',
     leida BOOLEAN NOT NULL DEFAULT FALSE,
+    imagen_url TEXT DEFAULT '',
+    link_url TEXT DEFAULT '',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Asegurar compatibilidad con el frontend (imagen_url y link_url)
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS imagen_url TEXT DEFAULT '';
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS link_url TEXT DEFAULT '';
+
 
 -- ----------------------------------------------------------------------------
 -- 5.5 FUNCIONES Y TRIGGERS (AUTOMATIZACIÓN)

@@ -884,10 +884,10 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
       {/* ----------------- SUBSECTION 2: CATALOG MANAGEMENT CRUD ----------------- */}
       {adminSection === 'inventory' && (
         <div className="flex flex-col gap-4">
-          <div className="flex justify-between items-center bg-slate-100 p-4 rounded-xl border border-slate-200">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-100 p-4 rounded-xl border border-slate-200 gap-3">
             <span className="text-xs font-bold font-display text-slate-800">Editar o Cargar Productos</span>
             
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               <input 
                 type="file" 
                 ref={fileInputRef} 
@@ -898,21 +898,21 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               <button
                 type="button"
                 onClick={downloadCSVTemplate}
-                className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                className="flex-1 sm:flex-none bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs px-3 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm"
               >
                 <FileSpreadsheet size={13} /> Plantilla CSV
               </button>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-3 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm"
               >
                 <Upload size={13} /> Importar CSV/Excel
               </button>
               <button
                 type="button"
                 onClick={() => openEditor(null)}
-                className="bg-violet-600 hover:bg-violet-700 text-white font-semibold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                className="flex-1 sm:flex-none bg-violet-600 hover:bg-violet-700 text-white font-semibold text-xs px-3 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm"
               >
                 <Plus size={13} /> Agregar Articulo
               </button>
@@ -959,7 +959,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                       </span>
                     )}
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <div className="flex gap-2 items-center">
                       <h5 className="text-xs font-bold text-slate-900 line-clamp-1">{part.nombre}</h5>
                       <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border ${
@@ -1137,8 +1137,8 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                   </div>
 
                   {/* Action transitions status with notifications dispatcher */}
-                  <div className="flex flex-col sm:flex-row justify-between items-center pt-2 gap-3">
-                    <div className="flex gap-2 w-full sm:w-auto">
+                  <div className="flex flex-col xl:flex-row justify-between items-stretch xl:items-center pt-2 gap-3">
+                    <div className="flex flex-wrap gap-2 w-full xl:w-auto">
                       <button
                         type="button"
                         onClick={() => toggleOrderDetail(order.id)}
@@ -1176,7 +1176,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                       </button>
                     </div>
 
-                    <div className="flex gap-1 text-[10px] font-mono w-full sm:w-auto">
+                    <div className="flex gap-1 text-[10px] font-mono w-full xl:w-auto mt-2 xl:mt-0">
                       {order.status !== 'Enviado' && (
                         <button
                           type="button"
