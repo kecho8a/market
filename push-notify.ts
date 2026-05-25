@@ -1,7 +1,8 @@
 // Nota: en Cloudflare Pages Functions, el bundling puede variar.
-// Para evitar errores de import en runtime, usamos require dinámico.
+// Evitamos usar `require` directamente para no romper el tipado en builds.
+// Import dinámico para web-push.
 let webpush: any;
-try { webpush = require('web-push'); } catch { /* runtime resolverá si es posible */ }
+
 
 
 // Tipo disponible solo en Cloudflare Pages Functions / runtime.
@@ -61,22 +62,30 @@ export const onRequestPost: any = async (context: any) => {
       );
     }
 
-    // Import dinámico para evitar bundling pesado
+// Import dinámico para evitar bundling pesado
     const { createClient } = await import('@supabase/supabase-js');
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    // Import dinámico de web-push
+    if (!webpush) {
+      const wpMod = await import('web-push');
+      webpush = (wpMod as any).default || wpMod;
+    }
+
 
     // Filtro por destinatario si aplica (personal)
     const tipo = record.tipo;
     const destinatarioTelefono = record.destinatario_telefono;
 
+    // IMPORTANTE: en tu schema, push_subscriptions filtra por RLS usando destinatario_telefono.
+    // Evitamos filtrar por una columna inexistente (telefono) y consultamos por destinatario_telefono cuando aplique.
     let query = supabase.from('push_subscriptions').select('*');
 
     if (tipo === 'personal' && destinatarioTelefono) {
-      // Si tu tabla push_subscriptions no liga por telefono, esto puede requerir JOIN.
-      // Alternativa: guardar user_id = usuario correspondiente al telefono.
-      query = query.eq('telefono', destinatarioTelefono);
+      query = query.eq('destinatario_telefono', destinatarioTelefono);
     }
 
+    // Para todos (promociones) no aplicamos filtro.
     const { data: subs, error: subsErr } = await query;
     if (subsErr) {
       return new Response(JSON.stringify({ error: 'Failed loading subscriptions', details: subsErr.message }), {
