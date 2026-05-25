@@ -34,6 +34,9 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
   // Navigation within admin panel: 'inventory' | 'orders' | 'settings' | 'reports' | 'notifications' | 'customers'
   const [adminSection, setAdminSection] = useState<'inventory' | 'orders' | 'settings' | 'reports' | 'notifications' | 'customers' | 'coupons'>('reports');
   const [showAdminPass, setShowAdminPass] = useState(false);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
+    typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'denied'
+  );
   const [isListening, setIsListening] = useState(false);
 
   // New Order Modal State
@@ -1181,6 +1184,27 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Notificación de Permisos para el Administrador */}
+      {notifPermission === 'default' && (
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm mb-2">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-100 rounded-full text-amber-600 shrink-0">
+              <Bell size={18} />
+            </div>
+            <div className="text-left">
+              <p className="text-xs font-bold text-amber-900 leading-tight">Alertas de Navegador Desactivadas</p>
+              <p className="text-[10px] text-amber-700 mt-0.5">Para que suenen los pedidos nuevos y ver avisos en tiempo real, active los permisos de notificación.</p>
+            </div>
+          </div>
+          <button 
+            onClick={async () => { const res = await Notification.requestPermission(); setNotifPermission(res); }}
+            className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold uppercase tracking-wider px-5 py-2.5 rounded-lg transition-all active:scale-95 cursor-pointer"
+          >
+            Activar Sonidos y Alertas 🔔
+          </button>
         </div>
       )}
 

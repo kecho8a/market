@@ -554,10 +554,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // --- MOTOR DE TIEMPO REAL (SUPABASE CHANNELS) ---
   const currentUserRef = useRef<AppUser | null>(currentUser);
+  const isAdminAuthenticatedRef = useRef(isAdminAuthenticated);
 
   useEffect(() => {
     currentUserRef.current = currentUser;
   }, [currentUser]);
+
+  useEffect(() => {
+    isAdminAuthenticatedRef.current = isAdminAuthenticated;
+  }, [isAdminAuthenticated]);
 
   const playNotificationSound = (type: 'new' | 'update', status?: Order['status']) => {
     const soundUrl = type === 'new' 
@@ -661,7 +666,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const cu = currentUserRef.current;
           const isForMe = newNotif.tipo === 'todos' || 
                          (cu && newNotif.destinatario_telefono === cu.telefono) ||
-                         (isAdminAuthenticated && newNotif.tipo === 'request');
+                         (isAdminAuthenticatedRef.current && newNotif.tipo === 'request');
 
           if (isForMe) {
             setNotifications(prev => [newNotif, ...prev]);
