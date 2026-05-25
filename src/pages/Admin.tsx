@@ -4,7 +4,7 @@ import { Producto, Order, OrderItem } from '../types/store';
 import { supabase, uploadFileToStorage, compressImage } from '../store/supabaseClient';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line } from 'recharts';
 import { 
-  Plus, Edit, Trash2, Camera, Landmark, Settings, ShoppingBag, BarChart3, 
+  Plus, Edit, Trash2, Landmark, Settings, ShoppingBag, BarChart3, Mic,
   Search, CheckCircle, Truck, PackageCheck, AlertTriangle, Send, Bell, Ticket,
   Receipt, Printer, Check, X, MessageSquare, ExternalLink, Upload, DollarSign, Package, ShoppingCart, User, Download, FileSpreadsheet, Eye, EyeOff
 } from 'lucide-react';
@@ -12,18 +12,10 @@ import { SEOHead } from '../components/SEOHead';
 import { EditProductForm } from '../components/EditProductForm';
 
 interface AdminProps {
-  onOpenScanner: () => void;
-  scannedResultCode?: string;
-  clearScannedResultCode?: () => void;
   setTab: (tab: 'home' | 'catalog' | 'cart' | 'admin') => void;
 }
 
-export const Admin: React.FC<AdminProps> = ({ 
-  onOpenScanner, 
-  scannedResultCode, 
-  clearScannedResultCode,
-  setTab
-}) => {
+export const Admin: React.FC<AdminProps> = ({ setTab }) => {
   const { 
     parts, orders, config, notifications, 
     addPart, updatePart, deletePart, updateConfig, updateExchangeRate, 
@@ -42,6 +34,7 @@ export const Admin: React.FC<AdminProps> = ({
   // Navigation within admin panel: 'inventory' | 'orders' | 'settings' | 'reports' | 'notifications' | 'customers'
   const [adminSection, setAdminSection] = useState<'inventory' | 'orders' | 'settings' | 'reports' | 'notifications' | 'customers' | 'coupons'>('reports');
   const [showAdminPass, setShowAdminPass] = useState(false);
+  const [isListening, setIsListening] = useState(false);
 
   // New Order Modal State
   const [incomingOrder, setIncomingOrder] = useState<Order | null>(null);
@@ -78,15 +71,6 @@ export const Admin: React.FC<AdminProps> = ({
 
   // Search input for inventory parts CRUD search
   const [crudSearch, setCrudSearch] = useState('');
-
-  // Sync scanned part code to CRUD search if passed
-  React.useEffect(() => {
-    if (scannedResultCode) {
-      setCrudSearch(scannedResultCode);
-      setAdminSection('inventory');
-      if (clearScannedResultCode) clearScannedResultCode();
-    }
-  }, [scannedResultCode, clearScannedResultCode]);
 
   // CRUD MODAL STATE
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -227,6 +211,31 @@ export const Admin: React.FC<AdminProps> = ({
     updateOrderStatus(incomingOrder.id, status, '', adminNote);
     setIncomingOrder(null);
     setAdminNote('');
+  };
+
+  const startVoiceSearch = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      alert("Lo siento, su navegador no soporta búsqueda por voz. Pruebe con Google Chrome.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'es-VE';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setCrudSearch(transcript);
+      setIsListening(false);
+    };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+
+    recognition.start();
   };
 
   const toggleOrderDetail = (orderId: string) => {
@@ -761,19 +770,17 @@ export const Admin: React.FC<AdminProps> = ({
                 value={crudSearch}
                 onChange={(e) => setCrudSearch(e.target.value)}
                 placeholder="Filtrar por nombre, codigo SKU o pasillo..."
-                className="w-full bg-[#18181b] border border-[#27272a] rounded-lg py-2 pl-9 pr-4 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 transition-all"
+                className="w-full bg-[#18181b] border border-[#27272a] rounded-lg py-2 pl-9 pr-12 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 transition-all"
               />
+              <button
+                type="button"
+                onClick={startVoiceSearch}
+                className={`absolute right-3 top-2 transition-colors cursor-pointer ${isListening ? 'text-red-500 animate-pulse' : 'text-gray-500 hover:text-violet-400'}`}
+                title="Búsqueda por voz"
+              >
+                <Mic size={16} />
+              </button>
             </div>
-
-            {/* Barcode cam reader shortcut */}
-            <button
-              type="button"
-              onClick={onOpenScanner}
-              className="bg-[#18181b] border border-[#27272a] text-violet-400 hover:bg-violet-500/10 px-3 rounded-lg flex items-center gap-1.5 transition-all text-xs cursor-pointer"
-              title="Cargar escaneando Barra SKU"
-            >
-              <Camera size={14} /> Escanear Barra SKU
-            </button>
           </div>
 
           {/* List display */}
