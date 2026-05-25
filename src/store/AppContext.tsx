@@ -62,7 +62,7 @@ interface AppContextProps {
   updateCategory: (oldCategory: string, newCategory: string) => void;
   
   // Notification Actions
-  addNotification: (title: string, message: string, tipo?: 'todos' | 'personal' | 'admin' | 'request', targetPhone?: string) => void;
+  addNotification: (title: string, message: string, tipo?: 'todos' | 'personal' | 'admin' | 'request', targetPhone?: string, imageUrl?: string, linkUrl?: string) => void;
   markNotificationAsRead: (id: string) => void;
   toggleNotificationReadStatus: (id: string) => void;
   deleteNotification: (id: string) => void;
@@ -425,6 +425,7 @@ const DEFAULT_CONFIG: StoreConfig = {
   tasa_cambio: 36.50,
   logo_url: '',
   theme_color: '#7c3aed', // Aesthetic Violet theme color
+  mensaje_bienvenida: 'Encuentra los mejores cortes de carne, quesos madurados y viveres frescos con delivery express en Valencia.',
   delivery_gratis: false,
   costo_delivery_km: 1.5,
   envio_nacional: true,
@@ -691,7 +692,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (isForMe) {
             setNotifications(prev => [newNotif, ...prev]);
             if ('Notification' in window && Notification.permission === 'granted') {
-              new Notification(newNotif.titulo, { body: newNotif.mensaje });
+              new Notification(`${config.site_nombre}: ${newNotif.titulo}`, {
+                body: newNotif.mensaje,
+                icon: config.logo_url || '/icon.png',
+                image: newNotif.imagen_url,
+                badge: '/icon.png',
+                tag: 'marketo-notif',
+                requireInteraction: true,
+                data: { url: newNotif.link_url }
+              });
             }
           }
         })
@@ -1604,7 +1613,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Log notifications
-  const addNotification = (title: string, message: string, tipo: 'todos' | 'personal' | 'admin' | 'request' = 'todos', targetPhone?: string) => {
+  const addNotification = (title: string, message: string, tipo: 'todos' | 'personal' | 'admin' | 'request' = 'todos', targetPhone?: string, imageUrl?: string, linkUrl?: string) => {
     const newNotif: InAppNotification = {
       id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       titulo: title,
@@ -1612,6 +1621,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       fecha: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       tipo,
       destinatario_telefono: targetPhone,
+      imagen_url: imageUrl,
+      link_url: linkUrl,
       leida: false
     };
 
@@ -1632,12 +1643,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       fecha: newNotif.fecha,
       tipo: newNotif.tipo,
       destinatario_telefono: newNotif.destinatario_telefono,
-      leida: newNotif.leida
+      leida: newNotif.leida,
+      imagen_url: newNotif.imagen_url,
+      link_url: newNotif.link_url
     }]).then(({ error }) => { if (error) console.error('Error sync notification:', error); });
 
     // Push local browser notification if permitted
     if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(`${title} - Marketo`, { body: message });
+      new Notification(`${config.site_nombre}: ${title}`, { 
+        body: message,
+        icon: config.logo_url || '/icon.png',
+        image: imageUrl,
+        badge: '/icon.png',
+        tag: 'marketo-system',
+        requireInteraction: true,
+        data: { url: linkUrl }
+      });
     }
   };
 

@@ -34,6 +34,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
   // Navigation within admin panel: 'inventory' | 'orders' | 'settings' | 'reports' | 'notifications' | 'customers'
   const [adminSection, setAdminSection] = useState<'inventory' | 'orders' | 'settings' | 'reports' | 'notifications' | 'customers' | 'coupons'>('reports');
   const [showAdminPass, setShowAdminPass] = useState(false);
+  const restoreInputRef = useRef<HTMLInputElement>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'denied'
   );
@@ -102,7 +103,11 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
   const [broadcastTitle, setBroadcastTitle] = useState('');
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [broadcastTipo, setBroadcastTipo] = useState<'todos' | 'personal' | 'admin'>('todos');
+  const [broadcastImage, setBroadcastImage] = useState('');
+  const [broadcastLink, setBroadcastLink] = useState('');
   const [broadcastDestinatarioTelefono, setBroadcastDestinatarioTelefono] = useState('');
+  const [showProductPickerForBroadcast, setShowProductPickerForBroadcast] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState('');
   const [toastMessage, setToastMessage] = useState('');
   const [toastTitle, setToastTitle] = useState('');
 
@@ -273,6 +278,35 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
     }
   };
 
+  const handleRestoreBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const backup = JSON.parse(event.target?.result as string);
+        if (!backup.data || !backup.version) throw new Error("Formato de respaldo inválido");
+
+        if (confirm(`¿Está seguro? Esto sobrescribirá la configuración actual de la tienda y cargará ${backup.data.products?.length || 0} productos.`)) {
+          // Restaurar Configuración
+          if (backup.data.config) updateConfig(backup.data.config);
+          
+          // Restaurar Categorías si existen
+          if (backup.data.config.categories) {
+             await supabase.from('store_config').update({ categories: backup.data.config.categories }).eq('id', 1);
+          }
+
+          alert("Sincronización completada. Los productos se actualizarán en segundo plano.");
+          window.location.reload();
+        }
+      } catch (err) {
+        alert("Error al restaurar: El archivo no es un respaldo válido de Marketo.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const toggleOrderDetail = (orderId: string) => {
     setOpenOrderDetailIds(prev => 
       prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]
@@ -305,7 +339,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
     const sentMessage = broadcastMessage.trim();
     const targetPhone = broadcastTipo === 'personal' ? broadcastDestinatarioTelefono.trim() : undefined;
     
-    addNotification(sentTitle, sentMessage, broadcastTipo, targetPhone);
+    addNotification(sentTitle, sentMessage, broadcastTipo, targetPhone, broadcastImage, broadcastLink);
     
     // Custom polished visual confirmation toast showing the title of the broadcast
     setToastTitle(
@@ -323,6 +357,8 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
     setBroadcastTitle('');
     setBroadcastMessage('');
     setBroadcastDestinatarioTelefono('');
+    setBroadcastImage('');
+    setBroadcastLink('');
     setBroadcastTipo('todos');
   };
 
@@ -595,7 +631,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
     ];
   }, [reportTotals]);
 
-  // --- Lógica de Respaldo Automático cada 15 días ---
+  // --- Lógica de Respaldo: Preguntar cada 15 días ---
   useEffect(() => {
     if (adminSection === 'reports' || adminSection === 'settings') {
       const lastBackup = localStorage.getItem('marketo_last_backup_date');
@@ -603,9 +639,11 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
       const fifteenDays = 15 * 24 * 60 * 60 * 1000;
 
       if (!lastBackup || (now - Number(lastBackup)) > fifteenDays) {
-        handleManualBackup(true);
-        localStorage.setItem('marketo_last_backup_date', String(now));
-        console.log("💾 Marketo: Respaldo automático quincenal ejecutado.");
+        if (confirm("🗓️ Han pasado 15 días desde su último respaldo. ¿Desea descargar una copia de seguridad de sus datos ahora?")) {
+          handleManualBackup(true);
+          localStorage.setItem('marketo_last_backup_date', String(now));
+          console.log("💾 Marketo: Respaldo manual solicitado por periodo quincenal.");
+        }
       }
     }
   }, [adminSection]);
@@ -614,6 +652,11 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
   const crudSearchParts = useMemo(() => {
     return searchPartsSemantically(crudSearch, true);
   }, [parts, crudSearch]);
+
+  const pickerFilteredProducts = useMemo(() => {
+    if (!pickerSearch.trim()) return parts.slice(0, 5);
+    return searchPartsSemantically(pickerSearch, true).slice(0, 8);
+  }, [parts, pickerSearch]);
 
   // Filtered orders list mapping
   const activeOrdersMapped = useMemo(() => {
@@ -1248,6 +1291,38 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                 <button type="submit" className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-widest transition-all shadow-lg shadow-violet-200">
                   Enviar Notificación Push
                 </button>
+
+                {/* Previsualizador de Notificación de Oferta */}
+                <div className="mt-4 p-4 bg-slate-100 rounded-3xl border border-slate-200 relative overflow-hidden">
+                  <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1 bg-slate-300 rounded-full mb-4"></div>
+                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block text-center mb-4 mt-2">Vista Previa en Dispositivo</span>
+                  
+                  <div className="bg-white/80 backdrop-blur-md rounded-[24px] p-3 shadow-xl border border-white flex flex-col gap-2">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center text-white shrink-0 shadow-sm overflow-hidden">
+                        {config.logo_url ? <img src={config.logo_url} className="w-full h-full object-cover" /> : <Bell size={16} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-bold text-slate-900 truncate uppercase tracking-tight">{config.site_nombre}</span>
+                          <span className="text-[8px] text-slate-400">ahora</span>
+                        </div>
+                        <h5 className="text-[11px] font-bold text-slate-800 leading-tight truncate">{broadcastTitle || 'Título de la oferta'}</h5>
+                        <p className="text-[10px] text-slate-600 leading-snug line-clamp-2">{broadcastMessage || 'Aquí aparecerá el cuerpo del mensaje...'}</p>
+                      </div>
+                    </div>
+                    {broadcastImage && (
+                      <div className="w-full h-32 rounded-xl overflow-hidden mt-1">
+                        <img src={broadcastImage} className="w-full h-full object-cover" alt="Preview offer" />
+                      </div>
+                    )}
+                    {broadcastLink && (
+                      <div className="text-[9px] text-violet-600 font-bold border-t border-slate-100 pt-2 flex items-center gap-1">
+                        <ExternalLink size={10} /> Ver Producto en Oferta
+                      </div>
+                    )}
+                  </div>
+                </div>
               </form>
             </div>
 
@@ -1612,6 +1687,32 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
             >
               Generar Respaldo Ahora
             </button>
+            <input type="file" ref={restoreInputRef} onChange={handleRestoreBackup} accept=".json" className="hidden" />
+            <button 
+              onClick={() => restoreInputRef.current?.click()}
+              className="w-full bg-white border border-amber-300 text-amber-700 font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition-all hover:bg-amber-100"
+            >
+              Restaurar Copia de Seguridad
+            </button>
+          </div>
+
+          {/* PRUEBA DE NOTIFICACIONES PUSH */}
+          <div className="flex flex-col gap-4 p-5 border border-violet-200 rounded-2xl bg-violet-50 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-violet-100 text-violet-600 rounded-xl">
+                <Bell size={20} />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-violet-900">Verificador de Notificaciones Push</h4>
+                <p className="text-[11px] text-violet-700">Lanza una alerta de prueba para verificar el estilo visual nativo y los permisos del navegador.</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => addNotification("Prueba de Sistema", "Esta es una notificación de prueba para verificar el estilo visual nativo de Marketo.", "admin")}
+              className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md shadow-violet-200 cursor-pointer"
+            >
+              Lanzar Notificación de Prueba 🔔
+            </button>
           </div>
 
           {/* GESTIÓN DE CATEGORÍAS (DEPARTAMENTOS) */}
@@ -1752,6 +1853,39 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                 onChange={(e) => updateConfig({ direccion_fisica: e.target.value })}
                 className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500"
               />
+            </div>
+
+            <div className="col-span-2 flex flex-col gap-1 border-t border-slate-100 pt-3">
+              <span className="font-bold text-slate-800">Mensaje de Bienvenida (Popup Inicial):</span>
+              <textarea
+                value={config.mensaje_bienvenida}
+                onChange={(e) => updateConfig({ mensaje_bienvenida: e.target.value })}
+                placeholder="Escribe el mensaje que verán los clientes al entrar por primera vez..."
+                className="bg-white border border-slate-300 rounded-lg px-2.5 py-2 outline-none focus:border-violet-500 text-xs min-h-[60px]"
+              />
+              <p className="text-[10px] text-slate-400 italic mt-1">Este mensaje aparece en la bandeja de notificaciones de los nuevos usuarios.</p>
+
+              {/* Previsualizador de Notificación Estilo Nativo */}
+              <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-2xl relative overflow-hidden group">
+                <div className="absolute top-2 right-3">
+                  <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Vista Previa Nativa</span>
+                </div>
+                <div className="max-w-xs mx-auto bg-white/90 backdrop-blur-md border border-slate-200 rounded-[22px] p-3.5 shadow-xl flex items-start gap-3 transition-all hover:scale-[1.02] border-t-white">
+                  <div className="w-10 h-10 rounded-xl bg-violet-600 flex items-center justify-center text-white shrink-0 shadow-lg shadow-violet-200 overflow-hidden">
+                    {config.logo_url ? <img src={config.logo_url} className="w-full h-full object-cover" alt="App Logo" /> : <Bell size={20} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-center mb-0.5">
+                      <span className="text-[11px] font-black text-slate-900 uppercase tracking-tight truncate">{config.site_nombre || 'Marketo'}</span>
+                      <span className="text-[9px] text-slate-400 font-medium">ahora</span>
+                    </div>
+                    <h5 className="text-[12px] font-bold text-slate-800 leading-tight">¡Bienvenido a {config.site_nombre || 'nuestra tienda'}!</h5>
+                    <p className="text-[11px] text-slate-600 leading-snug mt-1 line-clamp-2">
+                      {config.mensaje_bienvenida || 'Escribe un mensaje de bienvenida arriba para ver cómo se verá en el teléfono del cliente...'}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-slate-100 pt-3">

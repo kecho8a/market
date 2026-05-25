@@ -31,14 +31,15 @@ CREATE TABLE IF NOT EXISTS store_config (
     transferencia_enabled BOOLEAN NOT NULL DEFAULT TRUE,
     transferencia_data TEXT NOT NULL DEFAULT 'Banesco Cuenta Corriente - 0134-1122-33-4455667788 - Marketo C.A. - RIF J-50123456-7',
     transferencia_discount_percent NUMERIC(5,2) NOT NULL DEFAULT 0.00,
-    tasa_cambio NUMERIC(10,2) NOT NULL DEFAULT 36.50,
+    tasa_cambio NUMERIC(10,2) NOT NULL DEFAULT 530.50,
     logo_url TEXT DEFAULT '',
     theme_color VARCHAR(10) NOT NULL DEFAULT '#f8f7fa',
     favicon_url TEXT DEFAULT '',
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     categories TEXT[] DEFAULT ARRAY['Lácteos y Quesos', 'Carnes y Aves', 'Charcutería', 'Frutas y Verduras', 'Víveres y Despensa', 'Panadería y Pastelería', 'Bebidas y Jugos', 'Snacks y Dulces']::TEXT[],
     esta_abierta BOOLEAN NOT NULL DEFAULT TRUE,
-    mensaje_cierre TEXT DEFAULT 'Hoy no trabajamos. Volveremos pronto.'
+    mensaje_cierre TEXT DEFAULT 'Hoy no trabajamos. Volveremos pronto.',
+    mensaje_bienvenida TEXT DEFAULT 'Encuentra los mejores cortes de carne, quesos madurados y viveres frescos con delivery express en Valencia.'
 );
 
 -- Asegurarse de que las columnas existan por si la tabla ya estaba creada con la otra versión
@@ -50,6 +51,7 @@ ALTER TABLE store_config ADD COLUMN IF NOT EXISTS banner_url_3 TEXT NOT NULL DEF
 ALTER TABLE store_config ADD COLUMN IF NOT EXISTS categories TEXT[] DEFAULT ARRAY['Lácteos y Quesos', 'Carnes y Aves', 'Charcutería', 'Frutas y Verduras', 'Víveres y Despensa', 'Panadería y Pastelería', 'Bebidas y Jugos', 'Snacks y Dulces']::TEXT[];
 ALTER TABLE store_config ADD COLUMN IF NOT EXISTS delivery_gratis BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE store_config ADD COLUMN IF NOT EXISTS esta_abierta BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE store_config ADD COLUMN IF NOT EXISTS mensaje_bienvenida TEXT DEFAULT 'Encuentra los mejores productos con delivery express en Valencia.';
 
 INSERT INTO store_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
