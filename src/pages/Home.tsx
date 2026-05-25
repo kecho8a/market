@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../store/AppContext';
 import { Producto } from '../types/store';
-import { Carrot, Salad, Milk, Beef, Coffee, Apple, ShieldCheck, Zap, Filter, ArrowRight, Eye, ShoppingCart, Landmark, Check, Bell, Sparkles, Flame, Camera, MessageSquare, Search, RefreshCcw } from 'lucide-react';
+import { Carrot, Salad, Milk, Beef, Coffee, Apple, ShieldCheck, Zap, Filter, ArrowRight, Eye, ShoppingCart, Landmark, Check, Bell, Sparkles, Flame, MessageSquare, Search, RefreshCcw, Smartphone } from 'lucide-react';
 import { motion } from 'motion/react';
 import { SEOHead } from '../components/SEOHead';
 import { BentoGrid } from '../components/BentoGrid';
@@ -456,17 +456,17 @@ export const Home: React.FC<HomeProps> = ({
       <BentoGrid />
 
       {/* PWA INSTALLATION BANNER - MOVILIZADO AL FINAL CON FONDO TEMÁTICO */}
-      <div className="w-full bg-zinc-900 text-white rounded-2xl p-6 shadow-2xl relative overflow-hidden min-h-[220px] flex flex-col justify-center border border-zinc-800 select-none bg-[url('https://images.unsplash.com/photo-1512428559083-a400a6b8249a?auto=format&fit=crop&q=80&w=1000')] bg-cover bg-center">
-        <div className="absolute inset-0 bg-violet-950/80 backdrop-blur-[2px] z-0"></div>
+      <div className="w-full bg-zinc-900 text-white rounded-2xl p-6 shadow-2xl relative overflow-hidden min-h-[240px] flex flex-col justify-center border border-zinc-800 select-none bg-[url('https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=1200')] bg-cover bg-center">
+        <div className="absolute inset-0 bg-gradient-to-r from-zinc-950 via-zinc-950/60 to-transparent z-0"></div>
         <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex flex-col text-center md:text-left">
             <div className="flex items-center gap-2 justify-center md:justify-start">
-              <span className="text-[10px] uppercase font-black tracking-widest bg-white text-violet-700 px-2 py-0.5 rounded shadow-sm">Supermercado PWA</span>
-              <span className="text-[10px] uppercase font-bold tracking-widest text-violet-200">Experiencia Nativa</span>
+              <span className="text-[10px] uppercase font-black tracking-widest bg-violet-600 text-white px-2 py-0.5 rounded shadow-sm">Marketo App</span>
+              <span className="text-[10px] uppercase font-bold tracking-widest text-zinc-300">Instalación Express</span>
             </div>
-            <h3 className="text-xl font-black font-display mt-2 leading-tight">Lleva Marketo en tu Pantalla de Inicio</h3>
-            <p className="text-[12px] text-violet-100/90 leading-relaxed mt-1.5 max-w-sm font-medium">
-              Accede instantáneamente a tus víveres. Recibe alertas de preparación y seguimiento de delivery express directamente en tu móvil.
+            <h3 className="text-2xl font-black font-display mt-2 leading-tight max-w-xs">Tu mercado siempre a un toque de distancia</h3>
+            <p className="text-[12px] text-zinc-200 leading-relaxed mt-2 max-w-sm font-medium">
+              Instala nuestra app y recibe notificaciones en tiempo real, seguimiento de delivery con mapa y ofertas exclusivas para Valencia.
             </p>
           </div>
           
@@ -475,9 +475,9 @@ export const Home: React.FC<HomeProps> = ({
               <button
                 type="button"
                 onClick={onInstallClick}
-                className="bg-white hover:bg-zinc-100 text-violet-900 font-black font-display uppercase tracking-wider px-8 py-3.5 rounded-xl text-xs transition-all cursor-pointer shadow-xl active:scale-95 flex items-center justify-center gap-2"
+                className="bg-white hover:bg-zinc-100 text-zinc-900 font-black font-display uppercase tracking-wider px-8 py-4 rounded-xl text-[11px] transition-all cursor-pointer shadow-xl active:scale-95 flex items-center justify-center gap-2"
               >
-                <span>Descargar Aplicación</span>
+                <Smartphone size={16} /> <span>Descargar Aplicación</span>
               </button>
             ) : (
               <button

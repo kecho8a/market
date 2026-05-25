@@ -255,7 +255,7 @@ BEGIN
         'El cliente ' || NEW.cliente_nombre || ' ha realizado una compra por $' || NEW.total_usd,
         to_char(NOW(), 'DD/MM/YYYY HH24:MI'),
         'admin',
-        NEW.cliente_telefono,
+        '', -- Vacío para que no se filtre hacia el panel del cliente
         FALSE
     );
 
@@ -373,12 +373,16 @@ BEGIN
       WITH CHECK (true);
   END IF;
 
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='notifications' AND policyname='notifications_select_allow_all') THEN
-    DROP POLICY IF EXISTS "notifications_select_allow_all" ON notifications;
-    CREATE POLICY "Lectura de notificaciones" ON notifications
-      FOR SELECT TO anon, authenticated 
-      USING (tipo = 'todos' OR destinatario_telefono = (SELECT telefono FROM usuarios_clientes WHERE id = auth.uid()::text) OR auth.jwt() ->> 'email' = 'kecho8a@gmail.com');
-  END IF;
+  DROP POLICY IF EXISTS "notifications_select_allow_all" ON notifications;
+  DROP POLICY IF EXISTS "Lectura de notificaciones" ON notifications;
+  CREATE POLICY "Lectura de notificaciones" ON notifications
+    FOR SELECT TO anon, authenticated 
+    USING (
+      tipo = 'todos' 
+      OR (tipo = 'personal' AND destinatario_telefono = (SELECT telefono FROM usuarios_clientes WHERE id = auth.uid()::text))
+      OR (auth.jwt() ->> 'email' = 'kecho8a@gmail.com')
+      OR (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
+    );
 
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='notifications' AND policyname='notifications_update_allow_all') THEN
     CREATE POLICY "notifications_update_allow_all" ON notifications

@@ -4,9 +4,9 @@ import { Producto, Order, OrderItem } from '../types/store';
 import { supabase, uploadFileToStorage, compressImage } from '../store/supabaseClient';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line } from 'recharts';
 import { 
-  Plus, Edit, Trash2, Landmark, Settings, ShoppingBag, BarChart3, Mic,
+  Plus, Edit, Trash2, Landmark, Settings, ShoppingBag, BarChart3, Mic, FileJson,
   Search, CheckCircle, Truck, PackageCheck, AlertTriangle, Send, Bell, Ticket,
-  Receipt, Printer, Check, X, MessageSquare, ExternalLink, Upload, DollarSign, Package, ShoppingCart, User, Download, FileSpreadsheet, Eye, EyeOff
+  Receipt, Printer, Check, X, MessageSquare, ExternalLink, Upload, DollarSign, Package, ShoppingCart, User, Download, FileSpreadsheet, Eye, EyeOff, Calendar
 } from 'lucide-react';
 import { SEOHead } from '../components/SEOHead';
 import { EditProductForm } from '../components/EditProductForm';
@@ -17,7 +17,7 @@ interface AdminProps {
 
 export const Admin: React.FC<AdminProps> = ({ setTab }) => {
   const { 
-    parts, orders, config, notifications, 
+    parts, orders, config, notifications, searchPartsSemantically,
     addPart, updatePart, deletePart, updateConfig, updateExchangeRate, 
     updateOrderStatus, updateOrderItems, addNotification, toggleNotificationReadStatus,
     updateAdminCredentials, adminUser, adminPass, users, updateUserByAdmin,
@@ -241,6 +241,38 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
     recognition.start();
   };
 
+  const handleManualBackup = (isAuto = false) => {
+    const backupData = {
+      version: "1.0",
+      site: config.site_nombre,
+      date: new Date().toISOString(),
+      type: isAuto ? "automatic" : "manual",
+      data: {
+        products: parts,
+        orders,
+        users,
+        config,
+        coupons,
+        notifications
+      }
+    };
+
+    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `marketo_backup_${isAuto ? 'auto_' : 'manual'}_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    if (!isAuto) {
+      localStorage.setItem('marketo_last_backup_date', String(new Date().getTime()));
+      alert("¡Respaldo de seguridad generado y descargado con éxito!");
+    }
+  };
+
   const toggleOrderDetail = (orderId: string) => {
     setOpenOrderDetailIds(prev => 
       prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]
@@ -432,12 +464,33 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
       });
     });
 
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const startOfWeek = now.getTime() - (7 * 24 * 60 * 60 * 1000);
+    const startOfMonth = now.getTime() - (30 * 24 * 60 * 60 * 1000);
+    const startOfPrevMonth = now.getTime() - (60 * 24 * 60 * 60 * 1000);
+
+    let dayTotal = 0, weekTotal = 0, monthTotal = 0, prevMonthTotal = 0;
+
+    orders.forEach(o => {
+      const orderTime = new Date(o.fecha).getTime();
+      const amount = Number(o.total_usd) || 0;
+      if (orderTime >= startOfDay) dayTotal += amount;
+      if (orderTime >= startOfWeek) weekTotal += amount;
+      if (orderTime >= startOfMonth) monthTotal += amount;
+      else if (orderTime >= startOfPrevMonth) prevMonthTotal += amount;
+    });
+
     return {
       salesUSD: totalVentasUsd,
       couponSavingsUSD: totalAhorroCuponesUsd,
       salesBs: totalVentasUsd * (Number(config.tasa_cambio) || 1),
       ordersCount: totalPedidosCount,
-      partsSoldCount: partsSold
+      partsSoldCount: partsSold,
+      dayTotal,
+      weekTotal,
+      monthTotal,
+      prevMonthTotal
     };
   }, [orders, config.tasa_cambio]);
 
@@ -535,15 +588,31 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
     })).sort((a,b) => b.Unidades - a.Unidades).slice(0, 5);
   }, [orders, parts]);
 
+  const monthlyComparisonData = useMemo(() => {
+    return [
+      { period: 'Anterior', total: reportTotals.prevMonthTotal },
+      { period: 'Actual', total: reportTotals.monthTotal },
+    ];
+  }, [reportTotals]);
+
+  // --- Lógica de Respaldo Automático cada 15 días ---
+  useEffect(() => {
+    if (adminSection === 'reports' || adminSection === 'settings') {
+      const lastBackup = localStorage.getItem('marketo_last_backup_date');
+      const now = new Date().getTime();
+      const fifteenDays = 15 * 24 * 60 * 60 * 1000;
+
+      if (!lastBackup || (now - Number(lastBackup)) > fifteenDays) {
+        handleManualBackup(true);
+        localStorage.setItem('marketo_last_backup_date', String(now));
+        console.log("💾 Marketo: Respaldo automático quincenal ejecutado.");
+      }
+    }
+  }, [adminSection]);
+
   // Crud Catalog Search helper match
   const crudSearchParts = useMemo(() => {
-    if (!crudSearch.trim()) return parts;
-    return parts.filter(p => 
-      p.nombre.toLowerCase().includes(crudSearch.toLowerCase()) ||
-      p.codigo.toLowerCase().includes(crudSearch.toLowerCase()) ||
-      p.seccion.toLowerCase().includes(crudSearch.toLowerCase()) ||
-      p.subseccion.toLowerCase().includes(crudSearch.toLowerCase())
-    );
+    return searchPartsSemantically(crudSearch, true);
   }, [parts, crudSearch]);
 
   // Filtered orders list mapping
@@ -626,6 +695,31 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
       {/* ----------------- SUBSECTION 1: STATS REPORTS SHOWING RECHARTS ----------------- */}
       {adminSection === 'reports' && (
         <div className="flex flex-col gap-5">
+          {/* Sales Performance Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-5 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl text-white shadow-lg shadow-emerald-200">
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] font-bold uppercase tracking-widest opacity-80">Ventas Hoy</span>
+                <Calendar size={16} />
+              </div>
+              <p className="text-2xl font-black font-mono mt-2">${reportTotals.dayTotal.toFixed(2)}</p>
+            </div>
+            <div className="p-5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl text-white shadow-lg shadow-blue-200">
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] font-bold uppercase tracking-widest opacity-80">Esta Semana</span>
+                <BarChart3 size={16} />
+              </div>
+              <p className="text-2xl font-black font-mono mt-2">${reportTotals.weekTotal.toFixed(2)}</p>
+            </div>
+            <div className="p-5 bg-gradient-to-br from-violet-500 to-violet-600 rounded-2xl text-white shadow-lg shadow-violet-200">
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] font-bold uppercase tracking-widest opacity-80">Últimos 30 Días</span>
+                <ShoppingBag size={16} />
+              </div>
+              <p className="text-2xl font-black font-mono mt-2">${reportTotals.monthTotal.toFixed(2)}</p>
+            </div>
+          </div>
+
           {/* Quick Metrics Cards grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             <div className="p-4 border border-slate-200 rounded-xl bg-white shadow-sm hover:border-violet-300 transition-all duration-300 group">
@@ -676,6 +770,26 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Chart: Monthly Comparison */}
+            <div className="p-4 border border-slate-200 rounded-lg bg-white shadow-sm flex flex-col gap-2">
+              <div className="flex justify-between items-center">
+                <h4 className="text-xs font-bold font-display text-slate-900 uppercase tracking-wider">Crecimiento Mensual</h4>
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${reportTotals.monthTotal >= reportTotals.prevMonthTotal ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                  {reportTotals.prevMonthTotal > 0 ? `${(((reportTotals.monthTotal - reportTotals.prevMonthTotal) / reportTotals.prevMonthTotal) * 100).toFixed(1)}%` : '+100%'}
+                </span>
+              </div>
+              <div className="w-full h-[220px] text-[10px] font-mono mt-3">
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={monthlyComparisonData}>
+                    <XAxis dataKey="period" stroke="#64748b" />
+                    <YAxis stroke="#64748b" />
+                    <Tooltip formatter={(value: number) => [`$${value.toFixed(2)}`, 'Ventas']} />
+                    <Bar dataKey="total" fill="#4f46e5" radius={[4, 4, 0, 0]} barSize={60} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
             {/* Chart 1: Revenue line chart */}
             <div className="p-4 border border-slate-200 rounded-lg bg-white shadow-sm flex flex-col gap-2">
               <h4 className="text-xs font-bold font-display text-slate-900 uppercase tracking-wider">Flujo Diario de Ventas (USD)</h4>
@@ -773,13 +887,13 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                 value={crudSearch}
                 onChange={(e) => setCrudSearch(e.target.value)}
                 placeholder="Filtrar por nombre, codigo SKU o pasillo..."
-                className="w-full bg-[#18181b] border border-[#27272a] rounded-lg py-2 pl-9 pr-12 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 transition-all"
+                className="w-full bg-[#18181b] border border-[#27272a] rounded-lg py-2.5 pl-9 pr-12 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 transition-all shadow-inner"
               />
               <button
                 type="button"
                 onClick={startVoiceSearch}
-                className={`absolute right-3 top-2 transition-colors cursor-pointer ${isListening ? 'text-red-500 animate-pulse' : 'text-gray-500 hover:text-violet-400'}`}
-                title="Búsqueda por voz"
+                className={`absolute right-3 top-2.5 p-1 rounded-md transition-all cursor-pointer ${isListening ? 'bg-red-500 text-white animate-pulse' : 'text-slate-400 hover:text-violet-400 hover:bg-white/5'}`}
+                title={isListening ? "Escuchando..." : "Búsqueda por voz"}
               >
                 <Mic size={16} />
               </button>
@@ -1481,6 +1595,25 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
       {/* ----------------- SUBSECTION 5: SITE SYSTEM CONFIGS ----------------- */}
       {adminSection === 'settings' && (
         <div className="flex flex-col gap-6 animate-fade-in">
+          {/* MÓDULO DE RESPALDO DE SEGURIDAD */}
+          <div className="flex flex-col gap-4 p-5 border border-amber-200 rounded-2xl bg-amber-50 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-100 text-amber-600 rounded-xl">
+                <FileJson size={20} />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-amber-900">Respaldo de Seguridad Integral</h4>
+                <p className="text-[11px] text-amber-700">Descarga un archivo JSON con todos los productos, ventas y clientes. El sistema realiza esto automáticamente cada 15 días.</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => handleManualBackup(false)}
+              className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md shadow-amber-200"
+            >
+              Generar Respaldo Ahora
+            </button>
+          </div>
+
           {/* GESTIÓN DE CATEGORÍAS (DEPARTAMENTOS) */}
           <div className="flex flex-col gap-4 p-4 border border-slate-200 rounded-xl bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-slate-200 pb-2">

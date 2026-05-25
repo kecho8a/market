@@ -320,7 +320,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
 
   // Filter notifications (Global + personal targeted)
   const userNotifications = currentUser 
-    ? notifications.filter(n => n.tipo === 'todos' || (n.tipo === 'personal' && n.destinatario_telefono?.trim() === currentUser.telefono.trim())) 
+    ? notifications.filter(n => 
+        n.tipo === 'todos' || 
+        (n.tipo === 'personal' && n.destinatario_telefono?.trim() === currentUser.telefono.trim())
+      ) 
     : [];
 
   // Unread notification count
@@ -357,39 +360,53 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
           <motion.div 
             initial={{ y: 100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-zinc-200 overflow-hidden mb-16 sm:mb-0"
+            className="w-full max-w-[340px] bg-white rounded-[32px] shadow-2xl border border-zinc-200 overflow-hidden mb-16 sm:mb-0"
           >
+            {/* Imagen de Captura de Pantalla / Preview */}
+            <div className="relative h-44 bg-zinc-100 overflow-hidden">
+              <img 
+                src="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=800" 
+                alt="Marketo App Screenshot" 
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-black/20" />
+              <button 
+                onClick={() => setShowAutoPopup(false)} 
+                className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white p-1.5 rounded-full backdrop-blur-md transition-all cursor-pointer z-20"
+              >
+                <X size={16} />
+              </button>
+              <div className="absolute bottom-4 left-6 bg-violet-600 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded shadow-lg">
+                App Oficial
+              </div>
+            </div>
+
             <div className="p-5 flex flex-col gap-4">
-              <div className="flex justify-between items-start">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-violet-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-violet-200">
-                    <Package size={24} />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-black text-zinc-900 uppercase tracking-tight">Instalar Marketo App</h4>
-                    <p className="text-[11px] text-zinc-500 font-medium leading-tight">Acceso instantáneo, notificaciones push y mejor rendimiento sin usar el navegador.</p>
-                  </div>
+              <div className="flex items-start gap-4">
+                <div className="w-11 h-11 bg-violet-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-violet-200 shrink-0">
+                  <Smartphone size={22} />
                 </div>
-                <button onClick={() => setShowAutoPopup(false)} className="text-zinc-400 hover:text-zinc-600 p-1 cursor-pointer">
-                  <X size={18} />
-                </button>
+                <div className="flex flex-col gap-0.5">
+                  <h4 className="text-[15px] font-black text-zinc-900 uppercase tracking-tight">Lleva Marketo en tu móvil</h4>
+                  <p className="text-[11px] text-zinc-500 font-medium leading-tight">Seguimiento en mapa, alertas de pedidos y compras offline más rápidas.</p>
+                </div>
               </div>
               
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 mt-1">
                 <button
                   onClick={() => {
                     if (onInstallClick) onInstallClick();
                     setShowAutoPopup(false);
                   }}
-                  className="w-full bg-violet-600 hover:bg-violet-700 text-white font-black py-3 rounded-xl text-xs uppercase tracking-widest shadow-lg shadow-violet-200 transition-all active:scale-95 cursor-pointer"
+                  className="w-full bg-zinc-950 hover:bg-zinc-800 text-white font-black py-3.5 rounded-2xl text-xs uppercase tracking-widest shadow-xl transition-all active:scale-95 cursor-pointer"
                 >
-                  Descargar e Instalar
+                  Instalar Ahora
                 </button>
                 <button
                   onClick={() => setShowAutoPopup(false)}
-                  className="w-full bg-zinc-50 hover:bg-zinc-100 text-zinc-500 font-bold py-2.5 rounded-xl text-[10px] uppercase tracking-wider transition-all cursor-pointer"
+                  className="w-full bg-transparent text-zinc-400 hover:text-zinc-600 font-bold py-1 rounded-xl text-[10px] uppercase tracking-wider transition-all cursor-pointer"
                 >
-                  Quizás más tarde
+                  Quizás luego
                 </button>
               </div>
             </div>
@@ -845,46 +862,6 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
               >
                 <Edit2 size={13} /> Mi Cuenta
               </button>
-            </div>
-          </div>
-
-          {/* PWA UTILITY CARD - PERMANENT ACCESS */}
-          <div className="p-4 border border-zinc-200 rounded-xl bg-white shadow-sm flex flex-col gap-3">
-            <div className="flex gap-2.5 items-center">
-              <span className="p-2 bg-violet-50 text-violet-600 rounded-lg text-xs font-bold font-mono">
-                PWA
-              </span>
-              <div className="flex flex-col">
-                <h4 className="font-bold text-zinc-900 text-xs">Acceso Inmediato en tu Pantalla</h4>
-                <p className="text-[11px] text-zinc-500 font-medium">Instala nuestra aplicación móvil PWA para un acceso ultra rápido a tus compras.</p>
-              </div>
-            </div>
-
-            <div className="flex gap-2 mt-1">
-              {deferredPrompt ? (
-                <button
-                  type="button"
-                  onClick={onInstallClick}
-                  className="bg-violet-600 hover:bg-violet-750 text-white font-bold py-2 px-4 rounded-lg text-[11px] transition-colors cursor-pointer active:scale-95"
-                >
-                  Instalar App Marketo
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const isiOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-                    if (isiOS) {
-                      alert("Para instalar en tu iPhone:\n1. Abre Safari.\n2. Pulsa el botón de Compartir (flecha hacia arriba).\n3. Elige 'Agregar a inicio'.");
-                    } else {
-                      alert("Para instalar en Android:\n1. Pulsa los 3 puntos arriba a la derecha en Chrome.\n2. Elige 'Instalar aplicación'.");
-                    }
-                  }}
-                  className="bg-zinc-100 hover:bg-zinc-200 border border-zinc-200 text-zinc-800 font-bold py-2 px-4 rounded-lg text-[11px] transition-colors cursor-pointer active:scale-95"
-                >
-                  Ver Instrucciones de Instalación
-                </button>
-              )}
             </div>
           </div>
 

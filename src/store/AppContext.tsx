@@ -35,7 +35,7 @@ interface AppContextProps {
   addProduct: (product: Omit<Producto, 'id'>) => void;
   updateProduct: (id: string, updated: Partial<Producto>) => void;
   deleteProduct: (id: string) => void;
-  searchPartsSemantically: (query: string) => Producto[];
+  searchPartsSemantically: (query: string, includeInactive?: boolean) => Producto[];
   
   // Cart Actions
   addToCart: (part: Producto, qty?: number) => void;
@@ -564,6 +564,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     isAdminAuthenticatedRef.current = isAdminAuthenticated;
   }, [isAdminAuthenticated]);
 
+  // --- SISTEMA DE LIMPIEZA AUTOMÁTICA DE NOTIFICACIONES ---
+  // Limpia del estado local las notificaciones ya leídas que tengan más de 7 días de antigüedad.
+  useEffect(() => {
+    if (isGlobalLoading) return;
+
+    const now = new Date().getTime();
+    const limit = 7 * 24 * 60 * 60 * 1000; // 7 días en milisegundos
+
+    setNotifications(prev => prev.filter(n => {
+      // Conservar siempre las no leídas para que el usuario las gestione
+      if (!n.leida) return true;
+
+      // Usamos 'created_at' de la DB. Si no existe (notificación local muy reciente), se conserva.
+      const createdAt = (n as any).created_at;
+      if (!createdAt) return true; 
+
+      return (now - new Date(createdAt).getTime()) < limit;
+    }));
+  }, [isGlobalLoading]);
+
   const playNotificationSound = (type: 'new' | 'update', status?: Order['status']) => {
     const soundUrl = type === 'new' 
       ? 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3' // Sonido de Caja Registradora para nuevos pedidos
@@ -664,9 +684,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           
           // Validar si es para todos o específicamente para el usuario actual
           const cu = currentUserRef.current;
-          const isForMe = newNotif.tipo === 'todos' || 
-                         (cu && newNotif.destinatario_telefono === cu.telefono) ||
-                         (isAdminAuthenticatedRef.current && newNotif.tipo === 'request');
+          const isForMe = (newNotif.tipo === 'todos') || 
+                         (cu && newNotif.tipo === 'personal' && newNotif.destinatario_telefono === cu.telefono) ||
+                         (isAdminAuthenticatedRef.current && (newNotif.tipo === 'request' || newNotif.tipo === 'admin'));
 
           if (isForMe) {
             setNotifications(prev => [newNotif, ...prev]);
@@ -880,10 +900,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           .order('fecha', { ascending: false });
         if (dbOrders) setOrders(dbOrders as Order[]);
 
-        // Cargar Notificaciones (Globales y personales)
+        // Cargar Notificaciones (Solo globales o personales del usuario)
         const { data: dbNotifs } = await supabase.from('notifications')
           .select('*')
-          .or(`tipo.eq.todos,destinatario_telefono.eq."${currentUser.telefono}"`)
+          .or(`tipo.eq.todos,and(tipo.eq.personal,destinatario_telefono.eq.${currentUser.telefono})`)
           .order('id', { ascending: false });
         if (dbNotifs) setNotifications(dbNotifs as InAppNotification[]);
       }
@@ -974,8 +994,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Buscador Inteligente de Supermercado (Lógica Semántica)
-  const searchPartsSemantically = (query: string): Producto[] => {
-    if (!query || query.trim() === '') return products.filter(p => p.activo !== false);
+  const searchPartsSemantically = (query: string, includeInactive = false): Producto[] => {
+    const partsToSearch = products || [];
+    if (!query || query.trim() === '') return partsToSearch.filter(p => includeInactive || p.activo !== false);
     
     const cleanQuery = query.toLowerCase().trim();
     const tokens = cleanQuery.split(/\s+/);
@@ -993,9 +1014,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
     
-    return products.filter(part => {
+    return partsToSearch.filter(part => {
       // 0. Only active parts
-      if (part.activo === false) {
+      if (!includeInactive && part.activo === false) {
         return false;
       }
 
@@ -1014,6 +1035,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       // Enforce AND logic or highly relevant matching
       return remainingTokens.every(tok => partSearchText.includes(tok));
+    }).sort((a, b) => {
+      // Inteligencia Predictiva: Priorizar coincidencias al inicio del nombre
+      const aName = a.nombre.toLowerCase();
+      const bName = b.nombre.toLowerCase();
+      
+      const aStarts = aName.startsWith(cleanQuery);
+      const bStarts = bName.startsWith(cleanQuery);
+      
+      if (aStarts && !bStarts) return -1;
+      if (!aStarts && bStarts) return 1;
+      
+      return 0;
     });
   };
 
@@ -1581,7 +1614,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       destinatario_telefono: targetPhone,
       leida: false
     };
-    setNotifications(prev => [newNotif, ...prev]);
+
+    // Solo agregar al estado local si es relevante para el usuario actual
+    const isRelevant = (newNotif.tipo === 'todos') || 
+                       (currentUser && newNotif.tipo === 'personal' && newNotif.destinatario_telefono === currentUser.telefono) ||
+                       (isAdminAuthenticated && (newNotif.tipo === 'request' || newNotif.tipo === 'admin'));
+
+    if (isRelevant) {
+      setNotifications(prev => [newNotif, ...prev]);
+    }
 
     // Sincronización con Supabase
     supabase.from('notifications').insert([{
