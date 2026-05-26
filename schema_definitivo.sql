@@ -296,9 +296,11 @@ VALUES ('settings', 'settings', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Permitir subidas públicas al bucket settings (necesario para el logo/favicon)
+DROP POLICY IF EXISTS "Permitir subida de logos al admin" ON storage.objects;
 CREATE POLICY "Permitir subida de logos al admin" ON storage.objects
 FOR INSERT WITH CHECK (bucket_id = 'settings');
 
+DROP POLICY IF EXISTS "Permitir lectura publica de logos" ON storage.objects;
 CREATE POLICY "Permitir lectura publica de logos" ON storage.objects
 FOR SELECT USING (bucket_id = 'settings');
 
