@@ -154,7 +154,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
     });
 
     // También invocar webhook real de Cloudflare para Web Push
-    const webhookUrl = import.meta.env.VITE_PUSH_WEBHOOK_URL || 'https://marketo.com.ve/api/push-notify';
+    const webhookUrl = import.meta.env.VITE_PUSH_WEBHOOK_URL || '/api/push-notify';
     const webhookSecret = import.meta.env.VITE_WEBHOOK_SECRET || '';
 
     try {

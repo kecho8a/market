@@ -343,7 +343,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
 
     // Invocar webhook real de Cloudflare para Web Push
     // El webhook está en /api/push-notify y envía push a todos los suscriptores
-    const webhookUrl = import.meta.env.VITE_PUSH_WEBHOOK_URL || 'https://marketo.com.ve/api/push-notify';
+    const webhookUrl = import.meta.env.VITE_PUSH_WEBHOOK_URL || '/api/push-notify';
     const webhookSecret = import.meta.env.VITE_WEBHOOK_SECRET || '';
 
     try {

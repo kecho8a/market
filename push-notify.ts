@@ -14,7 +14,7 @@ export const onRequestPost: any = async (context: any) => {
 
   // 1. Verificación de Seguridad (Header secreto configurado en Supabase)
   const authHeader = request.headers.get('x-supabase-webhook-secret');
-  if (authHeader !== env.WEBHOOK_SECRET) {
+  if (authHeader !== env.WEBHOOK_SECRET && authHeader !== env.webhook_secret) {
     return new Response('Unauthorized', { status: 401 });
   }
 
@@ -44,6 +44,12 @@ export const onRequestPost: any = async (context: any) => {
       );
     }
 
+    // Import dinámico de web-push antes de usarlo para evitar ReferenceError
+    if (!webpush) {
+      const wpMod = await import('web-push');
+      webpush = (wpMod as any).default || wpMod;
+    }
+
     webpush.setVapidDetails(
       'mailto:admin@marketo.com.ve',
       vapidPublic,
@@ -65,12 +71,6 @@ export const onRequestPost: any = async (context: any) => {
 // Import dinámico para evitar bundling pesado
     const { createClient } = await import('@supabase/supabase-js');
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-    // Import dinámico de web-push
-    if (!webpush) {
-      const wpMod = await import('web-push');
-      webpush = (wpMod as any).default || wpMod;
-    }
 
 
     // Filtro por destinatario si aplica (personal)
@@ -152,4 +152,3 @@ export const onRequestPost: any = async (context: any) => {
     });
   }
 };
-
