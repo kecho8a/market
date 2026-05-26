@@ -291,11 +291,14 @@ EXECUTE FUNCTION public.handle_new_order_actions();
 -- ----------------------------------------------------------------------------
 
 -- Función para invocar el webhook de Cloudflare Functions con la notificación
--- Usa pg_net para hacer HTTP request asíncrono
+-- Usa pg_net para hacer HTTP request asíncrono (disponible en Supabase Pro)
+-- Si pg_net no está disponible, la notificación se inserta igualmente y el webhook
+-- se invoca desde el frontend en handleCreateBroadcast
 CREATE OR REPLACE FUNCTION public.handle_new_notification_push()
 RETURNS TRIGGER AS $$
 DECLARE
   v_webhook_url TEXT;
+  v_webhook_secret TEXT;
 BEGIN
   -- Construir payload para el webhook
   v_webhook_url := COALESCE(
@@ -303,22 +306,24 @@ BEGIN
     'https://marketo.com.ve/api/push-notify'
   );
 
-  -- Invocar webhook de forma asíncrona usando pg_net (disponible en Supabase)
+  v_webhook_secret := COALESCE(
+    current_setting('app.settings.webhook_secret', true),
+    ''
+  );
+
+  -- Invocar webhook de forma asíncrona usando pg_net (disponible en Supabase Pro)
   -- El webhook recibe el record completo y se encarga de enviar Web Push
   PERFORM net.http_post(
     url := v_webhook_url,
-    body := jsonb_build_object(
-      'type': 'INSERT',
-      'table': 'notifications',
-      'record': NEW
-    )::text,
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'x-supabase-webhook-secret', COALESCE(
-        current_setting('app.settings.webhook_secret', true),
-        ''
-      )
-    )
+      'x-supabase-webhook-secret', v_webhook_secret
+    ),
+    body := jsonb_build_object(
+      'type', 'INSERT',
+      'table', 'notifications',
+      'record', row_to_json(NEW)::jsonb
+    )::text
   );
 
   RETURN NEW;
@@ -336,8 +341,12 @@ AFTER INSERT ON public.notifications
 FOR EACH ROW
 EXECUTE FUNCTION public.handle_new_notification_push();
 
--- Habilitar pg_net extension para requests HTTP (requiere que esté habilitada en Supabase)
--- Si pg_net no está disponible, el webhook se puede invocar desde el frontend directamente
+-- NOTA: Para que el trigger funcione, se requiere:
+-- 1. Habilitar la extensión pg_net en Supabase: Database -> Extensions -> pg_net -> Enable
+-- 2. Configurar las variables app.settings.push_webhook_url y app.settings.webhook_secret
+--    en Supabase: Database -> Config -> Parameters
+-- 3. Si pg_net no está disponible, el sistema funciona igualmente ya que el webhook
+--    también se invoca desde el frontend en handleCreateBroadcast (Admin.tsx)
 
 -- ----------------------------------------------------------------------------
 -- 6. POLÍTICAS RLS Y SEGURIDAD

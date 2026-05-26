@@ -1222,7 +1222,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                       )}
 
                       <div className="p-1.5 rounded-lg bg-violet-100/60 text-violet-600 font-bold shrink-0 mt-0.5 font-mono text-[10px]">
-                        {notif.tipo === 'personal' ? 'P' : 'T'}
+                        {notif.tipo === 'personal' ? 'P' : notif.tipo === 'request' ? 'R' : 'T'}
                       </div>
 
                       <div className="flex-1 flex flex-col gap-1 pr-4">
@@ -1233,6 +1233,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                           )}
                           {notif.tipo === 'todos' && (
                             <span className="text-[8px] bg-violet-50 border border-violet-200 text-violet-600 px-1 py-0.2 rounded font-mono font-bold tracking-tight uppercase">Promo</span>
+                          )}
+                          {notif.tipo === 'request' && (
+                            <span className="text-[8px] bg-amber-50 border border-amber-200 text-amber-600 px-1 py-0.2 rounded font-mono font-bold tracking-tight uppercase">Solicitud</span>
                           )}
                         </div>
                         <p className="text-[11px] text-zinc-650 leading-relaxed font-sans mt-0.5">{notif.mensaje}</p>
