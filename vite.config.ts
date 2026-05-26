@@ -13,9 +13,9 @@ export default defineConfig(({mode}) => {
       VitePWA({
         registerType: 'autoUpdate',
         strategies: 'injectManifest',
-        srcDir: 'public',
+        srcDir: 'src',
         filename: 'sw.js',
-        injectionPoint: 'self.assets',
+        injectionPoint: 'self.__WB_MANIFEST',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'sounds/notification.mp3'],
         manifest: {
           name: 'Marketo',

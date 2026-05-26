@@ -4,7 +4,8 @@ import App from './App.tsx';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
 
-registerSW({ immediate: true });
+// Registrar SW diferido (no immediate) para evitar recargas en dev
+registerSW();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
