@@ -596,4 +596,4 @@ ALTER DATABASE postgres SET "app.settings.push_webhook_url" = 'https://market-cb
 
 -- 3. Configurar el secreto de seguridad
 -- IMPORTANTE: Reemplaza 'TU_WEBHOOK_SECRET_REAL' con el valor definido en tus variables de entorno de Cloudflare
-ALTER DATABASE postgres SET "app.settings.webhook_secret" = 'TU_WEBHOOK_SECRET_REAL';
+ALTER DATABASE postgres SET "app.settings.webhook_secret" = 'Marketo_Secure_Token_2026_XYZ#';
