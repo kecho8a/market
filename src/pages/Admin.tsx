@@ -325,35 +325,68 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
     }
   };
 
-  const handleCreateBroadcast = (e: React.FormEvent) => {
+  const handleCreateBroadcast = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!broadcastTitle.trim() || !broadcastMessage.trim()) return;
-    
+
     // Check if phone was filled for personal notification
     if (broadcastTipo === 'personal' && !broadcastDestinatarioTelefono.trim()) {
       alert('Por favor, especifique el número de teléfono para la notificación personal.');
       return;
     }
-    
+
     const sentTitle = broadcastTitle.trim();
     const sentMessage = broadcastMessage.trim();
     const targetPhone = broadcastTipo === 'personal' ? broadcastDestinatarioTelefono.trim() : undefined;
-    
+
     addNotification(sentTitle, sentMessage, broadcastTipo, targetPhone, broadcastImage, broadcastLink);
-    
+
+    // Invocar webhook real de Cloudflare para Web Push
+    // El webhook está en /api/push-notify y envía push a todos los suscriptores
+    const webhookUrl = import.meta.env.VITE_PUSH_WEBHOOK_URL || 'https://marketo.com.ve/api/push-notify';
+    const webhookSecret = import.meta.env.VITE_WEBHOOK_SECRET || '';
+
+    try {
+      // Esperar un poco para que la inserción en Supabase complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Invocar el webhook que envía Web Push real a través de VAPID
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-supabase-webhook-secret': webhookSecret
+        },
+        body: JSON.stringify({
+          record: {
+            id: `notif-${Date.now()}`,
+            titulo: sentTitle,
+            mensaje: sentMessage,
+            tipo: broadcastTipo,
+            destinatario_telefono: targetPhone || '',
+            link_url: broadcastLink || '/',
+            imagen_url: broadcastImage || ''
+          }
+        })
+      });
+    } catch (err) {
+      console.error('Error invocando webhook de push:', err);
+      // No mostrar error al usuario, la notificación local ya se creó
+    }
+
     // Custom polished visual confirmation toast showing the title of the broadcast
     setToastTitle(
       broadcastTipo === 'todos' ? '📢 Comunicado Difundido Exitosamente' :
       broadcastTipo === 'personal' ? '👤 Envío de Notificación Personalizada' :
       '🛡️ Alerta de Administrador Creada'
     );
-    
+
     setToastMessage(
       broadcastTipo === 'todos' ? `El comunicado general "${sentTitle}" fue enviado a todos los clientes.` :
       broadcastTipo === 'personal' ? `La notificación privada fue dirigida al cliente con teléfono ${targetPhone}.` :
       `La alerta de uso interno "${sentTitle}" fue registrada.`
     );
-    
+
     setBroadcastTitle('');
     setBroadcastMessage('');
     setBroadcastDestinatarioTelefono('');

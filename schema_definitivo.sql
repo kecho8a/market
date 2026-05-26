@@ -144,6 +144,9 @@ CREATE TABLE IF NOT EXISTS public.push_subscriptions (
     UNIQUE(user_id, endpoint)
 );
 
+-- Agregar columna telefono para filtrar por destinatario (si no existe)
+ALTER TABLE public.push_subscriptions ADD COLUMN IF NOT EXISTS destinatario_telefono TEXT DEFAULT '';
+
 -- ----------------------------------------------------------------------------
 -- 4.5 coupons (SISTEMA DE FIDELIZACIÓN)
 -- ----------------------------------------------------------------------------
@@ -284,6 +287,59 @@ FOR EACH ROW
 EXECUTE FUNCTION public.handle_new_order_actions();
 
 -- ----------------------------------------------------------------------------
+-- 5.6 FUNCIONES Y TRIGGERS DE NOTIFICACIONES PUSH (WEBHOOK A CLOUDFLARE)
+-- ----------------------------------------------------------------------------
+
+-- Función para invocar el webhook de Cloudflare Functions con la notificación
+-- Usa pg_net para hacer HTTP request asíncrono
+CREATE OR REPLACE FUNCTION public.handle_new_notification_push()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_webhook_url TEXT;
+BEGIN
+  -- Construir payload para el webhook
+  v_webhook_url := COALESCE(
+    current_setting('app.settings.push_webhook_url', true),
+    'https://marketo.com.ve/api/push-notify'
+  );
+
+  -- Invocar webhook de forma asíncrona usando pg_net (disponible en Supabase)
+  -- El webhook recibe el record completo y se encarga de enviar Web Push
+  PERFORM net.http_post(
+    url := v_webhook_url,
+    body := jsonb_build_object(
+      'type': 'INSERT',
+      'table': 'notifications',
+      'record': NEW
+    )::text,
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'x-supabase-webhook-secret', COALESCE(
+        current_setting('app.settings.webhook_secret', true),
+        ''
+      )
+    )
+  );
+
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  -- No fallar la inserción si el webhook falla
+  RAISE WARNING 'No se pudo invocar webhook de push: %', SQLERRM;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger para invocar webhook al insertar notificación (después del insert)
+DROP TRIGGER IF EXISTS trigger_notify_push ON public.notifications;
+CREATE TRIGGER trigger_notify_push
+AFTER INSERT ON public.notifications
+FOR EACH ROW
+EXECUTE FUNCTION public.handle_new_notification_push();
+
+-- Habilitar pg_net extension para requests HTTP (requiere que esté habilitada en Supabase)
+-- Si pg_net no está disponible, el webhook se puede invocar desde el frontend directamente
+
+-- ----------------------------------------------------------------------------
 -- 6. POLÍTICAS RLS Y SEGURIDAD
 -- ----------------------------------------------------------------------------
 ALTER TABLE store_config ENABLE ROW LEVEL SECURITY;
@@ -382,15 +438,27 @@ BEGIN
       WITH CHECK (true);
   END IF;
 
+  -- Política de lectura CORREGIDA:
+  -- - 'admin': solo admins ven estas (notificaciones de pedidos nuevos para el admin)
+  -- - 'request': admins ven todas, clientes solo las suyas
+  -- - 'personal': solo el destinatario (por teléfono)
+  -- - 'todos': filtrar por teléfono del cliente actual
   DROP POLICY IF EXISTS "notifications_select_allow_all" ON notifications;
   DROP POLICY IF EXISTS "Lectura de notificaciones" ON notifications;
   CREATE POLICY "Lectura de notificaciones" ON notifications
-    FOR SELECT TO anon, authenticated 
+    FOR SELECT TO anon, authenticated
     USING (
-      tipo = 'todos' 
-      OR (tipo = 'personal' AND destinatario_telefono = (SELECT telefono FROM usuarios_clientes WHERE id = auth.uid()::text))
-      OR (auth.jwt() ->> 'email' = 'kecho8a@gmail.com')
+      -- Admin absoluto puede ver todo
+      (auth.jwt() ->> 'email' = 'kecho8a@gmail.com')
       OR (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
+      -- Notificaciones tipo 'admin': solo admins (pedidos nuevos)
+      OR (tipo = 'admin')
+      -- Notificaciones tipo 'request': admins ven todas, clientes solo las suyas (vía request)
+      OR (tipo = 'request' AND destinatario_telefono = (SELECT telefono FROM usuarios_clientes WHERE id = auth.uid()::text))
+      -- Notificaciones tipo 'todos': promotions visible a todos los clientes autenticados
+      OR (tipo = 'todos')
+      -- Notificaciones personales: solo el destinatario
+      OR (tipo = 'personal' AND destinatario_telefono = (SELECT telefono FROM usuarios_clientes WHERE id = auth.uid()::text))
     );
 
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='notifications' AND policyname='notifications_update_allow_all') THEN

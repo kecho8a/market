@@ -8,11 +8,15 @@ export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   return {
     plugins: [
-      react(), 
+      react(),
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+        strategies: 'injectManifest',
+        srcDir: 'public',
+        filename: 'sw.js',
+        injectionPoint: 'self.assets',
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'sounds/notification.mp3'],
         manifest: {
           name: 'Marketo',
           short_name: 'Marketo',

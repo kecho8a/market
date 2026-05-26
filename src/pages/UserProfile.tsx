@@ -94,7 +94,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
 
     try {
       const registration = await navigator.serviceWorker.ready;
-      
+
       // Suscribirse al servidor de Push del navegador (FCM/Apple/Mozilla)
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
@@ -103,12 +103,13 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
 
       // Extraer llaves y endpoint para la DB
       const subJSON = subscription.toJSON();
-      
+
       const { error } = await supabase.from('push_subscriptions').upsert({
         user_id: currentUser.id,
         endpoint: subJSON.endpoint,
         p256dh: subJSON.keys?.p256dh,
-        auth_secret: subJSON.keys?.auth
+        auth_secret: subJSON.keys?.auth,
+        destinatario_telefono: currentUser.telefono || '' // Guardar teléfono para filtrar push personal
       }, { onConflict: 'user_id, endpoint' });
 
       if (error) throw error;
@@ -140,13 +141,49 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
     }
   };
 
-  const sendTestPushNotification = () => {
-    if (notificationPermission === 'granted' && typeof window !== 'undefined' && 'Notification' in window) {
-      new Notification('Prueba Exitosa', {
-        body: 'Esta es una notificación de prueba. Todo está configurado correctamente en Marketo.',
-        icon: 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&q=80&w=100',
-        tag: 'test'
+  const sendTestPushNotification = async () => {
+    if (notificationPermission !== 'granted' || typeof window === 'undefined' || !('Notification' in window)) {
+      return;
+    }
+
+    // Primero mostrar notificación local
+    const testNotif = new Notification('Prueba Exitosa', {
+      body: 'Esta es una notificación de prueba. Todo está configurado correctamente en Marketo.',
+      icon: 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&q=80&w=100',
+      tag: 'test'
+    });
+
+    // También invocar webhook real de Cloudflare para Web Push
+    const webhookUrl = import.meta.env.VITE_PUSH_WEBHOOK_URL || 'https://marketo.com.ve/api/push-notify';
+    const webhookSecret = import.meta.env.VITE_WEBHOOK_SECRET || '';
+
+    try {
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-supabase-webhook-secret': webhookSecret
+        },
+        body: JSON.stringify({
+          record: {
+            id: `notif-test-${Date.now()}`,
+            titulo: '🧪 Prueba de Notificación Push',
+            mensaje: 'Esta notificación fue enviada vía Web Push real desde Marketo PWA.',
+            tipo: 'personal',
+            destinatario_telefono: currentUser?.telefono || '',
+            link_url: '/?tab=profile',
+            imagen_url: ''
+          }
+        })
       });
+
+      if (res.ok) {
+        console.log('Web Push de prueba enviado exitosamente');
+      } else {
+        console.error('Error del webhook de push:', res.status);
+      }
+    } catch (err) {
+      console.error('Error invocando webhook de push:', err);
     }
   };
 
@@ -319,11 +356,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
     : null;
 
   // Filter notifications (Global + personal targeted)
-  const userNotifications = currentUser 
-    ? notifications.filter(n => 
-        n.tipo === 'todos' || 
-        (n.tipo === 'personal' && n.destinatario_telefono?.trim() === currentUser.telefono.trim())
-      ) 
+  const userNotifications = currentUser
+    ? notifications.filter(n =>
+        n.tipo === 'todos' ||
+        (n.tipo === 'personal' && n.destinatario_telefono?.trim() === currentUser.telefono.trim()) ||
+        (n.tipo === 'request' && n.destinatario_telefono?.trim() === currentUser.telefono.trim())
+      )
     : [];
 
   // Unread notification count

@@ -1,4 +1,6 @@
 // Service Worker - Marketo Realtime Notifications (Premium)
+// Injected by vite-plugin-pwa for precaching assets
+self.assets;
 
 const safeJsonParse = (value) => {
   try {
