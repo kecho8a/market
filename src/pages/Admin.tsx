@@ -6,7 +6,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, L
 import { 
   Plus, Edit, Trash2, Landmark, Settings, ShoppingBag, BarChart3, Mic, FileJson,
   Search, CheckCircle, Truck, PackageCheck, AlertTriangle, Send, Bell, Ticket,
-  Receipt, Printer, Check, X, MessageSquare, ExternalLink, Upload, DollarSign, Package, ShoppingCart, User, Download, FileSpreadsheet, Eye, EyeOff, Calendar
+  Receipt, Printer, Check, X, MessageSquare, ExternalLink, Upload, DollarSign, Package, ShoppingCart, User, Download, FileSpreadsheet, Eye, EyeOff, Calendar, AlertCircle
 } from 'lucide-react';
 import { SEOHead } from '../components/SEOHead';
 import { EditProductForm } from '../components/EditProductForm';
@@ -18,7 +18,7 @@ interface AdminProps {
 export const Admin: React.FC<AdminProps> = ({ setTab }) => {
   const { 
     parts, orders, config, notifications, searchPartsSemantically,
-    addPart, updatePart, deletePart, updateConfig, updateExchangeRate, 
+    addPart, updatePart, deletePart, updateConfig, updateExchangeRate, currentUser, syncPushSubscription,
     updateOrderStatus, updateOrderItems, addNotification, toggleNotificationReadStatus,
     updateAdminCredentials, adminUser, adminPass, users, updateUserByAdmin,
     addCategory, deleteCategory, updateCategory, 
@@ -1833,13 +1833,36 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
             </div>
 
             <div className="flex flex-col gap-1 col-span-2 md:col-span-1">
-              <span>Telefono Atencion Pedidos (WhatsApp)::</span>
+              <div className="flex justify-between items-center">
+                <span className="flex items-center gap-1.5">
+                  Número Maestro de Notificaciones (Push/WA):
+                </span>
+                {currentUser && config.telefono_soporte !== currentUser.telefono && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      updateConfig({ telefono_soporte: currentUser.telefono });
+                      await syncPushSubscription();
+                    }}
+                    className="text-[9px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded border border-amber-200 hover:bg-amber-200 transition-colors cursor-pointer font-bold uppercase tracking-tighter"
+                  >
+                    Usar mi número
+                  </button>
+                )}
+              </div>
               <input
                 type="text"
                 value={config.telefono_soporte}
                 onChange={(e) => updateConfig({ telefono_soporte: e.target.value })}
-                className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500"
+                className={`bg-white border rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500 transition-all ${
+                  currentUser && config.telefono_soporte !== currentUser.telefono ? 'border-amber-400 ring-2 ring-amber-100' : 'border-slate-300'
+                }`}
               />
+              {currentUser && config.telefono_soporte !== currentUser.telefono && (
+                <p className="text-[9px] text-amber-600 font-bold mt-1 flex items-center gap-1 animate-pulse">
+                  <AlertTriangle size={10} /> Atención: Para recibir notificaciones Push de Admin, este número debe coincidir con tu perfil ({currentUser.telefono}).
+                </p>
+              )}
               {config.telefono_soporte && (
                 <a
                   href={`https://wa.me/${(config.telefono_soporte || '584124976451').replace(/\D/g, '').replace(/^0/, '58')}`}
@@ -2052,6 +2075,35 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                   </div>
                 )}
               </div>
+            </div>
+
+            <div className="col-span-2 border-t border-slate-100 pt-3 flex flex-col gap-3">
+              <span className="text-[10px] uppercase font-mono text-slate-500 block pb-1">Configuración del Motor Push (VAPID / Webhook)</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div className="flex flex-col gap-1">
+                  <span>URL del Webhook (Cloudflare Pages):</span>
+                  <input
+                    type="text"
+                    value={config.push_webhook_url || ''}
+                    onChange={(e) => updateConfig({ push_webhook_url: e.target.value })}
+                    placeholder="https://su-app.pages.dev/api/push-notify"
+                    className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500 font-mono text-[11px]"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span>Webhook Secret (Auth):</span>
+                  <input
+                    type="password"
+                    value={config.push_webhook_secret || ''}
+                    onChange={(e) => updateConfig({ push_webhook_secret: e.target.value })}
+                    placeholder="Clave de seguridad del webhook..."
+                    className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500 font-mono text-[11px]"
+                  />
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-400 italic">
+                Esta configuración conecta Supabase con el Worker de Cloudflare para procesar los envíos reales a los navegadores.
+              </p>
             </div>
 
             <div className="col-span-2 border-t border-slate-100 pt-3 flex flex-col gap-2">

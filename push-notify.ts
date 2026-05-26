@@ -80,11 +80,10 @@ export const onRequestPost: any = async (context: any) => {
     const tipo = record.tipo;
     const destinatarioTelefono = record.destinatario_telefono;
 
-    // IMPORTANTE: en tu schema, push_subscriptions filtra por RLS usando destinatario_telefono.
-    // Evitamos filtrar por una columna inexistente (telefono) y consultamos por destinatario_telefono cuando aplique.
     let query = supabase.from('push_subscriptions').select('*');
 
-    if (tipo === 'personal' && destinatarioTelefono) {
+    // Si es personal o admin, filtramos por el teléfono del destinatario registrado
+    if ((tipo === 'personal' || tipo === 'admin') && destinatarioTelefono) {
       query = query.eq('destinatario_telefono', destinatarioTelefono);
     }
 
@@ -113,15 +112,15 @@ export const onRequestPost: any = async (context: any) => {
 
     // 5. Payload Web Push
     const payloadForSW = {
-      title: titulo,       // Sincronizado con sw.js
-      body: mensaje,        // Sincronizado con sw.js
-      url: linkUrl,         // Sincronizado con sw.js
-      image: record.imagen_url || null, // Sincronizado con sw.js
+      titulo: titulo,       // Sincronizado con sw.js (español)
+      mensaje: mensaje,      // Sincronizado con sw.js (español)
+      link_url: linkUrl,     // Sincronizado con sw.js (español)
+      imagen_url: record.imagen_url || null, // Sincronizado con sw.js (español)
       tag: String(record.id),
       id: String(record.id),
       requireInteraction: true,
       // opcional: imagen/sound desde tu ruta pública
-      sound: '/sounds/notification.mp3'
+      badge: '/badge.png'
     };
 
     // 6. Enviar a cada suscripción
@@ -130,8 +129,15 @@ export const onRequestPost: any = async (context: any) => {
       try {
         const res = await webpush.sendNotification(sub as any, JSON.stringify(payloadForSW));
         results.push({ ok: true });
-      } catch (e: any) {
-        results.push({ ok: false, error: e?.message || String(e) });
+      } catch (err: any) {
+        // Robustez: Si el endpoint ya no existe (410 Gone) o no se encuentra (404), eliminar de la DB
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          await supabase
+            .from('push_subscriptions')
+            .delete()
+            .eq('endpoint', sub.endpoint);
+        }
+        results.push({ ok: false, error: err?.message || String(err) });
       }
     }
 

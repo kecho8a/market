@@ -65,6 +65,7 @@ interface AppContextProps {
   addNotification: (title: string, message: string, tipo?: 'todos' | 'personal' | 'admin' | 'request', targetPhone?: string, imageUrl?: string, linkUrl?: string) => void;
   markNotificationAsRead: (id: string) => void;
   toggleNotificationReadStatus: (id: string) => void;
+  syncPushSubscription: () => Promise<void>;
   deleteNotification: (id: string) => void;
   clearAllNotifications: () => void;
   
@@ -445,7 +446,9 @@ const DEFAULT_CONFIG: StoreConfig = {
     'Panadería y Pastelería',
     'Bebidas y Jugos',
     'Snacks y Dulces'
-  ]
+  ],
+  push_webhook_url: 'https://market-cbh.pages.dev/api/push-notify',
+  push_webhook_secret: ''
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -877,7 +880,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           pagomovil_data: dbConfig.pagomovil_data,
           zelle_data: dbConfig.zelle_data,
           efectivo_data: dbConfig.efectivo_data,
-          transferencia_data: dbConfig.transferencia_data
+          transferencia_data: dbConfig.transferencia_data,
+          push_webhook_url: dbConfig.push_webhook_url,
+          push_webhook_secret: dbConfig.push_webhook_secret
         }));
       }
 
@@ -1670,6 +1675,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, leida: !n.leida } : n));
   };
 
+  /**
+   * Sincroniza la suscripción Push del navegador con el teléfono actual del usuario en la DB.
+   * Se debe llamar siempre que el teléfono cambie.
+   */
+  const syncPushSubscription = async () => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window) || !currentUser) return;
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const existingSub = await registration.pushManager.getSubscription();
+      
+      if (!existingSub) return;
+
+      const subJSON = existingSub.toJSON();
+      
+      // Actualizamos la suscripción en la tabla push_subscriptions.
+      // El upsert garantiza que si el endpoint es el mismo, solo actualice el destinatario_telefono.
+      const { error } = await supabase.from('push_subscriptions').upsert({
+        user_id: currentUser.id,
+        endpoint: subJSON.endpoint,
+        p256dh: subJSON.keys?.p256dh,
+        auth_secret: subJSON.keys?.auth,
+        destinatario_telefono: currentUser.telefono.trim()
+      }, { onConflict: 'user_id, endpoint' });
+
+      if (error) {
+        console.error('❌ Marketo: Error sincronizando suscripción push:', error.message);
+      } else {
+        console.log('✅ Marketo: Suscripción Push sincronizada con el teléfono:', currentUser.telefono);
+      }
+    } catch (err) {
+      console.error('❌ Marketo: Fallo crítico en syncPushSubscription:', err);
+    }
+  };
+
   const deleteNotification = (id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
@@ -1765,6 +1805,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addNotification,
       markNotificationAsRead,
       toggleNotificationReadStatus,
+      syncPushSubscription,
       deleteNotification,
       clearAllNotifications,
       authenticateAdmin,

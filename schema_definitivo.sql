@@ -39,7 +39,9 @@ CREATE TABLE IF NOT EXISTS store_config (
     categories TEXT[] DEFAULT ARRAY['Lácteos y Quesos', 'Carnes y Aves', 'Charcutería', 'Frutas y Verduras', 'Víveres y Despensa', 'Panadería y Pastelería', 'Bebidas y Jugos', 'Snacks y Dulces']::TEXT[],
     esta_abierta BOOLEAN NOT NULL DEFAULT TRUE,
     mensaje_cierre TEXT DEFAULT 'Hoy no trabajamos. Volveremos pronto.',
-    mensaje_bienvenida TEXT DEFAULT 'Encuentra los mejores cortes de carne, quesos madurados y viveres frescos con delivery express en Valencia.'
+    mensaje_bienvenida TEXT DEFAULT 'Encuentra los mejores cortes de carne, quesos madurados y viveres frescos con delivery express en Valencia.',
+    push_webhook_url TEXT DEFAULT 'https://market-cbh.pages.dev/api/push-notify',
+    push_webhook_secret TEXT DEFAULT ''
 );
 
 -- Asegurarse de que las columnas existan por si la tabla ya estaba creada con la otra versión
@@ -52,6 +54,8 @@ ALTER TABLE store_config ADD COLUMN IF NOT EXISTS categories TEXT[] DEFAULT ARRA
 ALTER TABLE store_config ADD COLUMN IF NOT EXISTS delivery_gratis BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE store_config ADD COLUMN IF NOT EXISTS esta_abierta BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE store_config ADD COLUMN IF NOT EXISTS mensaje_bienvenida TEXT DEFAULT 'Encuentra los mejores productos con delivery express en Valencia.';
+ALTER TABLE store_config ADD COLUMN IF NOT EXISTS push_webhook_url TEXT DEFAULT 'https://market-cbh.pages.dev/api/push-notify';
+ALTER TABLE store_config ADD COLUMN IF NOT EXISTS push_webhook_secret TEXT DEFAULT '';
 
 INSERT INTO store_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
@@ -223,6 +227,7 @@ DECLARE
     v_part_id uuid;
     v_cantidad int;
     v_notif_id text;
+    v_admin_phone text;
 BEGIN
     -- 1. Procesar Stock con resiliencia de mapeo
     FOR item_json IN SELECT jsonb_array_elements(NEW.items)
@@ -253,6 +258,9 @@ BEGIN
     -- 3. Inserción Automática de Notificación (Atomicidad asegurada)
     v_notif_id := 'notif-' || encode(gen_random_bytes(6), 'hex');
     
+    -- Obtener teléfono del administrador para el ruteo del Push
+    SELECT telefono_soporte INTO v_admin_phone FROM public.store_config WHERE id = 1;
+
     INSERT INTO public.notifications (
         id, 
         titulo, 
@@ -267,7 +275,7 @@ BEGIN
         'El cliente ' || NEW.cliente_nombre || ' ha realizado una compra por $' || NEW.total_usd,
         to_char(NOW(), 'DD/MM/YYYY HH24:MI'),
         'admin',
-        '', -- Vacío para que no se filtre hacia el panel del cliente
+        COALESCE(v_admin_phone, ''), 
         FALSE
     );
 
@@ -285,6 +293,81 @@ CREATE TRIGGER trigger_order_completion
 AFTER INSERT ON public.orders
 FOR EACH ROW
 EXECUTE FUNCTION public.handle_new_order_actions();
+
+-- Función para notificar automáticamente cambios de estado de pedidos
+CREATE OR REPLACE FUNCTION public.handle_order_status_push_update()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_notif_id text;
+    v_mensaje text;
+    v_admin_phone text;
+BEGIN
+    -- Detectar cuando el estado cambia específicamente a 'En camino'
+    IF (OLD.status IS DISTINCT FROM NEW.status) AND NEW.status = 'En camino' THEN
+        
+        v_notif_id := 'notif-status-' || encode(gen_random_bytes(6), 'hex');
+        v_mensaje := '🛵 ¡Buenas noticias, ' || NEW.cliente_nombre || '! Tu pedido ' || NEW.id || ' ya ha sido despachado y se dirige a tu ubicación.';
+
+        -- Insertar notificación personal para el cliente
+        -- Esto disparará automáticamente trigger_notify_push
+        INSERT INTO public.notifications (
+            id, 
+            titulo, 
+            mensaje, 
+            fecha, 
+            tipo, 
+            destinatario_telefono, 
+            link_url,
+            leida
+        ) VALUES (
+            v_notif_id,
+            '¡Pedido en camino! 🛵',
+            v_mensaje,
+            to_char(NOW(), 'DD/MM/YYYY HH24:MI'),
+            'personal',
+            NEW.cliente_telefono,
+            '/?tab=profile', -- Redirige al perfil para ver el rastreo
+            FALSE
+        );
+    
+    -- Detectar cuando el pedido es CANCELADO para avisar al administrador
+    ELSIF (OLD.status IS DISTINCT FROM NEW.status) AND NEW.status = 'Cancelado' THEN
+        
+        SELECT telefono_soporte INTO v_admin_phone FROM public.store_config WHERE id = 1;
+        v_notif_id := 'notif-cancel-' || encode(gen_random_bytes(6), 'hex');
+        v_mensaje := '🚫 El pedido ' || NEW.id || ' de ' || NEW.cliente_nombre || ' ha sido cancelado.';
+
+        INSERT INTO public.notifications (
+            id, 
+            titulo, 
+            mensaje, 
+            fecha, 
+            tipo, 
+            destinatario_telefono, 
+            link_url,
+            leida
+        ) VALUES (
+            v_notif_id,
+            '🚫 Pedido Cancelado',
+            v_mensaje,
+            to_char(NOW(), 'DD/MM/YYYY HH24:MI'),
+            'admin',
+            COALESCE(v_admin_phone, ''),
+            '/admin', -- Redirige al panel admin
+            FALSE
+        );
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Disparador para cambios de estado en pedidos
+DROP TRIGGER IF EXISTS trigger_order_status_update_push ON public.orders;
+CREATE TRIGGER trigger_order_status_update_push
+AFTER UPDATE ON public.orders
+FOR EACH ROW
+EXECUTE FUNCTION public.handle_order_status_push_update();
 
 -- ----------------------------------------------------------------------------
 -- 5.6 FUNCIONES Y TRIGGERS DE NOTIFICACIONES PUSH (WEBHOOK A CLOUDFLARE)
@@ -311,19 +394,14 @@ DECLARE
   v_webhook_url TEXT;
   v_webhook_secret TEXT;
 BEGIN
-  -- Obtener configuración de las variables de la base de datos
-  v_webhook_url := COALESCE(
-    current_setting('app.settings.push_webhook_url', true),
-    '' 
-  );
+  -- Recuperar configuración desde la tabla store_config (Evita errores de permisos 42501)
+  SELECT push_webhook_url, push_webhook_secret 
+  INTO v_webhook_url, v_webhook_secret 
+  FROM public.store_config 
+  WHERE id = 1;
 
-  v_webhook_secret := COALESCE(
-    current_setting('app.settings.webhook_secret', true),
-    ''
-  );
-
-  -- Solo procesar notificaciones de difusión o personales hacia el Worker de Push
-  IF v_webhook_url <> '' AND NEW.tipo IN ('todos', 'personal') THEN
+  -- Procesar notificaciones de difusión, personales y administrativas
+  IF v_webhook_url <> '' AND NEW.tipo IN ('todos', 'personal', 'admin') THEN
     PERFORM net.http_post(
       url := v_webhook_url,
       headers := jsonb_build_object(
@@ -590,10 +668,9 @@ $$;
 -- 1. Habilitar extensión para peticiones HTTP asíncronas
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
--- 2. Configurar la URL del endpoint de Cloudflare Pages Functions
--- Se utiliza la URL proporcionada: https://market-cbh.pages.dev/
-ALTER DATABASE postgres SET "app.settings.push_webhook_url" = 'https://market-cbh.pages.dev/api/push-notify';
-
--- 3. Configurar el secreto de seguridad
--- IMPORTANTE: Reemplaza 'TU_WEBHOOK_SECRET_REAL' con el valor definido en tus variables de entorno de Cloudflare
-ALTER DATABASE postgres SET "app.settings.webhook_secret" = 'Marketo_Secure_Token_2026_XYZ#';
+-- 2. Actualizar configuración en la tabla (En lugar de ALTER DATABASE que requiere superuser)
+UPDATE public.store_config 
+SET 
+  push_webhook_url = 'https://market-cbh.pages.dev/api/push-notify',
+  push_webhook_secret = 'Marketo_Secure_Token_2026_XYZ#'
+WHERE id = 1;

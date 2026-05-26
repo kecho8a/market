@@ -28,6 +28,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
     updateUser,
     sendPasswordResetEmail,
     markNotificationAsRead,
+    syncPushSubscription,
     addNotification,
     deleteNotification,
     hapticEnabled,
@@ -89,35 +90,6 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
     return outputArray;
   };
 
-  const subscribeUserToPush = async () => {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !currentUser) return;
-
-    try {
-      const registration = await navigator.serviceWorker.ready;
-
-      // Suscribirse al servidor de Push del navegador (FCM/Apple/Mozilla)
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY)
-      });
-
-      // Extraer llaves y endpoint para la DB
-      const subJSON = subscription.toJSON();
-
-      const { error } = await supabase.from('push_subscriptions').upsert({
-        user_id: currentUser.id,
-        endpoint: subJSON.endpoint,
-        p256dh: subJSON.keys?.p256dh,
-        auth_secret: subJSON.keys?.auth,
-        destinatario_telefono: currentUser.telefono || '' // Guardar teléfono para filtrar push personal
-      }, { onConflict: 'user_id, endpoint' });
-
-      if (error) throw error;
-    } catch (err) {
-      console.error('Error al registrar suscripción push en Supabase:', err);
-    }
-  };
-
   const requestNotificationPermission = async () => {
     if (typeof window === 'undefined' || !('Notification' in window)) {
       return;
@@ -127,8 +99,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
       const res = await Notification.requestPermission();
       setNotificationPermission(res as any);
       if (res === 'granted') {
-        // Si el usuario acepta, procedemos a crear la suscripción push real
-        await subscribeUserToPush();
+        // Re-suscripción con llaves VAPID
+        const registration = await navigator.serviceWorker.ready;
+        await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY)
+        });
+        
+        await syncPushSubscription();
         
         new Notification('¡Notificaciones Habilitadas!', {
           body: '¡Excelente! Ahora recibirás actualizaciones rápidas de tus pedidos y promociones de Marketo.',
@@ -317,7 +295,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
     }
   };
 
-  const handleUpdateProfile = (e: React.FormEvent) => {
+  const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editName.trim() || !editPhone.trim() || !editPassword.trim()) {
       setAuthError('No se permiten campos vacíos.');
@@ -329,6 +307,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
       telefono: editPhone.trim(),
       contrasena: editPassword.trim()
     });
+
+    // Forzar sincronización de la suscripción Push con el nuevo teléfono
+    await syncPushSubscription();
 
     setUpdateSuccess(true);
     setShowEditFields(false);

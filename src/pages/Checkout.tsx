@@ -660,14 +660,16 @@ ${productosDetailText}
                   </>
                 ) : (
                   <div className="flex flex-col gap-1">
-                    <span className="text-[9px] uppercase font-bold text-zinc-500 flex items-center gap-1"><Mail size={10} /> Correo o Teléfono</span>
-                    <input type="text" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} placeholder="Correo o +58..." className="bg-white border border-zinc-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-950" />
+                    <span className="text-[9px] uppercase font-bold text-zinc-500 flex items-center gap-1"><Mail size={10} /> Correo Electrónico o Teléfono</span>
+                    <input type="text" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} placeholder="juan@gmail.com o 0412..." className="bg-white border border-zinc-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-950" />
                   </div>
                 )}
-                <div className="flex flex-col gap-1">
-                  <span className="text-[9px] uppercase font-bold text-zinc-500 flex items-center gap-1"><Phone size={10} /> Teléfono Móvil</span>
-                  <input type="tel" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} placeholder="+58412..." className="bg-white border border-zinc-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-950" />
-                </div>
+                {authMode === 'register' && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] uppercase font-bold text-zinc-500 flex items-center gap-1"><Phone size={10} /> Teléfono para WhatsApp</span>
+                    <input type="tel" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} placeholder="+58412..." className="bg-white border border-zinc-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-950" />
+                  </div>
+                )}
                 <div className="flex flex-col gap-1">
                   <span className="text-[9px] uppercase font-bold text-zinc-500 flex items-center gap-1"><Lock size={10} /> Contraseña</span>
                   <input type="password" value={clientPassword} onChange={(e) => setClientPassword(e.target.value)} placeholder="••••••••" className="bg-white border border-zinc-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-zinc-950" />
