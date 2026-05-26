@@ -339,52 +339,20 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
     const sentMessage = broadcastMessage.trim();
     const targetPhone = broadcastTipo === 'personal' ? broadcastDestinatarioTelefono.trim() : undefined;
 
+    // Solo insertamos en la DB. El Trigger SQL se encargará de invocar al Cloudflare Worker de forma robusta.
     addNotification(sentTitle, sentMessage, broadcastTipo, targetPhone, broadcastImage, broadcastLink);
-
-    // Invocar webhook real de Cloudflare para Web Push
-    // El webhook está en /api/push-notify y envía push a todos los suscriptores
-    const webhookUrl = import.meta.env.VITE_PUSH_WEBHOOK_URL || '/api/push-notify';
-    const webhookSecret = import.meta.env.VITE_WEBHOOK_SECRET || import.meta.env.VITE_webhook_secret || '';
-
-    try {
-      // Esperar un poco para que la inserción en Supabase complete
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Invocar el webhook que envía Web Push real a través de VAPID
-      await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-supabase-webhook-secret': webhookSecret
-        },
-        body: JSON.stringify({
-          record: {
-            id: `notif-${Date.now()}`,
-            titulo: sentTitle,
-            mensaje: sentMessage,
-            tipo: broadcastTipo,
-            destinatario_telefono: targetPhone || '',
-            link_url: broadcastLink || '/',
-            imagen_url: broadcastImage || ''
-          }
-        })
-      });
-    } catch (err) {
-      console.error('Error invocando webhook de push:', err);
-      // No mostrar error al usuario, la notificación local ya se creó
-    }
 
     // Custom polished visual confirmation toast showing the title of the broadcast
     setToastTitle(
       broadcastTipo === 'todos' ? '📢 Comunicado Difundido Exitosamente' :
       broadcastTipo === 'personal' ? '👤 Envío de Notificación Personalizada' :
-      '🛡️ Alerta de Administrador Creada'
+      '🛡️ Alerta de Sistema Registrada'
     );
 
     setToastMessage(
-      broadcastTipo === 'todos' ? `El comunicado general "${sentTitle}" fue enviado a todos los clientes.` :
-      broadcastTipo === 'personal' ? `La notificación privada fue dirigida al cliente con teléfono ${targetPhone}.` :
-      `La alerta de uso interno "${sentTitle}" fue registrada.`
+      broadcastTipo === 'todos' 
+        ? `El mensaje "${sentTitle}" ha sido programado para envío masivo vía Push.` 
+        : `Notificación dirigida al cliente ${targetPhone || 'seleccionado'}.`
     );
 
     setBroadcastTitle('');
@@ -1741,10 +1709,17 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               </div>
             </div>
             <button 
-              onClick={() => addNotification("Prueba de Sistema", "Esta es una notificación de prueba para verificar el estilo visual nativo de Marketo.", "admin")}
+              onClick={() => {
+                const testId = `test-${Date.now()}`;
+                addNotification(
+                  "Prueba de Sistema Marketo 🔔", 
+                  "Si recibes esta alerta, tu navegador y el sistema push están sincronizados correctamente.", 
+                  "todos"
+                );
+              }}
               className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md shadow-violet-200 cursor-pointer"
             >
-              Lanzar Notificación de Prueba 🔔
+              Ejecutar Test de Notificación Push
             </button>
           </div>
 

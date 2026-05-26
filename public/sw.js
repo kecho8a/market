@@ -1,79 +1,36 @@
-// Service Worker - Marketo Realtime Notifications (Premium)
-// Injected by vite-plugin-pwa for precaching assets
-self.assets;
+// Listener para recibir la notificación push
+self.addEventListener('push', function(event) {
+  if (!event.data) return;
 
-const safeJsonParse = (value) => {
-  try {
-    return typeof value === 'string' ? JSON.parse(value) : value;
-  } catch {
-    return null;
-  }
-};
-
-const getFallbacks = () => {
-  return {
-    icon: '/icon.png',
-    badge: '/badge.png'
+  const payload = event.data.json();
+  
+  const options = {
+    body: payload.mensaje,
+    icon: payload.imagen_url || '/icon.png',
+    badge: '/badge.png', // Icono pequeño en la barra de estado
+    image: payload.imagen_url || null,
+    vibrate: [100, 50, 100],
+    data: {
+      url: payload.link_url || '/'
+    },
+    actions: [
+      { action: 'open', title: 'Ver ahora' },
+      { action: 'close', title: 'Cerrar' }
+    ]
   };
-};
 
-self.addEventListener('push', (event) => {
-  try {
-    if (!event.data) return;
-
-    const raw = event.data.json();
-    const data = safeJsonParse(raw) || raw || {};
-
-    const title = data.title || 'Marketo Supermercado';
-    const body = data.body || '';
-
-    const { icon, badge } = getFallbacks();
-
-    // Dedupe: usa tag/id si viene
-    const tag = data.tag || data.id || `marketo-${title}`;
-
-    const urlToOpen = data.url || data.link_url || data.orderUrl || '/';
-
-    const options = {
-      body,
-      icon,
-      badge,
-      vibrate: [200, 100, 200],
-      renotify: true,
-      requireInteraction: !!data.requireInteraction,
-      // iOS/Chrome Android pueden ignorar sound desde Web Push (depende del SO).
-      sound: data.sound || '/sounds/notification.mp3',
-      image: data.image || undefined,
-      tag,
-      data: {
-        url: urlToOpen,
-        tag,
-        orderId: data.orderId || data.order_id || undefined
-      },
-      actions: Array.isArray(data.actions)
-        ? data.actions
-        : [{ action: 'open', title: 'Ver pedido' }]
-    };
-
-    event.waitUntil(self.registration.showNotification(title, options));
-  } catch (err) {
-    console.error('SW push handler error:', err);
-  }
+  event.waitUntil(
+    self.registration.showNotification(payload.titulo, options)
+  );
 });
 
-self.addEventListener('notificationclick', (event) => {
-  try {
-    event.notification.close();
+// Listener para cuando el usuario hace clic en la notificación
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
 
-    const urlToOpen = event.notification?.data?.url || '/';
+  if (event.action === 'close') return;
 
-    event.waitUntil(clients.openWindow(urlToOpen));
-  } catch (err) {
-    console.error('SW notificationclick error:', err);
-  }
+  event.waitUntil(
+    clients.openWindow(event.notification.data.url)
+  );
 });
-
-self.addEventListener('notificationclose', () => {
-  // hook opcional
-});
-

@@ -309,10 +309,10 @@ DECLARE
   v_webhook_url TEXT;
   v_webhook_secret TEXT;
 BEGIN
-  -- Construir payload para el webhook
+  -- Obtener configuración de las variables de la base de datos
   v_webhook_url := COALESCE(
     current_setting('app.settings.push_webhook_url', true),
-    '/api/push-notify' -- Cambiado a ruta relativa por defecto
+    '' 
   );
 
   v_webhook_secret := COALESCE(
@@ -320,20 +320,27 @@ BEGIN
     ''
   );
 
-  -- Invocar webhook de forma asíncrona usando pg_net (disponible en Supabase Pro)
-  -- El webhook recibe el record completo y se encarga de enviar Web Push
-  PERFORM net.http_post(
-    url := v_webhook_url,
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'x-supabase-webhook-secret', v_webhook_secret
-    ),
-    body := jsonb_build_object(
-      'type', 'INSERT',
-      'table', 'notifications',
-      'record', row_to_json(NEW)::jsonb
-    )::text
-  );
+  -- Solo procesar notificaciones de difusión o personales hacia el Worker de Push
+  IF v_webhook_url <> '' AND NEW.tipo IN ('todos', 'personal') THEN
+    PERFORM net.http_post(
+      url := v_webhook_url,
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'x-supabase-webhook-secret', v_webhook_secret
+      ),
+      body := jsonb_build_object(
+        'record', jsonb_build_object(
+          'id', NEW.id,
+          'titulo', NEW.titulo,
+          'mensaje', NEW.mensaje,
+          'imagen_url', COALESCE(NEW.imagen_url, ''),
+          'link_url', COALESCE(NEW.link_url, '/'),
+          'tipo', NEW.tipo,
+          'destinatario_telefono', COALESCE(NEW.destinatario_telefono, '')
+        )
+      )::text
+    );
+  END IF;
 
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
@@ -573,3 +580,11 @@ $$;
 
 -- Una vez activado, ejecuta manualmente esta línea en el SQL Editor:
 -- SELECT cron.schedule('limpiar-notificaciones-diario', '0 0 * * *', 'SELECT public.delete_old_notifications()');
+
+-- ==========================================================================
+-- CONFIGURACIÓN DE VARIABLES PARA WEBHOOK PUSH (EJECUTAR EN SQL EDITOR)
+-- ==========================================================================
+-- ALTER DATABASE postgres SET "app.settings.push_webhook_url" = 'https://tu-worker.workers.dev/api/push-notify';
+-- ALTER DATABASE postgres SET "app.settings.webhook_secret" = 'tu_secreto_seguro_aqui';
+-- NOTA: Asegúrate de habilitar la extensión pg_net:
+-- CREATE EXTENSION IF NOT EXISTS pg_net;
