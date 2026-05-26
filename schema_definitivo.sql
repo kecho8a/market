@@ -1,6 +1,6 @@
 -- ==========================================================================
 -- SCRIPT DE ESQUEMA DEFINITIVO PARA MARKETO PWA
--- ESTADO: CONSOLIDADO, SEGURO Y AUTOMATIZADO (FIDELIZACIÓN + STOCK)
+-- ESTADO: OPTIMIZADO PARA PRODUCCIÓN (VAPID + PUSH WEBHOOK)
 -- ==========================================================================
 
 -- Habilitar extensión uuid-ossp
@@ -582,9 +582,16 @@ $$;
 -- SELECT cron.schedule('limpiar-notificaciones-diario', '0 0 * * *', 'SELECT public.delete_old_notifications()');
 
 -- ==========================================================================
--- CONFIGURACIÓN DE VARIABLES PARA WEBHOOK PUSH (EJECUTAR EN SQL EDITOR)
+-- CONFIGURACIÓN DE VARIABLES PARA WEBHOOK PUSH (PRODUCCIÓN)
 -- ==========================================================================
--- ALTER DATABASE postgres SET "app.settings.push_webhook_url" = 'https://tu-worker.workers.dev/api/push-notify';
--- ALTER DATABASE postgres SET "app.settings.webhook_secret" = 'tu_secreto_seguro_aqui';
--- NOTA: Asegúrate de habilitar la extensión pg_net:
--- CREATE EXTENSION IF NOT EXISTS pg_net;
+
+-- 1. Habilitar extensión para peticiones HTTP asíncronas
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
+-- 2. Configurar la URL del endpoint de Cloudflare Pages Functions
+-- Se utiliza la URL proporcionada: https://market-cbh.pages.dev/
+ALTER DATABASE postgres SET "app.settings.push_webhook_url" = 'https://market-cbh.pages.dev/api/push-notify';
+
+-- 3. Configurar el secreto de seguridad
+-- IMPORTANTE: Reemplaza 'TU_WEBHOOK_SECRET_REAL' con el valor definido en tus variables de entorno de Cloudflare
+ALTER DATABASE postgres SET "app.settings.webhook_secret" = 'TU_WEBHOOK_SECRET_REAL';

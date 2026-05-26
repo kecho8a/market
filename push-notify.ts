@@ -113,9 +113,10 @@ export const onRequestPost: any = async (context: any) => {
 
     // 5. Payload Web Push
     const payloadForSW = {
-      title: titulo,
-      body: mensaje,
-      url: linkUrl,
+      title: titulo,       // Sincronizado con sw.js
+      body: mensaje,        // Sincronizado con sw.js
+      url: linkUrl,         // Sincronizado con sw.js
+      image: record.imagen_url || null, // Sincronizado con sw.js
       tag: String(record.id),
       id: String(record.id),
       requireInteraction: true,

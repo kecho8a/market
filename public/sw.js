@@ -3,6 +3,7 @@ self.addEventListener('push', function(event) {
   if (!event.data) return;
 
   const payload = event.data.json();
+  console.log('[Service Worker] Push recibido:', payload);
   
   const options = {
     body: payload.mensaje,
