@@ -290,10 +290,19 @@ EXECUTE FUNCTION public.handle_new_order_actions();
 -- 5.6 FUNCIONES Y TRIGGERS DE NOTIFICACIONES PUSH (WEBHOOK A CLOUDFLARE)
 -- ----------------------------------------------------------------------------
 
+-- Asegurar que el bucket de configuración exista para evitar el error 400
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('settings', 'settings', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Permitir subidas públicas al bucket settings (necesario para el logo/favicon)
+CREATE POLICY "Permitir subida de logos al admin" ON storage.objects
+FOR INSERT WITH CHECK (bucket_id = 'settings');
+
+CREATE POLICY "Permitir lectura publica de logos" ON storage.objects
+FOR SELECT USING (bucket_id = 'settings');
+
 -- Función para invocar el webhook de Cloudflare Functions con la notificación
--- Usa pg_net para hacer HTTP request asíncrono (disponible en Supabase Pro)
--- Si pg_net no está disponible, la notificación se inserta igualmente y el webhook
--- se invoca desde el frontend en handleCreateBroadcast
 CREATE OR REPLACE FUNCTION public.handle_new_notification_push()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -303,7 +312,7 @@ BEGIN
   -- Construir payload para el webhook
   v_webhook_url := COALESCE(
     current_setting('app.settings.push_webhook_url', true),
-    'https://marketo.com.ve/api/push-notify'
+    '/api/push-notify' -- Cambiado a ruta relativa por defecto
   );
 
   v_webhook_secret := COALESCE(

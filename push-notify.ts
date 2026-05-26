@@ -10,6 +10,9 @@ let webpush: any;
 declare const PagesFunction: any;
 
 export const onRequestPost: any = async (context: any) => {
+  // Cloudflare Pages Functions: este handler responde solo a POST.
+  // Si por error llega GET/PUT/PATCH, Cloudflare devolverá 405.
+
   const { request, env } = context;
 
   // 1. Verificación de Seguridad (Header secreto configurado en Supabase)

@@ -344,7 +344,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
     // Invocar webhook real de Cloudflare para Web Push
     // El webhook está en /api/push-notify y envía push a todos los suscriptores
     const webhookUrl = import.meta.env.VITE_PUSH_WEBHOOK_URL || '/api/push-notify';
-    const webhookSecret = import.meta.env.VITE_WEBHOOK_SECRET || '';
+    const webhookSecret = import.meta.env.VITE_WEBHOOK_SECRET || import.meta.env.VITE_webhook_secret || '';
 
     try {
       // Esperar un poco para que la inserción en Supabase complete
@@ -1932,7 +1932,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                     if (file) {
                       try {
                         const compressed = await compressImage(file, { maxWidth: 400, format: 'image/png' });
-                        const url = await uploadFileToStorage(compressed, 'settings', 'logos');
+                        const url = await uploadFileToStorage(compressed, 'settings', `logos/${Date.now()}.png`);
                         updateConfig({ logo_url: url });
                       } catch (err) {
                         alert('Error al subir el logo: ' + (err as any).message);
