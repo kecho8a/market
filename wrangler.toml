@@ -1,9 +1,9 @@
 name = "market"
 compatibility_date = "2024-01-01"
+pages_build_output_dir = "dist"
 
 auto_deploy = false
 
 # Needed so Wrangler can bundle Node built-ins required by some dependencies
 # (web-push / proxy agents, etc.) when deployed to Cloudflare Pages.
 compatibility_flags = ["nodejs_compat"]
-
