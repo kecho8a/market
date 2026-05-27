@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../store/AppContext';
 import { Producto } from '../types/store';
-import { Carrot, Salad, Milk, Beef, Coffee, Apple, ShieldCheck, Zap, Filter, ArrowRight, Eye, ShoppingCart, Landmark, Check, Bell, Sparkles, Flame, MessageSquare, Search, RefreshCcw, Smartphone } from 'lucide-react';
+import { Carrot, Salad, Milk, Beef, Coffee, Apple, ShieldCheck, Zap, Filter, ArrowRight, Eye, ShoppingCart, Landmark, Check, Bell, Sparkles, Flame, MessageSquare, Search, RefreshCcw, Smartphone, AlertTriangle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { SEOHead } from '../components/SEOHead';
 import { BentoGrid } from '../components/BentoGrid';

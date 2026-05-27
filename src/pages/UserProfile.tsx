@@ -5,7 +5,7 @@ import { supabase } from '../store/supabaseClient';
 import { 
   User, Lock, Phone, UserPlus, LogIn, LogOut, Bell, Package, Mail,
   CheckCircle, Clock, Truck, MapPin, Edit2, AlertCircle, Eye, EyeOff, Tag,
-  Copy, Check, X
+  Copy, Check, X, Smartphone
 } from 'lucide-react';
 import { SEOHead } from '../components/SEOHead';
 

@@ -3,6 +3,7 @@ export interface AppUser {
   nombre: string;
   telefono: string;
   contrasena: string;
+  email?: string;
   createdAt: string;
 }
 
@@ -41,10 +42,13 @@ export interface Order {
   id: string;
   cliente_nombre: string;
   cliente_telefono: string;
+  cliente_email?: string;
   usuario_id?: string; // Link order to a registered user
   items: OrderItem[];
   subtotal_usd: number;
   costo_envio_usd: number;
+  descuento_cupon_usd?: number;
+  cupon_codigo?: string;
   total_usd: number;
   total_bs: number;
   metodo_pago: 'Pago Móvil' | 'Zelle' | 'Efectivo' | 'Transferencia';
@@ -52,8 +56,9 @@ export interface Order {
   lng: number;
   direccion_envio: string;
   distancia_km: number;
-  status: 'Pendiente' | 'Procesando' | 'Enviado' | 'En preparación' | 'En camino' | 'Entregado';
+  status: 'Pendiente' | 'Procesando' | 'Enviado' | 'En preparación' | 'En camino' | 'Entregado' | 'Cancelado';
   tiempo_estimado_entrega?: string; // Delivery time set by admin
+  notas_admin?: string;
   fecha: string;
 }
 
@@ -88,6 +93,20 @@ export interface StoreConfig {
   favicon_url?: string;
   banner_texts?: string[];
   categories?: string[];
+  mensaje_bienvenida?: string;
+  push_webhook_url?: string;
+  push_webhook_secret?: string;
+}
+
+export interface Coupon {
+  id: string;
+  code: string;
+  discount_percent: number;
+  active: boolean;
+  usage_limit?: number;
+  usage_count: number;
+  valid_until?: string;
+  created_at?: string;
 }
 
 export interface InAppNotification {
@@ -98,4 +117,7 @@ export interface InAppNotification {
   tipo: 'todos' | 'personal' | 'admin' | 'request';
   destinatario_telefono?: string; // Link to specific user's phone number
   leida: boolean;
+  imagen_url?: string;
+  link_url?: string;
 }
+

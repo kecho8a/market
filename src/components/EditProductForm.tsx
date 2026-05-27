@@ -441,11 +441,14 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({ part, onSubmit
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              compressImage(file, (base64) => {
-                                const updated = [...formImages];
-                                updated[idx] = base64;
-                                setFormImages(updated);
-                              }, uploadFormat);
+                              compressImage(file, { maxWidth: 800, format: uploadFormat })
+                                .then(compressed => uploadFileToStorage(compressed, 'products', 'catalog'))
+                                .then(url => {
+                                  const updated = [...formImages];
+                                  updated[idx] = url;
+                                  setFormImages(updated);
+                                })
+                                .catch(err => console.error("Error subiendo imagen:", err));
                             }
                           }}
                           className="hidden"

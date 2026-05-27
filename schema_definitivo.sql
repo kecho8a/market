@@ -454,11 +454,17 @@ ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
 
--- Permisos base (evitan 401 por privilegios)
+-- Permisos base (mínimos necesarios — las RLS controlan el acceso real)
+-- anon: solo lectura de catálogo público (store_config, products, notifications tipo=todos)
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated;
+GRANT SELECT ON store_config, products, notifications, coupons TO anon;
+GRANT SELECT, INSERT, UPDATE ON orders TO anon;
+GRANT SELECT, INSERT ON push_subscriptions TO anon;
+-- authenticated: acceso completo a sus propios datos (controlado por RLS)
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO authenticated;
 
 DO $$
 DECLARE
@@ -475,21 +481,27 @@ BEGIN
   DROP POLICY IF EXISTS "Allow all updates only to admin" ON store_config;
   CREATE POLICY "Allow all updates only to admin" ON store_config 
     FOR ALL TO authenticated 
-    USING (auth.jwt() ->> 'email' = 'kecho8a@gmail.com');
+    USING (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
 
   -- ============================
   -- products (RLS para Stock y CRUD)
   -- ============================
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='products' AND policyname='Lectura productos activos') THEN
-    CREATE POLICY "Lectura productos activos" ON products FOR SELECT USING (activo = true);
-  END IF;
+  -- Política de lectura: clientes ven solo activos; admins ven todos
+  DROP POLICY IF EXISTS "Lectura productos activos" ON products;
+  CREATE POLICY "Lectura productos activos" ON products
+    FOR SELECT
+    USING (
+      activo = true
+      OR (auth.jwt() ->> 'email' = 'kecho8a@gmail.com')
+      OR (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
+    );
 
   DROP POLICY IF EXISTS "Gestion productos admin" ON products;
   DROP POLICY IF EXISTS "Allow admin changes to catalog" ON products;
   CREATE POLICY "Allow admin changes to catalog" ON products 
     FOR ALL TO authenticated 
-    USING (auth.jwt() ->> 'email' = 'kecho8a@gmail.com')
-    WITH CHECK (auth.jwt() ->> 'email' = 'kecho8a@gmail.com');
+    USING (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
+    WITH CHECK (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
 
   -- ============================
   -- orders (IMPORTANTE)
@@ -514,17 +526,19 @@ BEGIN
   DROP POLICY IF EXISTS "orders_update_admin" ON orders;
   CREATE POLICY "orders_update_admin" ON orders 
     FOR ALL TO authenticated 
-    USING (auth.jwt() ->> 'email' = 'kecho8a@gmail.com')
-    WITH CHECK (auth.jwt() ->> 'email' = 'kecho8a@gmail.com');
+    USING (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
+    WITH CHECK (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
 
   -- ============================
   -- usuarios_clientes
   -- ============================
   DROP POLICY IF EXISTS "Lectura propia" ON usuarios_clientes;
+  DROP POLICY IF EXISTS "Admin lee todos los clientes" ON usuarios_clientes;
   CREATE POLICY "Admin lee todos los clientes" ON usuarios_clientes 
     FOR SELECT TO authenticated 
     USING (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
 
+  DROP POLICY IF EXISTS "Cliente lee su propio perfil" ON usuarios_clientes;
   CREATE POLICY "Cliente lee su propio perfil" ON usuarios_clientes 
     FOR SELECT TO authenticated 
     USING (auth.uid()::text = id);
@@ -532,6 +546,13 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='usuarios_clientes' AND policyname='Update propio') THEN
     CREATE POLICY "Update propio" ON usuarios_clientes FOR UPDATE TO authenticated USING (auth.uid()::text = id);
   END IF;
+
+  -- Habilitar al Admin para crear/actualizar/eliminar registros de clientes
+  DROP POLICY IF EXISTS "Admin gestiona todos los clientes" ON usuarios_clientes;
+  CREATE POLICY "Admin gestiona todos los clientes" ON usuarios_clientes
+    FOR ALL TO authenticated
+    USING (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
+    WITH CHECK (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
 
   -- ============================
   -- notifications (IMPORTANTE)
@@ -544,10 +565,10 @@ BEGIN
   END IF;
 
   -- Política de lectura CORREGIDA:
-  -- - 'admin': solo admins ven estas (notificaciones de pedidos nuevos para el admin)
-  -- - 'request': admins ven todas, clientes solo las suyas
-  -- - 'personal': solo el destinatario (por teléfono)
-  -- - 'todos': filtrar por teléfono del cliente actual
+  -- - 'admin': solo admins (email o role en JWT)
+  -- - 'request': admins y el cliente correspondiente
+  -- - 'personal': solo el destinatario
+  -- - 'todos': todos
   DROP POLICY IF EXISTS "notifications_select_allow_all" ON notifications;
   DROP POLICY IF EXISTS "Lectura de notificaciones" ON notifications;
   CREATE POLICY "Lectura de notificaciones" ON notifications
@@ -556,21 +577,25 @@ BEGIN
       -- Admin absoluto puede ver todo
       (auth.jwt() ->> 'email' = 'kecho8a@gmail.com')
       OR (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
-      -- Notificaciones tipo 'admin': solo admins (pedidos nuevos)
-      OR (tipo = 'admin')
-      -- Notificaciones tipo 'request': admins ven todas, clientes solo las suyas (vía request)
+      -- Notificaciones tipo 'request': clientes solo las suyas (vía request)
       OR (tipo = 'request' AND destinatario_telefono = (SELECT telefono FROM usuarios_clientes WHERE id = auth.uid()::text))
-      -- Notificaciones tipo 'todos': promotions visible a todos los clientes autenticados
+      -- Notificaciones tipo 'todos': promotions visible a todos
       OR (tipo = 'todos')
       -- Notificaciones personales: solo el destinatario
       OR (tipo = 'personal' AND destinatario_telefono = (SELECT telefono FROM usuarios_clientes WHERE id = auth.uid()::text))
     );
 
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='notifications' AND policyname='notifications_update_allow_all') THEN
-    CREATE POLICY "notifications_update_allow_all" ON notifications
-      FOR UPDATE
-      TO anon, authenticated USING (true);
-  END IF;
+  -- Política de actualización de notificaciones corregida:
+  -- Sólo el propio destinatario (para marcar leída) o el administrador
+  DROP POLICY IF EXISTS "notifications_update_allow_all" ON notifications;
+  CREATE POLICY "notifications_update_allow_all" ON notifications
+    FOR UPDATE
+    TO anon, authenticated
+    USING (
+      (auth.jwt() ->> 'email' = 'kecho8a@gmail.com')
+      OR (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
+      OR (destinatario_telefono = (SELECT telefono FROM usuarios_clientes WHERE id = auth.uid()::text))
+    );
 
   -- ============================
   -- coupons
@@ -579,9 +604,18 @@ BEGIN
     CREATE POLICY "Lectura cupones publica" ON coupons FOR SELECT TO anon, authenticated USING (active = true);
   END IF;
 
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='coupons' AND policyname='Gestion cupones admin') THEN
-    CREATE POLICY "Gestion cupones admin" ON coupons FOR ALL TO authenticated USING (true);
-  END IF;
+  -- Corregir para permitir gestión de cupones EXCLUSIVAMENTE a administradores
+  DROP POLICY IF EXISTS "Gestion cupones admin" ON coupons;
+  CREATE POLICY "Gestion cupones admin" ON coupons 
+    FOR ALL TO authenticated 
+    USING (
+      (auth.jwt() ->> 'email' = 'kecho8a@gmail.com')
+      OR (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
+    )
+    WITH CHECK (
+      (auth.jwt() ->> 'email' = 'kecho8a@gmail.com')
+      OR (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
+    );
 
   -- ============================
   -- push_subscriptions
@@ -669,8 +703,11 @@ $$;
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
 -- 2. Actualizar configuración en la tabla (En lugar de ALTER DATABASE que requiere superuser)
+-- IMPORTANTE: Reemplaza 'TU_SECRETO_SEGURO_AQUI' con un token aleatorio generado con:
+--   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+-- NO uses el secreto de ejemplo en producción.
 UPDATE public.store_config 
 SET 
   push_webhook_url = 'https://market-cbh.pages.dev/api/push-notify',
-  push_webhook_secret = 'Marketo_Secure_Token_2026_XYZ#'
+  push_webhook_secret = 'TU_SECRETO_SEGURO_AQUI'
 WHERE id = 1;

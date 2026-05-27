@@ -35,53 +35,56 @@ export default defineConfig(({mode}) => {
             }
           ]
         },
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
-              cacheableResponse: { statuses: [0, 200] },
+        workbox: {
+          importScripts: ['/sw-push.js'],
+          runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'google-fonts-cache',
+                expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
+                cacheableResponse: { statuses: [0, 200] },
+              },
             },
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'gstatic-fonts-cache',
-              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
-              cacheableResponse: { statuses: [0, 200] },
+            {
+              urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'gstatic-fonts-cache',
+                expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
+                cacheableResponse: { statuses: [0, 200] },
+              },
             },
-          },
-          {
-            urlPattern: /\.(?:png|jpg|jpeg|webp|svg|ico)$/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'images-cache',
-              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 30 },
-              cacheableResponse: { statuses: [0, 200] },
+            {
+              urlPattern: /\.(?:png|jpg|jpeg|webp|svg|ico)$/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'images-cache',
+                expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 30 },
+                cacheableResponse: { statuses: [0, 200] },
+              },
             },
-          },
-          {
-            urlPattern: /\.(?:mp3|wav|ogg)$/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'audio-cache',
-              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 30 },
-              cacheableResponse: { statuses: [0, 200] },
+            {
+              urlPattern: /\.(?:mp3|wav|ogg)$/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'audio-cache',
+                expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 30 },
+                cacheableResponse: { statuses: [0, 200] },
+              },
             },
-          },
-          {
-            urlPattern: /^https:\/\/images\.unsplash\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'unsplash-cache',
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 7 },
-              cacheableResponse: { statuses: [0, 200] },
+            {
+              urlPattern: /^https:\/\/images\.unsplash\.com\/.*/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'unsplash-cache',
+                expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 * 7 },
+                cacheableResponse: { statuses: [0, 200] },
+              },
             },
-          },
-        ]
+          ]
+        }
       })
     ],
     define: {
@@ -93,13 +96,31 @@ export default defineConfig(({mode}) => {
       },
     },
     build: {
+      chunkSizeWarningLimit: 700,
       rollupOptions: {
         output: {
-          manualChunks: {
-            'vendor-react': ['react', 'react-dom'],
-            'vendor-supabase': ['@supabase/supabase-js'],
-            'vendor-recharts': ['recharts'],
-            'vendor-lucide': ['lucide-react'],
+          manualChunks(id) {
+            // Librerías externas — separarlas en chunks específicos
+            if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/scheduler')) {
+              return 'vendor-react';
+            }
+            if (id.includes('node_modules/@supabase') || id.includes('node_modules/websocket')) {
+              return 'vendor-supabase';
+            }
+            if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-') || id.includes('node_modules/victory-')) {
+              return 'vendor-recharts';
+            }
+            if (id.includes('node_modules/lucide-react')) {
+              return 'vendor-lucide';
+            }
+            // Páginas admin (cargadas solo por el administrador)
+            if (id.includes('/pages/AdminDashboard') || id.includes('/pages/AdminOrders') || id.includes('/pages/AdminProducts') || id.includes('/pages/AdminUsers') || id.includes('/pages/AdminCoupons') || id.includes('/pages/AdminNotifications') || id.includes('/pages/AdminConfig')) {
+              return 'pages-admin';
+            }
+            // Componentes de edición (formularios pesados)
+            if (id.includes('/components/EditProductForm') || id.includes('/components/AddProductForm')) {
+              return 'components-edit';
+            }
           },
         },
       },

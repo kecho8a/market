@@ -703,7 +703,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 tag: 'marketo-notif',
                 requireInteraction: true,
                 data: { url: newNotif.link_url }
-              });
+              } as any);
             }
           }
         })
@@ -861,8 +861,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const lastFetch = localStorage.getItem('trv_last_rate_fetch');
       const today = new Date().toDateString();
 
-      // Cargar productos de Supabase
-      const { data: dbProducts } = await supabase.from('products').select('*').eq('activo', true);
+      // BUG FIX: Si es admin, cargar TODO. Obtener sesión primero.
+      const { data: { session } } = await supabase.auth.getSession();
+      const isAdmin = session?.user?.email === 'kecho8a@gmail.com' || session?.user?.app_metadata?.role === 'admin';
+
+      // Cargar productos de Supabase (si es admin, incluir inactivos)
+      let productsQuery = supabase.from('products').select('*');
+      if (!isAdmin) {
+        productsQuery = productsQuery.eq('activo', true);
+      }
+      const { data: dbProducts } = await productsQuery;
       if (dbProducts) setProducts(dbProducts as Producto[]);
       
       // Cargar configuración COMPLETA de la tienda
@@ -889,10 +897,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Cargar cupones
       const { data: dbCoupons } = await supabase.from('coupons').select('*');
       if (dbCoupons) setCoupons(dbCoupons as Coupon[]);
-
-      // BUG FIX: Si es admin, cargar TODO. Si es cliente, cargar lo propio.
-      const { data: { session } } = await supabase.auth.getSession();
-      const isAdmin = session?.user.email === 'kecho8a@gmail.com' || session?.user.app_metadata?.role === 'admin';
 
       if (isAdmin) {
         setIsAdminAuthenticated(true);
@@ -1663,7 +1667,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         tag: 'marketo-system',
         requireInteraction: true,
         data: { url: linkUrl }
-      });
+      } as any);
     }
   };
 
