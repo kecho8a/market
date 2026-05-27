@@ -709,5 +709,5 @@ CREATE EXTENSION IF NOT EXISTS pg_net;
 UPDATE public.store_config 
 SET 
   push_webhook_url = 'https://market-cbh.pages.dev/api/push-notify',
-  push_webhook_secret = '5fca5a4d8825d4de66811590f47af870b01d45e80f391920f4ea76a59ae3c8bf'
+  push_webhook_secret = ''
 WHERE id = 1;
