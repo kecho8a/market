@@ -27,7 +27,6 @@
     "workerd": "^1.20260527.1"
   },
   "devDependencies": {
-    "@cloudflare/workerd-windows-64": "^1.20260527.1",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",
