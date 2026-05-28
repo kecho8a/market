@@ -92,6 +92,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
 
   const requestNotificationPermission = async () => {
     if (typeof window === 'undefined' || !('Notification' in window)) {
+      addNotification('Error', 'Tu navegador no soporta notificaciones push.', 'todos');
+      return;
+    }
+
+    // Validar que la VAPID key esté configurada
+    const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+    if (!vapidKey) {
+      addNotification('⚠️ Error de Configuración', 'VITE_VAPID_PUBLIC_KEY no está configurada. Contacta al administrador.', 'personal');
       return;
     }
 
@@ -103,33 +111,47 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
         const registration = await navigator.serviceWorker.ready;
         await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY)
+          applicationServerKey: urlBase64ToUint8Array(vapidKey)
         });
-        
-        await syncPushSubscription();
-        
+
+        const syncResult = await syncPushSubscription();
+        if (!syncResult.success) {
+          addNotification('⚠️ Error Sincronizando Push', syncResult.error!, 'personal');
+        }
+
         new Notification('¡Notificaciones Habilitadas!', {
           body: '¡Excelente! Ahora recibirás actualizaciones rápidas de tus pedidos y promociones de Marketo.',
           icon: 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&q=80&w=100',
           tag: 'welcome-trv'
         });
+      } else if (res === 'denied') {
+        addNotification('Notificaciones Bloqueadas ⚠️', 'Has bloqueado las notificaciones en tu navegador. Puedes activarlas desde la configuración del sitio.', 'personal');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error requesting notification permission:', error);
+      addNotification('Error Activando Notificaciones', error?.message || String(error), 'personal');
     }
   };
 
   const sendTestPushNotification = async () => {
     if (notificationPermission !== 'granted' || typeof window === 'undefined' || !('Notification' in window)) {
+      addNotification('Error', 'Permisos de notificación no concedidos. Activa las notificaciones desde tu navegador.', 'personal');
       return;
     }
 
     // Primero mostrar notificación local
-    const testNotif = new Notification('Prueba Exitosa', {
-      body: 'Esta es una notificación de prueba. Todo está configurado correctamente en Marketo.',
+    const testNotif = new Notification('🧪 Prueba de Marketo', {
+      body: 'Si lees esto, las notificaciones locales funcionan. Ahora probando Web Push real...',
       icon: 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&q=80&w=100',
-      tag: 'test'
+      tag: 'test-marketo'
     });
+
+    // Reproducir sonido de prueba
+    try {
+      const sound = new Audio('/sounds/notification.mp3');
+      sound.volume = 0.8;
+      sound.play().catch(() => {});
+    } catch {}
 
     // También invocar webhook real de Cloudflare para Web Push
     const webhookUrl = import.meta.env.VITE_PUSH_WEBHOOK_URL || '/api/push-notify';
@@ -156,12 +178,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
       });
 
       if (res.ok) {
-        console.log('Web Push de prueba enviado exitosamente');
+        const data = await res.json();
+        addNotification('✅ Prueba Exitosa', `Web Push enviada: ${data.sent || 0} receptor(es)收到了`, 'personal');
       } else {
-        console.error('Error del webhook de push:', res.status);
+        const errText = await res.text();
+        addNotification('⚠️ Error Web Push', `Webhook error ${res.status}: ${errText}`, 'personal');
       }
-    } catch (err) {
-      console.error('Error invocando webhook de push:', err);
+    } catch (err: any) {
+      addNotification('⚠️ Error de Red Push', err?.message || String(err), 'personal');
     }
   };
 
@@ -309,7 +333,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
     });
 
     // Forzar sincronización de la suscripción Push con el nuevo teléfono
-    await syncPushSubscription();
+    const syncResult = await syncPushSubscription();
+    if (!syncResult.success) {
+      addNotification('⚠️ Error Sincronizando Push', syncResult.error!, 'personal');
+    }
 
     setUpdateSuccess(true);
     setShowEditFields(false);

@@ -331,7 +331,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
 
     // Check if phone was filled for personal notification
     if (broadcastTipo === 'personal' && !broadcastDestinatarioTelefono.trim()) {
-      alert('Por favor, especifique el número de teléfono para la notificación personal.');
+      addNotification('⚠️ Falta Teléfono', 'Para notificaciones personales debes especificar el número de teléfono del destinatario.', 'admin');
       return;
     }
 
@@ -339,8 +339,44 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
     const sentMessage = broadcastMessage.trim();
     const targetPhone = broadcastTipo === 'personal' ? broadcastDestinatarioTelefono.trim() : undefined;
 
-    // Solo insertamos en la DB. El Trigger SQL se encargará de invocar al Cloudflare Worker de forma robusta.
+    // 1. Insertar en la DB (esto dispara el trigger pg_net en Supabase)
     addNotification(sentTitle, sentMessage, broadcastTipo, targetPhone, broadcastImage, broadcastLink);
+
+    // 2. También invocar el webhook DIRECTAMENTE para asegurar entrega incluso si pg_net falla
+    const webhookUrl = config.push_webhook_url || 'https://market-cbh.pages.dev/api/push-notify';
+    const webhookSecret = config.push_webhook_secret || '';
+
+    try {
+      const notifId = `notif-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+      const webhookRes = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-supabase-webhook-secret': webhookSecret
+        },
+        body: JSON.stringify({
+          record: {
+            id: notifId,
+            titulo: sentTitle,
+            mensaje: sentMessage,
+            imagen_url: broadcastImage || '',
+            link_url: broadcastLink || '/',
+            tipo: broadcastTipo,
+            destinatario_telefono: targetPhone || ''
+          }
+        })
+      });
+
+      if (!webhookRes.ok) {
+        const errDetail = await webhookRes.text();
+        addNotification('⚠️ Error en Push', `Webhook respondió ${webhookRes.status}: ${errDetail}`, 'admin');
+      } else {
+        const result = await webhookRes.json();
+        console.log('[Admin] Push send result:', result);
+      }
+    } catch (err: any) {
+      addNotification('⚠️ Error de Red Push', err?.message || String(err), 'admin');
+    }
 
     // Custom polished visual confirmation toast showing the title of the broadcast
     setToastTitle(
@@ -350,8 +386,8 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
     );
 
     setToastMessage(
-      broadcastTipo === 'todos' 
-        ? `El mensaje "${sentTitle}" ha sido programado para envío masivo vía Push.` 
+      broadcastTipo === 'todos'
+        ? `El mensaje "${sentTitle}" ha sido enviado vía Push a todos los suscriptores.`
         : `Notificación dirigida al cliente ${targetPhone || 'seleccionado'}.`
     );
 
@@ -1842,7 +1878,10 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                     type="button"
                     onClick={async () => {
                       updateConfig({ telefono_soporte: currentUser.telefono });
-                      await syncPushSubscription();
+                      const syncResult = await syncPushSubscription();
+                      if (!syncResult.success) {
+                        addNotification('⚠️ Error Push', syncResult.error!, 'personal');
+                      }
                     }}
                     className="text-[9px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded border border-amber-200 hover:bg-amber-200 transition-colors cursor-pointer font-bold uppercase tracking-tighter"
                   >

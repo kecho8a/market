@@ -65,7 +65,7 @@ interface AppContextProps {
   addNotification: (title: string, message: string, tipo?: 'todos' | 'personal' | 'admin' | 'request', targetPhone?: string, imageUrl?: string, linkUrl?: string) => void;
   markNotificationAsRead: (id: string) => void;
   toggleNotificationReadStatus: (id: string) => void;
-  syncPushSubscription: () => Promise<void>;
+  syncPushSubscription: () => Promise<{ success: boolean; error?: string }>;
   deleteNotification: (id: string) => void;
   clearAllNotifications: () => void;
   
@@ -119,7 +119,7 @@ const DEFAULT_PRODUCTS: Producto[] = [
     anio_fin: 2026,
     precio_usd: 6.50,
     stock: 15,
-    imagen_urls: ['https://images.unsplash.com/photo-1486299267070-8382e21b471a?auto=format&fit=crop&q=80&w=500'],
+    imagen_urls: ['https://images.unsplash.com/photo-1452195100486-1f3f8c5b3d8f?auto=format&fit=crop&q=80&w=500'],
     es_promo: true,
     es_nuevo: false,
     es_mas_vendido: false,
@@ -203,7 +203,7 @@ const DEFAULT_PRODUCTS: Producto[] = [
     anio_fin: 2026,
     precio_usd: 8.20,
     stock: 20,
-    imagen_urls: ['https://images.unsplash.com/photo-1524438418049-b04be11b576d?auto=format&fit=crop&q=80&w=500'],
+    imagen_urls: ['https://images.unsplash.com/photo-1554037876-73313e0c2e2b?auto=format&fit=crop&q=80&w=500'],
     es_promo: false,
     es_nuevo: true,
     es_mas_vendido: true,
@@ -1683,34 +1683,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
    * Sincroniza la suscripción Push del navegador con el teléfono actual del usuario en la DB.
    * Se debe llamar siempre que el teléfono cambie.
    */
-  const syncPushSubscription = async () => {
-    if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window) || !currentUser) return;
+  const syncPushSubscription = async (): Promise<{ success: boolean; error?: string }> => {
+    if (typeof window === 'undefined') {
+      return { success: false, error: 'window no disponible (SSR?)' };
+    }
+    if (!('serviceWorker' in navigator)) {
+      return { success: false, error: 'Service Worker no soportado en este navegador' };
+    }
+    if (!('PushManager' in window)) {
+      return { success: false, error: 'PushManager no disponible en este navegador' };
+    }
+    if (!currentUser) {
+      return { success: false, error: 'No hay usuario logueado. Inicia sesión para activar notificaciones.' };
+    }
 
     try {
       const registration = await navigator.serviceWorker.ready;
       const existingSub = await registration.pushManager.getSubscription();
-      
-      if (!existingSub) return;
+
+      if (!existingSub) {
+        return { success: false, error: 'No existe suscripción push activa. Activa las notificaciones desde tu Perfil.' };
+      }
 
       const subJSON = existingSub.toJSON();
-      
+
+      // Validar que tenemos las keys necesarias
+      if (!subJSON.endpoint || !subJSON.keys?.p256dh || !subJSON.keys?.auth) {
+        return { success: false, error: 'Suscripción push corrupta. Renuncia y activa las notificaciones de nuevo.' };
+      }
+
       // Actualizamos la suscripción en la tabla push_subscriptions.
-      // El upsert garantiza que si el endpoint es el mismo, solo actualice el destinatario_telefono.
+      // El upsert usa 'endpoint' como unique constraint (creado en schema_definitivo.sql).
       const { error } = await supabase.from('push_subscriptions').upsert({
         user_id: currentUser.id,
         endpoint: subJSON.endpoint,
         p256dh: subJSON.keys?.p256dh,
         auth_secret: subJSON.keys?.auth,
         destinatario_telefono: currentUser.telefono.trim()
-      }, { onConflict: 'user_id, endpoint' });
+      }, { onConflict: 'endpoint' });
 
       if (error) {
-        console.error('❌ Marketo: Error sincronizando suscripción push:', error.message);
+        const msg = 'Error sincronizando suscripción push: ' + error.message;
+        console.error('❌ Marketo:', msg);
+        return { success: false, error: msg };
       } else {
         console.log('✅ Marketo: Suscripción Push sincronizada con el teléfono:', currentUser.telefono);
+        return { success: true };
       }
-    } catch (err) {
-      console.error('❌ Marketo: Fallo crítico en syncPushSubscription:', err);
+    } catch (err: any) {
+      const msg = 'Fallo crítico en syncPushSubscription: ' + (err?.message || String(err));
+      console.error('❌ Marketo:', msg);
+      return { success: false, error: msg };
     }
   };
 

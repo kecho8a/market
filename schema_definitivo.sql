@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS store_config (
     mensaje_cierre TEXT DEFAULT 'Hoy no trabajamos. Volveremos pronto.',
     mensaje_bienvenida TEXT DEFAULT 'Encuentra los mejores cortes de carne, quesos madurados y viveres frescos con delivery express en Valencia.',
     push_webhook_url TEXT DEFAULT 'https://market-cbh.pages.dev/api/push-notify',
-    push_webhook_secret TEXT DEFAULT ''
+    push_webhook_secret TEXT DEFAULT '5fca5a4d8825d4de66811590f47af870b01d45e80f391920f4ea76a59ae3c8bf'
 );
 
 -- Asegurarse de que las columnas existan por si la tabla ya estaba creada con la otra versión
@@ -145,11 +145,33 @@ CREATE TABLE IF NOT EXISTS public.push_subscriptions (
     p256dh TEXT NOT NULL,
     auth_secret TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(user_id, endpoint)
+    UNIQUE(endpoint)
 );
 
 -- Agregar columna telefono para filtrar por destinatario (si no existe)
 ALTER TABLE public.push_subscriptions ADD COLUMN IF NOT EXISTS destinatario_telefono TEXT DEFAULT '';
+
+-- Función RPC para que el admin pueda leer TODAS las suscripciones push
+-- (necesario porque RLS filtra por auth.uid = user_id, aislando cada usuario)
+CREATE OR REPLACE FUNCTION public.get_all_push_subscriptions()
+RETURNS TABLE (
+    id UUID,
+    user_id UUID,
+    endpoint TEXT,
+    p256dh TEXT,
+    auth_secret TEXT,
+    destinatario_telefono TEXT,
+    created_at TIMESTAMP WITH TIME ZONE
+)
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+    -- SECURITY DEFINER ejecuta con privilegios del creador (superusuario/服务role)
+    -- que puede ver todas las filas sin filtro RLS.
+    RETURN QUERY
+    SELECT ps.id, ps.user_id, ps.endpoint, ps.p256dh, ps.auth_secret, ps.destinatario_telefono, ps.created_at
+    FROM public.push_subscriptions ps;
+END;
+$$;
 
 -- ----------------------------------------------------------------------------
 -- 4.5 coupons (SISTEMA DE FIDELIZACIÓN)
@@ -620,13 +642,14 @@ BEGIN
   -- ============================
   -- push_subscriptions
   -- ============================
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='push_subscriptions' AND policyname='manage_own_push_subscriptions') THEN
-    ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
-    CREATE POLICY "manage_own_push_subscriptions" ON public.push_subscriptions
-      FOR ALL 
-      TO authenticated 
-      USING (auth.uid() = user_id);
-  END IF;
+  -- Habilitar RLS y crear política: cada usuario gestiona solo sus propias suscripciones
+  ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
+  DROP POLICY IF EXISTS "manage_own_push_subscriptions" ON public.push_subscriptions;
+  CREATE POLICY "manage_own_push_subscriptions" ON public.push_subscriptions
+    FOR ALL
+    TO authenticated
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
 
 END $$;
 
@@ -709,5 +732,5 @@ CREATE EXTENSION IF NOT EXISTS pg_net;
 UPDATE public.store_config 
 SET 
   push_webhook_url = 'https://market-cbh.pages.dev/api/push-notify',
-  push_webhook_secret = ' TU_SECRETO_SEGURO_AQUI'
+  push_webhook_secret = '5fca5a4d8825d4de66811590f47af870b01d45e80f391920f4ea76a59ae3c8bf'
 WHERE id = 1;
