@@ -9,6 +9,15 @@ declare const PagesFunction: any;
 export const onRequestPost: any = async (context: any) => {
   const { request, env } = context;
 
+  // DEBUG: Verificar variables de entorno disponibles
+  console.log('DEBUG: Checking env vars...');
+  console.log('DEBUG: SUPABASE_URL exists:', !!env.SUPABASE_URL);
+  console.log('DEBUG: SUPABASE_SERVICE_ROLE_KEY exists:', !!env.SUPABASE_SERVICE_ROLE_KEY);
+  console.log('DEBUG: SUPABASE_SERVICE_ROLE_KEY prefix:', env.SUPABASE_SERVICE_ROLE_KEY?.substring(0, 10));
+  console.log('DEBUG: VAPID_PUBLIC_KEY exists:', !!env.VAPID_PUBLIC_KEY);
+  console.log('DEBUG: WEBHOOK_SECRET exists:', !!env.WEBHOOK_SECRET);
+  console.log('DEBUG: PUSH_WEBHOOK_SECRET exists:', !!env.PUSH_WEBHOOK_SECRET);
+
   // 1. Verificación de Seguridad (Header secreto configurado en Supabase)
   const authHeader = request.headers.get('x-supabase-webhook-secret')
     || request.headers.get('x-webhook-secret')
@@ -91,6 +100,7 @@ export const onRequestPost: any = async (context: any) => {
     // Para tipo = 'todos' (promociones) no aplicamos filtro
     const { data: subs, error: subsErr } = await query;
     if (subsErr) {
+      console.error('DEBUG: Query error details:', JSON.stringify(subsErr));
       return new Response(JSON.stringify({ error: 'Failed loading subscriptions', details: subsErr.message }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' }
