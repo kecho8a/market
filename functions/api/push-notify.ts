@@ -10,8 +10,16 @@ export const onRequestPost: any = async (context: any) => {
   const { request, env } = context;
 
   // 1. Verificación de Seguridad (Header secreto configurado en Supabase)
-  const authHeader = request.headers.get('x-supabase-webhook-secret');
-  const configuredSecret = env.WEBHOOK_SECRET || env.webhook_secret;
+  const authHeader = request.headers.get('x-supabase-webhook-secret')
+    || request.headers.get('x-webhook-secret')
+    || request.headers.get('x-push-webhook-secret');
+
+  const configuredSecret = env.WEBHOOK_SECRET
+    || env.webhook_secret
+    || env.PUSH_WEBHOOK_SECRET
+    || env.push_webhook_secret
+    || env.PUSH_SECRET
+    || env.push_secret;
   if (authHeader !== configuredSecret) {
     return new Response('Unauthorized', { status: 401 });
   }
