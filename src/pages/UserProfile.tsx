@@ -30,6 +30,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
     markNotificationAsRead,
     syncPushSubscription,
     addNotification,
+    requestPart,
     deleteNotification,
     hapticEnabled,
     toggleHaptic
@@ -134,71 +135,22 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
   };
 
   const sendTestPushNotification = async () => {
+    console.log('🧪 Usuario: Solicitando notificación de prueba...');
     if (notificationPermission !== 'granted' || typeof window === 'undefined' || !('Notification' in window)) {
       addNotification('Error', 'Permisos de notificación no concedidos. Activa las notificaciones desde tu navegador.', 'personal');
       return;
     }
 
-    // Primero mostrar notificación local
-    const testNotif = new Notification('🧪 Prueba de Marketo', {
-      body: 'Si lees esto, las notificaciones locales funcionan. Ahora probando Web Push real...',
-      icon: 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&q=80&w=100',
-      tag: 'test-marketo'
-    });
+    // El envío de Push real se maneja automáticamente mediante el trigger de Supabase al insertar la notificación
+    const success = await addNotification(
+      '🧪 Prueba de Notificación Real',
+      'Esta es una notificación de prueba para verificar que el sistema VAPID está correctamente configurado y activo.',
+      'personal',
+      currentUser?.telefono
+    );
 
-    // Reproducir sonido de prueba
-    try {
-      const sound = new Audio('/sounds/notification.mp3');
-      sound.volume = 0.8;
-      sound.play().catch(() => {});
-    } catch {}
-
-    // También invocar webhook real de Cloudflare para Web Push
-    const webhookUrl = import.meta.env.VITE_PUSH_WEBHOOK_URL || '/api/push-notify';
-
-    // Nota: el backend valida el secreto con env.WEBHOOK_SECRET / env.PUSH_WEBHOOK_SECRET.
-    // En el front usamos VITE_WEBHOOK_SECRET o VITE_PUSH_WEBHOOK_SECRET.
-    // Si no hay secret configurado, evitamos enviar una request inválida que termina en 401.
-    const webhookSecret = import.meta.env.VITE_WEBHOOK_SECRET || import.meta.env.VITE_PUSH_WEBHOOK_SECRET || '';
-
-    if (!webhookSecret) {
-      addNotification(
-        '⚠️ Configuración faltante para Web Push',
-        'El secret del webhook no está configurado en el build (VITE_WEBHOOK_SECRET / VITE_PUSH_WEBHOOK_SECRET). Configura el secret en tu pipeline y recompila.',
-        'personal'
-      );
-      return;
-    }
-
-    try {
-      const res = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-supabase-webhook-secret': webhookSecret
-        },
-        body: JSON.stringify({
-          record: {
-            id: `notif-test-${Date.now()}`,
-            titulo: '🧪 Prueba de Notificación Push',
-            mensaje: 'Esta notificación fue enviada vía Web Push real desde Marketo PWA.',
-            tipo: 'personal',
-            destinatario_telefono: currentUser?.telefono || '',
-            link_url: '/?tab=profile',
-            imagen_url: ''
-          }
-        })
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        addNotification('✅ Prueba Exitosa', `Web Push enviada: ${data.sent || 0} receptor(es)收到了`, 'personal');
-      } else {
-        const errText = await res.text();
-        addNotification('⚠️ Error Web Push', `Webhook error ${res.status}: ${errText}`, 'personal');
-      }
-    } catch (err: any) {
-      addNotification('⚠️ Error de Red Push', err?.message || String(err), 'personal');
+    if (!success) {
+      alert('Error al enviar la notificación de prueba. Verifique la consola.');
     }
   };
 
@@ -231,6 +183,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
   const [copiedPassword, setCopiedPassword] = useState(false);
   const [copiedAll, setCopiedAll] = useState(false);
   const [showReminderPassword, setShowReminderPassword] = useState(false);
+
+  const [directMsg, setDirectMsg] = useState('');
 
   const handleCopyText = (text: string, type: 'name' | 'phone' | 'password' | 'all') => {
     navigator.clipboard.writeText(text);
@@ -1304,29 +1258,33 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                   ¿Tienes alguna consulta o necesitas ayuda con un pedido? Escríbenos directamente y te responderemos por este mismo medio o a tu WhatsApp.
                 </p>
                 <textarea 
-                  id="direct-msg"
+                  value={directMsg}
+                  onChange={(e) => setDirectMsg(e.target.value)}
                   className="w-full text-xs p-3 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white" 
                   placeholder="Ej: Hola, quisiera saber si tienen disponibilidad para..."
                   rows={3}
                 />
                 <button 
-                  onClick={() => {
-                    const desc = (document.getElementById('direct-msg') as HTMLTextAreaElement).value;
-                    if (desc.trim()) {
-                      addNotification(
-                        'Mensaje de Cliente: ' + currentUser.nombre,
-                        `El cliente envió este mensaje:\n\n"${desc}"\n\nTeléfono de contacto: ${currentUser.telefono}`,
-                        'request',
-                        currentUser.telefono
+                  onClick={async () => {
+                    console.log('📨 Usuario: Enviando consulta de producto...');
+                    if (directMsg.trim()) {
+                      console.log('📝 Contenido:', directMsg);
+                      const success = await requestPart(
+                        currentUser?.nombre || 'Anónimo',
+                        currentUser?.telefono || '',
+                        directMsg.trim()
                       );
-                      addNotification(
-                        'Mensaje Enviado',
-                        'Tu mensaje ha sido enviado exitosamente al equipo de Marketo.',
-                        'personal',
-                        currentUser.telefono
-                      );
-                      (document.getElementById('direct-msg') as HTMLTextAreaElement).value = '';
-                      alert('¡Mensaje enviado correctamente!');
+                      
+                      if (success) {
+                        console.log('✅ Mensaje enviado al Administrador y Usuario.');
+                        setDirectMsg('');
+                        alert('¡Mensaje enviado correctamente!');
+                      } else {
+                        console.error('❌ Error al enviar mensaje: Falló la operación requestPart.');
+                        alert('Error al enviar el mensaje. Intente de nuevo.');
+                      }
+                    } else {
+                      alert('Por favor, escribe un mensaje.');
                     }
                   }}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg py-2.5 font-bold text-xs transition-colors"

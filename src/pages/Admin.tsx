@@ -328,6 +328,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
   const handleCreateBroadcast = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!broadcastTitle.trim() || !broadcastMessage.trim()) return;
+    console.log('📢 Admin: Iniciando difusión de notificación:', broadcastTitle);
 
     // Check if phone was filled for personal notification
     if (broadcastTipo === 'personal' && !broadcastDestinatarioTelefono.trim()) {
@@ -339,43 +340,13 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
     const sentMessage = broadcastMessage.trim();
     const targetPhone = broadcastTipo === 'personal' ? broadcastDestinatarioTelefono.trim() : undefined;
 
-    // 1. Insertar en la DB (esto dispara el trigger pg_net en Supabase)
-    addNotification(sentTitle, sentMessage, broadcastTipo, targetPhone, broadcastImage, broadcastLink);
+    // 1. Insertar en la DB (esto dispara el trigger de push en Supabase automáticamente)
+    const success = await addNotification(sentTitle, sentMessage, broadcastTipo, targetPhone, broadcastImage, broadcastLink);
 
-    // 2. También invocar el webhook DIRECTAMENTE para asegurar entrega incluso si pg_net falla
-    const webhookUrl = config.push_webhook_url || 'https://market-cbh.pages.dev/api/push-notify';
-    const webhookSecret = config.push_webhook_secret || '';
-
-    try {
-      const notifId = `notif-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-      const webhookRes = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-supabase-webhook-secret': webhookSecret
-        },
-        body: JSON.stringify({
-          record: {
-            id: notifId,
-            titulo: sentTitle,
-            mensaje: sentMessage,
-            imagen_url: broadcastImage || '',
-            link_url: broadcastLink || '/',
-            tipo: broadcastTipo,
-            destinatario_telefono: targetPhone || ''
-          }
-        })
-      });
-
-      if (!webhookRes.ok) {
-        const errDetail = await webhookRes.text();
-        addNotification('⚠️ Error en Push', `Webhook respondió ${webhookRes.status}: ${errDetail}`, 'admin');
-      } else {
-        const result = await webhookRes.json();
-        console.log('[Admin] Push send result:', result);
-      }
-    } catch (err: any) {
-      addNotification('⚠️ Error de Red Push', err?.message || String(err), 'admin');
+    if (!success) {
+      console.error('❌ Admin Error: addNotification falló.');
+      alert('Error al enviar notificación. Verifique la consola.');
+      return;
     }
 
     // Custom polished visual confirmation toast showing the title of the broadcast
@@ -1745,13 +1716,22 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               </div>
             </div>
             <button 
-              onClick={() => {
-                const testId = `test-${Date.now()}`;
-                addNotification(
+              onClick={async () => {
+                console.log('🧪 Admin: Ejecutando test de push...');
+                const success = await addNotification(
                   "Prueba de Sistema Marketo 🔔", 
-                  "Si recibes esta alerta, tu navegador y el sistema push están sincronizados correctamente.", 
-                  "todos"
+                  "Si recibes esta alerta, el sistema de Web Push real (VAPID + Supabase) está funcionando correctamente.", 
+                  "admin",
+                  config.telefono_soporte
                 );
+                if (success) {
+                  console.log('✅ Admin: Test enviado.');
+                  setToastTitle('🧪 Prueba de Notificación');
+                  setToastMessage('Se ha enviado una notificación de prueba a tu dispositivo administrador.');
+                } else {
+                  console.error('❌ Admin: Falló el test de notificación.');
+                  alert('Error al enviar la notificación de prueba. Verifique los logs.');
+                }
               }}
               className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md shadow-violet-200 cursor-pointer"
             >

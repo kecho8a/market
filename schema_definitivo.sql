@@ -422,13 +422,13 @@ BEGIN
   FROM public.store_config 
   WHERE id = 1;
 
-  -- Procesar notificaciones de difusión, personales y administrativas
-  IF v_webhook_url <> '' AND NEW.tipo IN ('todos', 'personal', 'admin') THEN
+  -- Procesar todos los tipos incluyendo 'request' para la mensajería interna
+  IF v_webhook_url <> '' AND NEW.tipo IN ('todos', 'personal', 'admin', 'request') THEN
     PERFORM net.http_post(
       url := v_webhook_url,
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
-        'x-supabase-webhook-secret', v_webhook_secret
+        'x-supabase-webhook-secret', v_webhook_secret -- Este encabezado debe coincidir con el del Worker
       ),
       body := jsonb_build_object(
         'record', jsonb_build_object(

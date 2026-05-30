@@ -29,7 +29,7 @@ interface AppContextProps {
   updateUser: (updated: Partial<AppUser>) => void;
   sendPasswordResetEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
   updateUserByAdmin: (userId: string, updated: Partial<AppUser>) => void;
-  requestPart: (nombre: string, telefono: string, descripcion: string, imagenUrl?: string) => void;
+  requestPart: (nombre: string, telefono: string, descripcion: string, imagenUrl?: string) => Promise<boolean>;
   
   // Catalog actions
   addProduct: (product: Omit<Producto, 'id'>) => void;
@@ -62,7 +62,7 @@ interface AppContextProps {
   updateCategory: (oldCategory: string, newCategory: string) => void;
   
   // Notification Actions
-  addNotification: (title: string, message: string, tipo?: 'todos' | 'personal' | 'admin' | 'request', targetPhone?: string, imageUrl?: string, linkUrl?: string) => void;
+  addNotification: (title: string, message: string, tipo?: 'todos' | 'personal' | 'admin' | 'request', targetPhone?: string, imageUrl?: string, linkUrl?: string) => Promise<boolean>;
   markNotificationAsRead: (id: string) => void;
   toggleNotificationReadStatus: (id: string) => void;
   syncPushSubscription: () => Promise<{ success: boolean; error?: string }>;
@@ -944,20 +944,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return favorites.includes(partId);
   };
 
-  const requestPart = (nombre: string, telefono: string, descripcion: string, imagenUrl?: string) => {
-    addNotification(
+  const requestPart = async (nombre: string, telefono: string, descripcion: string, imagenUrl?: string): Promise<boolean> => {
+    console.log('🛠️ AppContext: Procesando solicitud de producto:', descripcion);
+    const adminRes = await addNotification(
       'Nueva Solicitud de Producto Especial 🍏',
       `Solicitud de: ${nombre} (${telefono})\n\nProducto: ${descripcion}${imagenUrl ? `\n\nImagen disponible` : ''}`,
       'request',
       telefono
     );
      // Also notify user that request was received
-     addNotification(
+     const userRes = await addNotification(
       'Solicitud de Producto Recibida',
       `Hola ${nombre}, hemos recibido tu solicitud para "${descripcion.substring(0, 30)}...". Un agente de Marketo te contactará pronto.`,
       'personal',
       telefono
     );
+    console.log('🛠️ AppContext: Resultados de envío:', { adminRes, userRes });
+    return adminRes && userRes;
   };
 
   // Catalog CRUD Functions
@@ -1622,7 +1625,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Log notifications
-  const addNotification = (title: string, message: string, tipo: 'todos' | 'personal' | 'admin' | 'request' = 'todos', targetPhone?: string, imageUrl?: string, linkUrl?: string) => {
+  const addNotification = async (title: string, message: string, tipo: 'todos' | 'personal' | 'admin' | 'request' = 'todos', targetPhone?: string, imageUrl?: string, linkUrl?: string): Promise<boolean> => {
+    console.log(`🔔 Marketo System: Intentando agregar notificación [${tipo}] para ${targetPhone || 'todos'}`);
     const newNotif: InAppNotification = {
       id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       titulo: title,
@@ -1635,17 +1639,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       leida: false
     };
 
-    // Solo agregar al estado local si es relevante para el usuario actual
-    const isRelevant = (newNotif.tipo === 'todos') || 
-                       (currentUser && newNotif.tipo === 'personal' && newNotif.destinatario_telefono === currentUser.telefono) ||
-                       (isAdminAuthenticated && (newNotif.tipo === 'request' || newNotif.tipo === 'admin'));
-
-    if (isRelevant) {
-      setNotifications(prev => [newNotif, ...prev]);
-    }
-
     // Sincronización con Supabase
-    supabase.from('notifications').insert([{
+    const { error } = await supabase.from('notifications').insert([{
       id: newNotif.id,
       titulo: newNotif.titulo,
       mensaje: newNotif.mensaje,
@@ -1655,7 +1650,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       leida: newNotif.leida,
       imagen_url: newNotif.imagen_url,
       link_url: newNotif.link_url
-    }]).then(({ error }) => { if (error) console.error('Error sync notification:', error); });
+    }]);
+
+    if (error) {
+      console.error('❌ Marketo DB Error: No se pudo guardar la notificación en Supabase:', error.message);
+      return false;
+    }
+
+    // Solo agregar al estado local si es relevante para el usuario actual
+    const isRelevant = (newNotif.tipo === 'todos') || 
+                       (currentUser && newNotif.tipo === 'personal' && newNotif.destinatario_telefono === currentUser.telefono) ||
+                       (isAdminAuthenticated && (newNotif.tipo === 'request' || newNotif.tipo === 'admin'));
+
+    if (isRelevant) {
+      setNotifications(prev => [newNotif, ...prev]);
+    }
 
     // Push local browser notification if permitted
     if ('Notification' in window && Notification.permission === 'granted') {
@@ -1669,6 +1678,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         data: { url: linkUrl }
       } as any);
     }
+    return true;
   };
 
   const markNotificationAsRead = (id: string) => {
@@ -1694,6 +1704,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, error: 'PushManager no disponible en este navegador' };
     }
     if (!currentUser) {
+      console.error('❌ Marketo Sync Error: Intento de sincronizar push sin usuario logueado');
       return { success: false, error: 'No hay usuario logueado. Inicia sesión para activar notificaciones.' };
     }
 
@@ -1702,6 +1713,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const existingSub = await registration.pushManager.getSubscription();
 
       if (!existingSub) {
+        console.warn('⚠️ Marketo Sync: No se encontró suscripción push activa en este navegador.');
         return { success: false, error: 'No existe suscripción push activa. Activa las notificaciones desde tu Perfil.' };
       }
 
