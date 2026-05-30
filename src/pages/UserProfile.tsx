@@ -156,9 +156,19 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
     // También invocar webhook real de Cloudflare para Web Push
     const webhookUrl = import.meta.env.VITE_PUSH_WEBHOOK_URL || '/api/push-notify';
 
-    // Nota: el backend valida el secreto con env.WEBHOOK_SECRET
-    // y/o env.push_webhook_secret. En el front usamos el env VITE_WEBHOOK_SECRET.
+    // Nota: el backend valida el secreto con env.WEBHOOK_SECRET / env.PUSH_WEBHOOK_SECRET.
+    // En el front usamos VITE_WEBHOOK_SECRET o VITE_PUSH_WEBHOOK_SECRET.
+    // Si no hay secret configurado, evitamos enviar una request inválida que termina en 401.
     const webhookSecret = import.meta.env.VITE_WEBHOOK_SECRET || import.meta.env.VITE_PUSH_WEBHOOK_SECRET || '';
+
+    if (!webhookSecret) {
+      addNotification(
+        '⚠️ Configuración faltante para Web Push',
+        'El secret del webhook no está configurado en el build (VITE_WEBHOOK_SECRET / VITE_PUSH_WEBHOOK_SECRET). Configura el secret en tu pipeline y recompila.',
+        'personal'
+      );
+      return;
+    }
 
     try {
       const res = await fetch(webhookUrl, {
