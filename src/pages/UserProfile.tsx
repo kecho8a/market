@@ -155,7 +155,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
 
     // También invocar webhook real de Cloudflare para Web Push
     const webhookUrl = import.meta.env.VITE_PUSH_WEBHOOK_URL || '/api/push-notify';
-    const webhookSecret = import.meta.env.VITE_WEBHOOK_SECRET || '';
+
+    // Nota: el backend valida el secreto con env.WEBHOOK_SECRET
+    // y/o env.push_webhook_secret. En el front usamos el env VITE_WEBHOOK_SECRET.
+    const webhookSecret = import.meta.env.VITE_WEBHOOK_SECRET || import.meta.env.VITE_PUSH_WEBHOOK_SECRET || '';
 
     try {
       const res = await fetch(webhookUrl, {
