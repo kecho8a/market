@@ -98,7 +98,7 @@ const DEFAULT_PRODUCTS: Producto[] = [
     anio_fin: 2026,
     precio_usd: 1.80,
     stock: 50,
-    imagen_urls: ['https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&q=80&w=500'],
+    imagen_urls: ['https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&q=80&w=500'],
     es_promo: true,
     es_nuevo: false,
     es_mas_vendido: true,
@@ -119,7 +119,7 @@ const DEFAULT_PRODUCTS: Producto[] = [
     anio_fin: 2026,
     precio_usd: 6.50,
     stock: 15,
-    imagen_urls: ['https://images.unsplash.com/photo-1452195100486-1f3f8c5b3d8f?auto=format&fit=crop&q=80&w=500'],
+    imagen_urls: ['https://images.unsplash.com/photo-1548340748-6d2b7d7da280?auto=format&fit=crop&q=80&w=500'],
     es_promo: true,
     es_nuevo: false,
     es_mas_vendido: false,
@@ -1626,9 +1626,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Log notifications
   const addNotification = async (title: string, message: string, tipo: 'todos' | 'personal' | 'admin' | 'request' = 'todos', targetPhone?: string, imageUrl?: string, linkUrl?: string): Promise<boolean> => {
-    console.log(`🔔 Marketo System: Intentando agregar notificación [${tipo}] para ${targetPhone || 'todos'}`);
+    console.log(`🔔 Marketo System: Registrando notificación [${tipo}]...`);
+    
+    const notifId = `notif-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
     const newNotif: InAppNotification = {
-      id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      id: notifId,
       titulo: title,
       mensaje: message,
       fecha: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -1640,8 +1642,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     // Sincronización con Supabase
-    const { error } = await supabase.from('notifications').insert([{
-      id: newNotif.id,
+    const { error } = await supabase.from('notifications').insert({
+      id: notifId,
       titulo: newNotif.titulo,
       mensaje: newNotif.mensaje,
       fecha: newNotif.fecha,
@@ -1650,13 +1652,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       leida: newNotif.leida,
       imagen_url: newNotif.imagen_url,
       link_url: newNotif.link_url
-    }]);
+    }).select();
 
     if (error) {
-      console.error('❌ Marketo DB Error: No se pudo guardar la notificación en Supabase:', error.message);
+      console.error('❌ Marketo Error (SQL):', error.message, '| Hint:', error.hint);
+      console.error('Payload fallido:', { notifId, tipo, targetPhone });
       return false;
     }
-
+    
+    console.log('✅ Notificación guardada en Supabase:', notifId);
     // Solo agregar al estado local si es relevante para el usuario actual
     const isRelevant = (newNotif.tipo === 'todos') || 
                        (currentUser && newNotif.tipo === 'personal' && newNotif.destinatario_telefono === currentUser.telefono) ||

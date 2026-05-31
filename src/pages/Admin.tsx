@@ -1717,20 +1717,25 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
             </div>
             <button 
               onClick={async () => {
-                console.log('🧪 Admin: Ejecutando test de push...');
+                console.log('🧪 Iniciando prueba de comunicación Push...');
+                const target = config.telefono_soporte || currentUser?.telefono;
+                if (!target) {
+                  alert('⚠️ No hay un número de teléfono configurado para recibir la prueba.');
+                  return;
+                }
                 const success = await addNotification(
                   "Prueba de Sistema Marketo 🔔", 
                   "Si recibes esta alerta, el sistema de Web Push real (VAPID + Supabase) está funcionando correctamente.", 
                   "admin",
-                  config.telefono_soporte
+                  target
                 );
                 if (success) {
-                  console.log('✅ Admin: Test enviado.');
+                  console.log('✅ Prueba enviada con éxito.');
                   setToastTitle('🧪 Prueba de Notificación');
-                  setToastMessage('Se ha enviado una notificación de prueba a tu dispositivo administrador.');
+                  setToastMessage(`Se ha enviado una alerta a ${target}. Si no llega, verifica la extensión pg_net en Supabase.`);
                 } else {
-                  console.error('❌ Admin: Falló el test de notificación.');
-                  alert('Error al enviar la notificación de prueba. Verifique los logs.');
+                  console.error('❌ Falló la inserción de la notificación de prueba.');
+                  alert('Error al enviar prueba. Es probable que la tabla "notifications" no exista o los permisos RLS estén bloqueando la subida.');
                 }
               }}
               className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md shadow-violet-200 cursor-pointer"

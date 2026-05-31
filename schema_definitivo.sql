@@ -5,6 +5,26 @@
 
 -- Habilitar extensión uuid-ossp
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- Habilitar extensión para peticiones HTTP (Motor Push)
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
+-- Asegurar que la tabla notifications exista con la estructura correcta
+CREATE TABLE IF NOT EXISTS public.notifications (
+    id VARCHAR(50) PRIMARY KEY,
+    titulo TEXT NOT NULL,
+    mensaje TEXT NOT NULL,
+    fecha TEXT NOT NULL,
+    tipo VARCHAR(20) NOT NULL DEFAULT 'todos',
+    destinatario_telefono VARCHAR(20) DEFAULT '',
+    leida BOOLEAN NOT NULL DEFAULT FALSE,
+    imagen_url TEXT DEFAULT '',
+    link_url TEXT DEFAULT '',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Habilitar RLS y permisos
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+GRANT ALL ON public.notifications TO anon, authenticated, service_role;
 
 -- ----------------------------------------------------------------------------
 -- 1. store_config
@@ -423,14 +443,11 @@ BEGIN
   WHERE id = 1;
 
   -- Procesar todos los tipos incluyendo 'request' para la mensajería interna
-  IF v_webhook_url <> '' AND NEW.tipo IN ('todos', 'personal', 'admin', 'request') THEN
+  IF v_webhook_url IS NOT NULL AND v_webhook_url <> '' AND NEW.tipo IN ('todos', 'personal', 'admin', 'request', 'promo') THEN
     PERFORM net.http_post(
       url := v_webhook_url,
-      headers := jsonb_build_object(
-        'Content-Type', 'application/json',
-        'x-supabase-webhook-secret', v_webhook_secret -- Este encabezado debe coincidir con el del Worker
-      ),
-      body := jsonb_build_object(
+      -- ELIMINAMOS el cast ::text porque pg_net requiere jsonb puro para el body
+      body := jsonb_build_object( 
         'record', jsonb_build_object(
           'id', NEW.id,
           'titulo', NEW.titulo,
@@ -440,7 +457,12 @@ BEGIN
           'tipo', NEW.tipo,
           'destinatario_telefono', COALESCE(NEW.destinatario_telefono, '')
         )
-      )::text
+      ),
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        -- Secreto maestro para validar en Cloudflare
+        'x-supabase-webhook-secret', COALESCE(v_webhook_secret, '5fca5a4d8825d4de66811590f47af870b01d45e80f391920f4ea76a59ae3c8bf')
+      )
     );
   END IF;
 

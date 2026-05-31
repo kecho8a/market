@@ -428,15 +428,23 @@ export const Home: React.FC<HomeProps> = ({
             rows={3}
           />
           <button 
-            onClick={() => {
-              const desc = (document.getElementById('req-desc') as HTMLTextAreaElement).value;
-              const phone = (document.getElementById('req-phone') as HTMLInputElement).value;
-              if (desc && phone) {
-                requestPart(currentUser?.nombre || 'Invitado/Cliente No Registrado', phone, desc);
-                (document.getElementById('req-desc') as HTMLTextAreaElement).value = '';
-                alert('¡Solicitud enviada! Nuestro equipo te contactará.');
+            onClick={async () => {
+              const descEl = document.getElementById('req-desc') as HTMLTextAreaElement;
+              const phoneEl = document.getElementById('req-phone') as HTMLInputElement;
+              const desc = descEl?.value;
+              const phone = phoneEl?.value;
+              
+              if (desc?.trim() && phone?.trim()) {
+                console.log('🚀 Solicitando producto especial...');
+                const success = await requestPart(currentUser?.nombre || 'Invitado', phone.trim(), desc.trim());
+                if (success) {
+                  descEl.value = '';
+                  alert('¡Solicitud enviada! Nuestro equipo te contactará pronto.');
+                } else {
+                  alert('Error al enviar solicitud. Revisa la consola para más detalles.');
+                }
               } else {
-                alert('Por favor, ingresa tu teléfono y la descripción del producto.');
+                alert('Por favor, ingresa tu teléfono y lo que estás buscando.');
               }
             }}
             className="bg-violet-600 hover:bg-violet-700 text-white rounded-xl py-3.5 font-bold text-xs cursor-pointer shadow-md shadow-violet-200 transition-all active:scale-[0.98] text-[13px]"
