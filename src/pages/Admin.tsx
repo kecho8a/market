@@ -174,6 +174,25 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
     setIsEditorOpen(true);
   };
 
+  const forceUpdateApp = async () => {
+    if (confirm("¿Desea forzar la actualización de la aplicación? Se limpiará la caché y se reiniciará para obtener la última versión.")) {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+          await registration.unregister();
+        }
+      }
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+      }
+      // Pequeña pausa antes de recargar
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    }
+  };
+
   const handleEditorSubmit = (e: React.FormEvent) => {
     if (formStock < 0) {
       alert('El stock no puede ser negativo.');
@@ -1741,6 +1760,25 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md shadow-violet-200 cursor-pointer"
             >
               Ejecutar Test de Notificación Push
+            </button>
+          </div>
+
+          {/* MANTENIMIENTO TÉCNICO DE LA APP */}
+          <div className="flex flex-col gap-4 p-5 border border-slate-200 rounded-2xl bg-white shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-slate-100 text-slate-600 rounded-xl">
+                <RefreshCcw size={20} />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">Mantenimiento de Aplicación (PWA)</h4>
+                <p className="text-[11px] text-slate-500">Si los clientes no ven los últimos cambios visuales, pídales que ejecuten esta acción.</p>
+              </div>
+            </div>
+            <button 
+              onClick={forceUpdateApp}
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md cursor-pointer"
+            >
+              Forzar Actualización Global
             </button>
           </div>
 

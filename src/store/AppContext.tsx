@@ -425,7 +425,7 @@ const DEFAULT_CONFIG: StoreConfig = {
   transferencia_discount_percent: 0,
   tasa_cambio: 36.50,
   logo_url: '',
-  theme_color: '#7c3aed', // Aesthetic Violet theme color
+  theme_color: '#ffffff', // Neutral white to remove top purple bar
   mensaje_bienvenida: 'Encuentra los mejores cortes de carne, quesos madurados y viveres frescos con delivery express en Valencia.',
   delivery_gratis: false,
   costo_delivery_km: 1.5,
@@ -694,13 +694,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           if (isForMe) {
             setNotifications(prev => [newNotif, ...prev]);
+            playNotificationSound('update'); // Activar sonido para nuevos mensajes
             if ('Notification' in window && Notification.permission === 'granted') {
               new Notification(`${config.site_nombre}: ${newNotif.titulo}`, {
                 body: newNotif.mensaje,
                 icon: config.logo_url || '/icon.png',
                 image: newNotif.imagen_url,
                 badge: '/icon.png',
-                tag: 'marketo-notif',
+                tag: `notif-${newNotif.id}`, // Tag único
+                renotify: true,             -- Avisar siempre
                 requireInteraction: true,
                 data: { url: newNotif.link_url }
               } as any);
@@ -1677,7 +1679,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         icon: config.logo_url || '/icon.png',
         image: imageUrl,
         badge: '/icon.png',
-        tag: 'marketo-system',
+        tag: `notif-${notifId}`, // Tag único
+        renotify: true,
         requireInteraction: true,
         data: { url: linkUrl }
       } as any);

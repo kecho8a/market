@@ -20,7 +20,7 @@ export default defineConfig(({mode}) => {
           description: 'Premium Supermarket & Delivery',
           theme_color: '#ffffff',
           background_color: '#ffffff',
-          display: 'standalone',
+          display: 'fullscreen',
           orientation: 'portrait',
           icons: [
             {

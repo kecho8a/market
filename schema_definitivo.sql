@@ -8,24 +8,6 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Habilitar extensión para peticiones HTTP (Motor Push)
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
--- Asegurar que la tabla notifications exista con la estructura correcta
-CREATE TABLE IF NOT EXISTS public.notifications (
-    id VARCHAR(50) PRIMARY KEY,
-    titulo TEXT NOT NULL,
-    mensaje TEXT NOT NULL,
-    fecha TEXT NOT NULL,
-    tipo VARCHAR(20) NOT NULL DEFAULT 'todos',
-    destinatario_telefono VARCHAR(20) DEFAULT '',
-    leida BOOLEAN NOT NULL DEFAULT FALSE,
-    imagen_url TEXT DEFAULT '',
-    link_url TEXT DEFAULT '',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Habilitar RLS y permisos
-ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
-GRANT ALL ON public.notifications TO anon, authenticated, service_role;
-
 -- ----------------------------------------------------------------------------
 -- 1. store_config
 -- ----------------------------------------------------------------------------
@@ -443,13 +425,18 @@ BEGIN
   WHERE id = 1;
 
   -- Procesar todos los tipos incluyendo 'request' para la mensajería interna
-  IF v_webhook_url IS NOT NULL AND v_webhook_url <> '' AND NEW.tipo IN ('todos', 'personal', 'admin', 'request', 'promo') THEN
+  IF v_webhook_url IS NOT NULL AND v_webhook_url <> '' AND NEW.tipo IN ('todos', 'personal', 'admin', 'request') THEN
     PERFORM net.http_post(
       url := v_webhook_url,
-      -- ELIMINAMOS el cast ::text porque pg_net requiere jsonb puro para el body
-      body := jsonb_build_object( 
+      body := jsonb_build_object(
         'record', jsonb_build_object(
           'id', NEW.id,
+          'title', NEW.titulo,      -- Campo estándar para móviles
+          'body', NEW.mensaje,       -- Campo estándar para móviles
+          'icon', COALESCE(NEW.imagen_url, '/icon.png'),
+          'tag', 'marketo-' || NEW.id, -- Agrupación única para forzar alerta
+          'renotify', true,          -- Forzar vibración/sonido aunque haya otra notif
+          'vibrate', ARRAY[200, 100, 200], -- Patrón de vibración para alerta
           'titulo', NEW.titulo,
           'mensaje', NEW.mensaje,
           'imagen_url', COALESCE(NEW.imagen_url, ''),
@@ -457,11 +444,10 @@ BEGIN
           'tipo', NEW.tipo,
           'destinatario_telefono', COALESCE(NEW.destinatario_telefono, '')
         )
-      ),
+      )::text,
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
-        -- Secreto maestro para validar en Cloudflare
-        'x-supabase-webhook-secret', COALESCE(v_webhook_secret, '5fca5a4d8825d4de66811590f47af870b01d45e80f391920f4ea76a59ae3c8bf')
+        'x-supabase-webhook-secret', COALESCE(v_webhook_secret, '')
       )
     );
   END IF;
