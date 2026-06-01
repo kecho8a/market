@@ -120,10 +120,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
           addNotification('⚠️ Error Sincronizando Push', syncResult.error!, 'personal');
         }
 
-        new Notification('¡Notificaciones Habilitadas!', {
-          body: '¡Excelente! Ahora recibirás actualizaciones rápidas de tus pedidos y promociones de Marketo.',
-          icon: 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&q=80&w=100',
-          tag: 'welcome-trv'
+        navigator.serviceWorker.ready.then(reg => {
+          reg.showNotification('¡Notificaciones Habilitadas! 🔔', {
+            body: '¡Excelente! Ahora recibirás actualizaciones rápidas de tus pedidos y promociones de Marketo.',
+            icon: config.logo_url || '/icon.png',
+            badge: '/icon.png',
+            vibrate: [200, 100, 200],
+            tag: 'welcome-trv'
+          });
         });
       } else if (res === 'denied') {
         addNotification('Notificaciones Bloqueadas ⚠️', 'Has bloqueado las notificaciones en tu navegador. Puedes activarlas desde la configuración del sitio.', 'personal');

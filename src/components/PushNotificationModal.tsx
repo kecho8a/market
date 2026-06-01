@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿﻿import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../store/AppContext';
 import { Bell, ShieldAlert, Sparkles, X, ChevronRight, Truck, Info, Percent } from 'lucide-react';
@@ -42,10 +42,14 @@ export const PushNotificationModal: React.FC = () => {
 
       if (res === 'granted') {
         // Trigger a gorgeous, helpful native welcoming notification
-        new Notification('¡Notificaciones Activas! 🔔', {
-          body: '¡Genial! Ahora recibirás alertas en tiempo real sobre tus pedidos y ofertas frescas de Marketo.',
-          icon: 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&q=80&w=100',
-          tag: 'welcome-trv'
+        navigator.serviceWorker.ready.then(reg => {
+          reg.showNotification('¡Notificaciones Activas! 🔔', {
+            body: '¡Genial! Ahora recibirás alertas en tiempo real sobre tus pedidos y ofertas frescas de Marketo.',
+            icon: '/icon.png',
+            badge: '/icon.png',
+            vibrate: [200, 100, 200],
+            tag: 'welcome-trv'
+          });
         });
 
         // Also add it inside the app database notifications

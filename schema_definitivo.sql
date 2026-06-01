@@ -432,9 +432,11 @@ BEGIN
         'title', NEW.titulo,
         'body', NEW.mensaje,
         'icon', COALESCE(NEW.imagen_url, '/icon.png'),
-        'url', COALESCE(NEW.link_url, '/'),
+        'badge', '/icon.png',
+        'sound', 'default',
         'vibrate', ARRAY[200, 100, 200],
         'tag', 'marketo-' || NEW.id,
+        'url', COALESCE(NEW.link_url, '/'),
         'record', jsonb_build_object(
           'id', NEW.id,
           'title', NEW.titulo,      -- Campo estándar para móviles
@@ -443,6 +445,8 @@ BEGIN
           'tag', 'marketo-' || NEW.id, -- Agrupación única para forzar alerta
           'renotify', true,          -- Forzar vibración/sonido aunque haya otra notif
           'vibrate', ARRAY[200, 100, 200], -- Patrón de vibración para alerta
+          'sound', 'default',
+          'badge', '/icon.png',
           'titulo', NEW.titulo,
           'mensaje', NEW.mensaje,
           'imagen_url', COALESCE(NEW.imagen_url, ''),
@@ -673,11 +677,11 @@ END $$;
 INSERT INTO products (codigo, nombre, descripcion, categoria, seccion, subseccion, marca, condicion, anio_inicio, anio_fin, precio_usd, stock, imagen_urls, es_promo, es_nuevo, es_mas_vendido, delivery_gratis, detalle_adicional)
 VALUES 
 ('LCT-LECH-964', 'Leche Liquida Entera Campestre 1L', 'Leche entera de vaca pasteurizada premium.', 'Lácteos y Quesos', 'Pasillo 1 - Lacteos', 'Leches y Cremas', 'Campestre', 'Nacional', 2000, 2026, 1.80, 50, ARRAY['https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&q=80&w=500'], true, false, true, true, '100% Leche fresca.'),
-('LCT-QUES-GOU', 'Queso Amarillo Tipo Gouda 500g', 'Queso amarillo gouda premium madurado.', 'Lácteos y Quesos', 'Pasillo 1 - Lacteos', 'Quesos y Embutidos', 'Torondoy', 'Nacional', 2000, 2026, 6.50, 15, ARRAY['https://images.unsplash.com/photo-1589927986089-35812388d1f4?auto=format&fit=crop&q=80&w=500'], true, false, false, true, 'Maduracion de 45 dias.'),
+('LCT-QUES-GOU', 'Queso Amarillo Tipo Gouda 500g', 'Queso amarillo gouda premium madurado.', 'Lácteos y Quesos', 'Pasillo 1 - Lacteos', 'Quesos y Embutidos', 'Torondoy', 'Nacional', 2000, 2026, 6.50, 15, ARRAY['https://images.unsplash.com/photo-1486299267070-8382e21b471a?auto=format&fit=crop&q=80&w=500'], true, false, false, true, 'Maduracion de 45 dias.'),
 ('LCT-YOGU-GRI', 'Yogur Griego Natural 500g', 'Yogur griego cremoso alto en proteinas.', 'Lácteos y Quesos', 'Pasillo 1 - Lacteos', 'Yogures y Postres', 'ValleFresco', 'Nacional', 2000, 2026, 3.90, 25, ARRAY['https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&q=80&w=500'], false, true, true, false, 'Sin azucar añadida.'),
 ('CRN-RIBE-ANG', 'Ribeye de Carne Premium Angus 400g', 'Corte selecto Ribeye de res Angus.', 'Carnes y Aves', 'Pasillo 2 - Carnes', 'Cortes Vacunos', 'Angus Gold', 'Nacional', 2000, 2026, 14.90, 12, ARRAY['https://images.unsplash.com/photo-1603048588665-791ca8aea617?auto=format&fit=crop&q=80&w=500'], false, false, true, false, 'Empacado al vacio.'),
 ('CRN-PECH-POL', 'Pechuga de Pollo 1kg', 'Pechuga de pollo fresca, deshuesada.', 'Carnes y Aves', 'Pasillo 2 - Carnes', 'Aves y Pollo', 'GranjaSol', 'Nacional', 2000, 2026, 5.80, 25, ARRAY['https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&q=80&w=500'], true, false, false, true, 'Libre de hormonas.'),
-('CHRC-SERR-JAM', 'Jamon Serrano Reserva 150g', 'Jamon serrano curado artesanalmente.', 'Charcutería', 'Pasillo 1 - Lacteos', 'Quesos y Embutidos', 'Campestre', 'Nacional', 2000, 2026, 8.20, 20, ARRAY['https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&q=80&w=500'], false, true, true, false, 'Listo para consumir.'),
+('CHRC-SERR-JAM', 'Jamon Serrano Reserva 150g', 'Jamon serrano curado artesanalmente.', 'Charcutería', 'Pasillo 1 - Lacteos', 'Quesos y Embutidos', 'Campestre', 'Nacional', 2000, 2026, 8.20, 20, ARRAY['https://images.unsplash.com/photo-1524438418049-b04be11b576d?auto=format&fit=crop&q=80&w=500'], false, true, true, false, 'Listo para consumir.'),
 ('FRV-FRES-MER', 'Fresas Organicas 500g', 'Fresas organicas cosechadas en Merida.', 'Frutas y Verduras', 'Pasillo 2 - Frescos', 'Frutas y Vegetales', 'ValleFresco', 'Nacional', 2000, 2026, 4.20, 18, ARRAY['https://images.unsplash.com/photo-1464965911861-746a04b4bca6?auto=format&fit=crop&q=80&w=500'], true, true, false, false, 'Lavar bien antes de consumir.'),
 ('DSP-OLIV-ESP', 'Aceite de Oliva Extra Virgen 500ml', 'Aceite de oliva prensado en frio.', 'Víveres y Despensa', 'Pasillo 3 - Despensa', 'Aceites y Abarrotes', 'Carbonell', 'Importado', 2000, 2026, 9.50, 40, ARRAY['https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&q=80&w=500'], false, true, true, false, 'Importado de España.'),
 ('PAN-BAGU-ART', 'Pan Baguette Masa Madre 250g', 'Pan tipo baguette artesanal.', 'Panadería y Pastelería', 'Pasillo 4 - Panaderia', 'Panes Frescos', 'El Rey', 'Nacional', 2000, 2026, 1.20, 40, ARRAY['https://images.unsplash.com/photo-1549931319-a545dcf3bc73?auto=format&fit=crop&q=80&w=500'], true, true, false, false, 'Corteza crujiente.'),

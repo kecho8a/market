@@ -693,20 +693,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                          (isAdminAuthenticatedRef.current && (newNotif.tipo === 'request' || newNotif.tipo === 'admin'));
 
           if (isForMe) {
-            setNotifications(prev => [newNotif, ...prev]);
+            setNotifications(prev => {
+              if (prev.some(n => n.id === newNotif.id)) return prev;
+              return [newNotif, ...prev];
+            });
             playNotificationSound('update'); // Activar sonido para nuevos mensajes
-            if ('Notification' in window && Notification.permission === 'granted') {
-              new Notification(`${config.site_nombre}: ${newNotif.titulo}`, {
-                body: newNotif.mensaje,
-                icon: config.logo_url || '/icon.png',
-                image: newNotif.imagen_url,
-                badge: '/icon.png',
-                tag: `notif-${newNotif.id}`, // Tag único
-                renotify: true,             // Avisar siempre
-                requireInteraction: true,
-                vibrate: [200, 100, 200],
-                data: { url: newNotif.link_url }
-              } as any);
+            if ('serviceWorker' in navigator && Notification.permission === 'granted') {
+              navigator.serviceWorker.ready.then(registration => {
+                registration.showNotification(`${config.site_nombre}: ${newNotif.titulo}`, {
+                  body: newNotif.mensaje,
+                  icon: config.logo_url || '/icon.png',
+                  image: newNotif.imagen_url,
+                  badge: '/icon.png',
+                  tag: `notif-${newNotif.id}`,
+                  renotify: true,
+                  requireInteraction: true,
+                  vibrate: [200, 100, 200],
+                  silent: false,
+                  data: { url: newNotif.link_url || '/' }
+                } as any);
+              });
             }
           }
         })
@@ -1664,29 +1670,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     
     console.log('✅ Notificación guardada en Supabase:', notifId);
-    // Solo agregar al estado local si es relevante para el usuario actual
-    const isRelevant = (newNotif.tipo === 'todos') || 
-                       (currentUser && newNotif.tipo === 'personal' && newNotif.destinatario_telefono === currentUser.telefono) ||
-                       (isAdminAuthenticated && (newNotif.tipo === 'request' || newNotif.tipo === 'admin'));
-
-    if (isRelevant) {
-      setNotifications(prev => [newNotif, ...prev]);
-    }
-
-    // Push local browser notification if permitted
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(`${config.site_nombre}: ${title}`, { 
-        body: message,
-        icon: config.logo_url || '/icon.png',
-        image: imageUrl,
-        badge: '/icon.png',
-        tag: `notif-${notifId}`, // Tag único
-        renotify: true,
-        requireInteraction: true,
-        vibrate: [200, 100, 200],
-        data: { url: linkUrl }
-      } as any);
-    }
     return true;
   };
 
