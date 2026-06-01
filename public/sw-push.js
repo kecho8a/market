@@ -1,18 +1,6 @@
 // Custom Push Notifications Service Worker Extension for Marketo PWA
-// Loaded dynamically via importScripts in the PWA Workbox SW
-
-// Reproducir sonido de notificación usando Audio API
-async function playNotificationSound(soundUrl) {
-  try {
-    if (!soundUrl) soundUrl = '/sounds/notification.mp3';
-    const audio = new Audio(soundUrl);
-    audio.volume = 0.8;
-    await audio.play();
-  } catch (err) {
-    // Silencioso si el navegador bloquea audio automático
-    console.warn('[SW Push] No se pudo reproducir sonido:', err.message);
-  }
-}
+// Loaded via workbox importScripts (generateSW strategy)
+// ⚠️  Audio API no está disponible en Service Workers — el sonido se delega al cliente vía postMessage
 
 self.addEventListener('push', function(event) {
   try {
@@ -25,13 +13,13 @@ self.addEventListener('push', function(event) {
     console.log('[SW Push] Notificación recibida:', payload);
 
     // Mapeo flexible de campos en español (Supabase trigger) y en inglés (web-push estándar)
-    const title = payload.titulo || payload.title || 'Marketo Supermercado 🍏';
-    const body = payload.mensaje || payload.body || '';
-    const icon = payload.icon || '/icon.png';
-    const badge = '/badge.png'; // Icono monocromático pequeño para la barra de estado en móviles
-    const image = payload.imagen_url || payload.image || null;
+    const title  = payload.titulo  || payload.title  || 'Marketo Supermercado 🍏';
+    const body   = payload.mensaje || payload.body   || '';
+    const icon   = payload.icon   || '/icon.png';
+    const badge  = '/badge.png';
+    const image  = payload.imagen_url || payload.image || undefined;
     const urlToOpen = payload.link_url || payload.url || '/';
-    const tag = payload.tag || payload.id || `marketo-notif-${Date.now()}`;
+    const tag    = payload.tag || String(payload.id || Date.now());
     const soundUrl = payload.sound_url || payload.sound || '/sounds/notification.mp3';
 
     const options = {
@@ -39,36 +27,44 @@ self.addEventListener('push', function(event) {
       icon: icon,
       badge: badge,
       image: image,
-      vibrate: [200, 100, 200], // Patrón de vibración tipo app nativa
+      vibrate: [200, 100, 200],
       tag: tag,
-      renotify: true, // Si llega una nueva con el mismo tag, vuelve a alertar con vibración/sonido
-      requireInteraction: true, // Mantiene la notificación visible hasta que el usuario la descarte
+      renotify: true,          // Vuelve a alertar aunque tenga el mismo tag
+      requireInteraction: true, // Mantiene visible hasta que el usuario la descarte
       data: {
         url: urlToOpen,
         tag: tag,
         soundUrl: soundUrl
       },
       actions: [
-        { action: 'open', title: 'Ver Detalles 🛒' },
+        { action: 'open',  title: 'Ver Detalles 🛒' },
         { action: 'close', title: 'Cerrar' }
       ]
     };
 
     event.waitUntil(
       self.registration.showNotification(title, options).then(() => {
-        // Reproducir sonido tras mostrar la notificación
-        return playNotificationSound(soundUrl);
+        // ✅ Delegar reproducción de sonido al cliente (única forma válida en SW)
+        return self.clients
+          .matchAll({ type: 'window', includeUncontrolled: true })
+          .then(clients => {
+            clients.forEach(client => {
+              client.postMessage({
+                type: 'PLAY_NOTIFICATION_SOUND',
+                soundUrl: soundUrl
+              });
+            });
+          });
       })
     );
   } catch (error) {
     console.error('[SW Push] Error procesando evento push:', error);
-    // Notificar al cliente del error para mostrar en UI
     event.waitUntil(
       self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
         clients.forEach(client => {
           client.postMessage({
             type: 'PUSH_ERROR',
-            error: '[SW Push] Error procesando evento push: ' + (error?.message || String(error))
+            error: '[SW Push] Error: ' + (error?.message || String(error))
           });
         });
       })
@@ -80,27 +76,22 @@ self.addEventListener('notificationclick', function(event) {
   try {
     event.notification.close();
 
-    if (event.action === 'close') {
-      return;
-    }
+    if (event.action === 'close') return;
 
     const targetUrl = event.notification.data?.url || '/';
 
     event.waitUntil(
-      clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
-        // Si hay una pestaña abierta de Marketo, reenfocarla y navegar a la URL
-        for (let i = 0; i < clientList.length; i++) {
-          const client = clientList[i];
-          if (client.url && 'focus' in client) {
-            if (client.navigate) {
-              client.navigate(targetUrl);
-            }
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+        // Reenfocar pestaña existente si la hay
+        for (const client of clientList) {
+          if ('focus' in client) {
+            if (client.navigate) client.navigate(targetUrl);
             return client.focus();
           }
         }
-        // Si no hay pestañas abiertas, abrir una nueva
-        if (clients.openWindow) {
-          return clients.openWindow(targetUrl);
+        // Si no hay pestaña abierta, abrir una nueva
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(targetUrl);
         }
       })
     );
@@ -109,7 +100,7 @@ self.addEventListener('notificationclick', function(event) {
   }
 });
 
-// Escuchar mensajes de error del cliente para loggear en el SW
+// Escuchar mensajes de error del cliente
 self.addEventListener('message', function(event) {
   if (event.data?.type === 'PUSH_CLIENT_ERROR') {
     console.error('[SW Push] Error reportado desde el cliente:', event.data.error);

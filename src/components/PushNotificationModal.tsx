@@ -1,4 +1,4 @@
-﻿﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../store/AppContext';
 import { Bell, ShieldAlert, Sparkles, X, ChevronRight, Truck, Info, Percent } from 'lucide-react';
@@ -49,7 +49,7 @@ export const PushNotificationModal: React.FC = () => {
             badge: '/icon.png',
             vibrate: [200, 100, 200],
             tag: 'welcome-trv'
-          });
+          } as any);
         });
 
         // Also add it inside the app database notifications

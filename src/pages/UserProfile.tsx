@@ -127,7 +127,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
             badge: '/icon.png',
             vibrate: [200, 100, 200],
             tag: 'welcome-trv'
-          });
+          } as any);
         });
       } else if (res === 'denied') {
         addNotification('Notificaciones Bloqueadas ⚠️', 'Has bloqueado las notificaciones en tu navegador. Puedes activarlas desde la configuración del sitio.', 'personal');

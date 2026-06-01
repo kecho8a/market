@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useApp } from '../store/AppContext';
-import { Producto, Order, OrderItem } from '../types/store';
+import { Producto, Order, OrderItem, AppUser } from '../types/store';
 import { supabase, uploadFileToStorage, compressImage } from '../store/supabaseClient';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line } from 'recharts';
 import { 
@@ -110,6 +110,12 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
   const [pickerSearch, setPickerSearch] = useState('');
   const [toastMessage, setToastMessage] = useState('');
   const [toastTitle, setToastTitle] = useState('');
+
+  // ✅ FIX: Estado del modal inline "Enviar Mensaje" a cliente (reemplaza prompt() que falla en PWA)
+  const [sendMsgModal, setSendMsgModal] = useState<{ user: AppUser } | null>(null);
+  const [sendMsgTitle, setSendMsgTitle] = useState('');
+  const [sendMsgBody, setSendMsgBody] = useState('');
+  const [sendMsgLoading, setSendMsgLoading] = useState(false);
 
   useEffect(() => {
     if (toastMessage) {
@@ -1438,15 +1444,11 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                       <p className="text-xs text-slate-500 font-mono">Telf: {user.telefono || 'Sin teléfono'}</p>
                     </div>
                     <div className="flex gap-2">
-                      <button 
+                      <button
                         onClick={() => {
-                          const titulo = prompt(`Título del mensaje para ${user.nombre || 'cliente'}:`, 'Aviso de Su Pedido');
-                          if (!titulo) return;
-                          const mensaje = prompt(`Cuerpo del mensaje:`, '');
-                          if (titulo && mensaje) {
-                            addNotification(titulo, mensaje, 'personal', user.telefono);
-                            alert('Mensaje enviado exitously.');
-                          }
+                          setSendMsgTitle('Aviso de Su Pedido');
+                          setSendMsgBody('');
+                          setSendMsgModal({ user });
                         }}
                         className="text-[10px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg transition-colors border border-indigo-200"
                       >
@@ -2454,6 +2456,94 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
           >
             Esc
           </button>
+        </div>
+      )}
+
+      {/* ✅ FIX: Modal inline "Enviar Mensaje" a cliente — reemplaza prompt() que falla en PWA móvil */}
+      {sendMsgModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-white border border-slate-200 rounded-2xl p-5 shadow-2xl flex flex-col gap-4">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">Enviar Mensaje</h4>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Para: <span className="font-bold text-indigo-600">{sendMsgModal.user.nombre || sendMsgModal.user.telefono}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSendMsgModal(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            {/* Form */}
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Título del Mensaje *</label>
+                <input
+                  type="text"
+                  value={sendMsgTitle}
+                  onChange={(e) => setSendMsgTitle(e.target.value)}
+                  placeholder="Ej: Aviso de su pedido..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-indigo-400 transition-colors"
+                  autoFocus
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cuerpo del Mensaje *</label>
+                <textarea
+                  value={sendMsgBody}
+                  onChange={(e) => setSendMsgBody(e.target.value)}
+                  placeholder="Escribe aquí el mensaje para el cliente..."
+                  rows={4}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-indigo-400 transition-colors resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              <button
+                type="button"
+                onClick={() => setSendMsgModal(null)}
+                className="py-2.5 rounded-xl border border-slate-200 text-slate-600 text-[11px] font-bold hover:bg-slate-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={sendMsgLoading || !sendMsgTitle.trim() || !sendMsgBody.trim()}
+                onClick={async () => {
+                  if (!sendMsgTitle.trim() || !sendMsgBody.trim()) return;
+                  setSendMsgLoading(true);
+                  const ok = await addNotification(
+                    sendMsgTitle.trim(),
+                    sendMsgBody.trim(),
+                    'personal',
+                    sendMsgModal.user.telefono
+                  );
+                  setSendMsgLoading(false);
+                  setSendMsgModal(null);
+                  setSendMsgTitle('');
+                  setSendMsgBody('');
+                  if (ok) {
+                    setToastTitle('✅ Mensaje Enviado');
+                    setToastMessage(`Notificación enviada a ${sendMsgModal.user.nombre || sendMsgModal.user.telefono}.`);
+                  } else {
+                    setToastTitle('❌ Error');
+                    setToastMessage('No se pudo enviar el mensaje. Verifica la consola.');
+                  }
+                }}
+                className="py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-[11px] font-bold transition-colors cursor-pointer"
+              >
+                {sendMsgLoading ? 'Enviando...' : 'Enviar 📨'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

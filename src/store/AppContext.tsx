@@ -589,28 +589,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [isGlobalLoading]);
 
   const playNotificationSound = (type: 'new' | 'update', status?: Order['status']) => {
-    const soundUrl = type === 'new' 
-      ? 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3' // Sonido de Caja Registradora para nuevos pedidos
-      : 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; // Sonido Ding para actualizaciones
+    const soundUrl = type === 'new'
+      ? 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3'
+      : 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
+
+    // Reproducir directamente en el cliente (contexto de ventana, NO de SW)
     const audio = new Audio(soundUrl);
-    
+    audio.volume = 0.8;
     audio.play().catch((err) => {
       if (err.name === 'NotAllowedError') {
-        console.warn('📢 Marketo: El audio requiere una interacción previa del usuario para reproducirse.');
+        console.warn('📢 Marketo: Audio bloqueado — se necesita interacción previa del usuario.');
       } else {
-        console.error('❌ Marketo: Error al reproducir audio (CSP o Red):', err.message);
+        console.warn('📢 Marketo: Error al reproducir audio:', err.message);
       }
     });
 
     if (hapticEnabledRef.current && typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       if (type === 'update' && status === 'En camino') {
-        navigator.vibrate(100); // Vibración corta para avisar al cliente que su pedido salió
+        navigator.vibrate(100);
       }
       if (type === 'new') {
         navigator.vibrate([200, 100, 200]);
       }
     }
   };
+
+  // ✅ FIX: Escuchar mensajes del Service Worker para reproducir sonido desde el cliente
+  // (Audio API no está disponible en SW — el SW hace postMessage y el cliente reproduce)
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+
+    const handleSWMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'PLAY_NOTIFICATION_SOUND') {
+        const url = event.data.soundUrl || '/sounds/notification.mp3';
+        const audio = new Audio(url);
+        audio.volume = 0.8;
+        audio.play().catch(err =>
+          console.warn('[SW→Client] No se pudo reproducir sonido:', err.message)
+        );
+      }
+    };
+
+    navigator.serviceWorker.addEventListener('message', handleSWMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', handleSWMessage);
+  }, []);
 
   useEffect(() => {
     let mainChannel: any = null;
@@ -657,16 +679,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           const cu = currentUserRef.current;
           if (cu && updated.cliente_telefono === cu.telefono) {
-            if ('Notification' in window && Notification.permission === 'granted') {
+            // ✅ FIX: Usar SW showNotification (aparece en pantalla inicial del móvil)
+            if ('serviceWorker' in navigator && Notification.permission === 'granted') {
               const direccion = updated.direccion_envio || '';
               const tiempo = updated.tiempo_estimado_entrega || '';
               const extras = [direccion ? `Ubicación: ${direccion}` : '', tiempo ? `Tiempo estimado: ${tiempo}` : '']
                 .filter(Boolean)
                 .join(' • ');
 
-              new Notification('Marketo: Actualización de Pedido', {
-                body: `Tu pedido ${updated.id} ahora está: ${updated.status}${extras ? `\n${extras}` : ''}`,
-                icon: '/icon.png'
+              navigator.serviceWorker.ready.then(reg => {
+                reg.showNotification('Marketo: Actualización de Pedido', {
+                  body: `Tu pedido ${updated.id} ahora está: ${updated.status}${extras ? `\n${extras}` : ''}`,
+                  icon: '/icon.png',
+                  badge: '/badge.png',
+                  tag: `order-update-${updated.id}`,
+                  renotify: true,
+                  vibrate: [200, 100, 200],
+                  requireInteraction: true,
+                  data: { url: '/' }
+                } as any);
               });
             }
           }
@@ -678,8 +709,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           window.dispatchEvent(new CustomEvent('new_order_received', { detail: newOrder }));
           playNotificationSound('new');
           
-          if ('Notification' in window && Notification.permission === 'granted') {
-             new Notification('¡NUEVO PEDIDO!', { body: `Cliente: ${newOrder.cliente_nombre} - Total: $${newOrder.total_usd}` });
+          // ✅ FIX: Usar SW showNotification para que aparezca en pantalla bloqueada
+          if ('serviceWorker' in navigator && Notification.permission === 'granted') {
+            navigator.serviceWorker.ready.then(reg => {
+              reg.showNotification('¡NUEVO PEDIDO! 🛒', {
+                body: `Cliente: ${newOrder.cliente_nombre} — Total: $${newOrder.total_usd?.toFixed(2)}`,
+                icon: '/icon.png',
+                badge: '/badge.png',
+                tag: `new-order-${newOrder.id}`,
+                renotify: true,
+                vibrate: [200, 100, 200],
+                requireInteraction: true,
+                data: { url: '/admin' }
+              } as any);
+            });
           }
         })
         // Escuchar Notificaciones (CDC)
