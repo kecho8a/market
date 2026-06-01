@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS store_config (
     transferencia_discount_percent NUMERIC(5,2) NOT NULL DEFAULT 0.00,
     tasa_cambio NUMERIC(10,2) NOT NULL DEFAULT 530.50,
     logo_url TEXT DEFAULT '',
-    theme_color VARCHAR(10) NOT NULL DEFAULT '#f8f7fa',
+    theme_color VARCHAR(10) NOT NULL DEFAULT '#ffffff',
     favicon_url TEXT DEFAULT '',
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     categories TEXT[] DEFAULT ARRAY['Lácteos y Quesos', 'Carnes y Aves', 'Charcutería', 'Frutas y Verduras', 'Víveres y Despensa', 'Panadería y Pastelería', 'Bebidas y Jugos', 'Snacks y Dulces']::TEXT[],
@@ -429,6 +429,12 @@ BEGIN
     PERFORM net.http_post(
       url := v_webhook_url,
       body := jsonb_build_object(
+        'title', NEW.titulo,
+        'body', NEW.mensaje,
+        'icon', COALESCE(NEW.imagen_url, '/icon.png'),
+        'url', COALESCE(NEW.link_url, '/'),
+        'vibrate', ARRAY[200, 100, 200],
+        'tag', 'marketo-' || NEW.id,
         'record', jsonb_build_object(
           'id', NEW.id,
           'title', NEW.titulo,      -- Campo estándar para móviles

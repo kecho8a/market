@@ -2031,19 +2031,19 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               </div>
 
               <div className="flex flex-col gap-1 md:col-span-2">
-                <span>Color Primario (Hexadecimal, ej: #7c3aed):</span>
+                <span>Color Primario (Hexadecimal, ej: #ffffff):</span>
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
-                    value={config.theme_color || '#7c3aed'}
+                    value={config.theme_color || '#ffffff'}
                     onChange={(e) => updateConfig({ theme_color: e.target.value })}
                     className="w-10 h-10 p-0 border-0 rounded cursor-pointer"
                   />
                   <input
                     type="text"
-                    value={config.theme_color || ''}
+                    value={config.theme_color || '#ffffff'}
                     onChange={(e) => updateConfig({ theme_color: e.target.value })}
-                    placeholder="Ej. #7c3aed"
+                    placeholder="Ej. #ffffff"
                     className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500 flex-1"
                   />
                 </div>

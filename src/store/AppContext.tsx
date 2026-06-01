@@ -702,8 +702,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 image: newNotif.imagen_url,
                 badge: '/icon.png',
                 tag: `notif-${newNotif.id}`, // Tag único
-                renotify: true,             -- Avisar siempre
+                renotify: true,             // Avisar siempre
                 requireInteraction: true,
+                vibrate: [200, 100, 200],
                 data: { url: newNotif.link_url }
               } as any);
             }
@@ -1682,6 +1683,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         tag: `notif-${notifId}`, // Tag único
         renotify: true,
         requireInteraction: true,
+        vibrate: [200, 100, 200],
         data: { url: linkUrl }
       } as any);
     }

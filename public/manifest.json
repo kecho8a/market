@@ -3,9 +3,9 @@
   "short_name": "Marketo",
   "description": "Tu supermercado premium con despacho express en el Gran Valencia, Carabobo. Víveres, carnes selectas, lácteos y más.",
   "start_url": "/",
-  "display": "standalone",
-  "orientation": "portrait-primary",
-  "theme_color": "#7c3aed",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "theme_color": "#ffffff",
   "background_color": "#ffffff",
   "icons": [
     {
