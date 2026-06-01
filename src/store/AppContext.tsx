@@ -65,6 +65,7 @@ interface AppContextProps {
   addNotification: (title: string, message: string, tipo?: 'todos' | 'personal' | 'admin' | 'request', targetPhone?: string, imageUrl?: string, linkUrl?: string) => Promise<boolean>;
   markNotificationAsRead: (id: string) => void;
   toggleNotificationReadStatus: (id: string) => void;
+  registerNotificationClick: (id: string) => Promise<void>;
   syncPushSubscription: () => Promise<{ success: boolean; error?: string }>;
   deleteNotification: (id: string) => void;
   clearAllNotifications: () => void;
@@ -448,7 +449,7 @@ const DEFAULT_CONFIG: StoreConfig = {
     'Snacks y Dulces'
   ],
   push_webhook_url: 'https://market-cbh.pages.dev/api/push-notify',
-  push_webhook_secret: ''
+  push_webhook_secret: '5fca5a4d8825d4de66811590f47af870b01d45e80f391920f4ea76a59ae3c8bf'
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -489,7 +490,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         mensaje: 'Encuentra los mejores cortes de carne, quesos madurados y viveres frescos con delivery express en Valencia.',
         fecha: new Date().toLocaleDateString(),
         tipo: 'todos',
-        leida: false
+        leida: false,
+        click_count: 0
       }
     ];
   });
@@ -1748,6 +1750,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, leida: !n.leida } : n));
   };
 
+  const registerNotificationClick = async (id: string) => {
+    // Incrementar en Supabase mediante RPC (evita problemas de RLS de escritura)
+    const { error } = await supabase.rpc('increment_notification_click', { notif_id: id });
+    
+    if (error) {
+      console.error('❌ Error al registrar clic:', error.message);
+    } else {
+      // Actualizar localmente para feedback inmediato en el Admin si está viendo
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, click_count: ((n as any).click_count || 0) + 1 } : n));
+    }
+  };
+
   /**
    * Sincroniza la suscripción Push del navegador con el teléfono actual del usuario en la DB.
    * Se debe llamar siempre que el teléfono cambie.
@@ -1903,6 +1917,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addNotification,
       markNotificationAsRead,
       toggleNotificationReadStatus,
+      registerNotificationClick,
       syncPushSubscription,
       deleteNotification,
       clearAllNotifications,

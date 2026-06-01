@@ -28,7 +28,9 @@ export const onRequestPost: any = async (context: any) => {
     || env.PUSH_WEBHOOK_SECRET
     || env.push_webhook_secret
     || env.PUSH_SECRET
-    || env.push_secret;
+    || env.push_secret
+    || env.AUTH_SECRET
+    || env.auth_secret;
   if (authHeader !== configuredSecret) {
     return new Response('Unauthorized', { status: 401 });
   }

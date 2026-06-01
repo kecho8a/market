@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useApp } from '../store/AppContext';
 import { Producto, Order, OrderItem, AppUser } from '../types/store';
-import { supabase, uploadFileToStorage, compressImage } from '../store/supabaseClient';
+import { supabase, uploadFileToStorage, compressImage, getPublicUrl } from '../store/supabaseClient';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line } from 'recharts';
 import { 
   Plus, Edit, Trash2, Landmark, Settings, ShoppingBag, BarChart3, Mic, FileJson,
@@ -26,6 +26,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
   } = useApp();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bImageInputRef = useRef<HTMLInputElement>(null);
 
   // Temporary local state for credential editing
   const [newAdminUser, setNewAdminUser] = useState(adminUser);
@@ -110,6 +111,52 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
   const [pickerSearch, setPickerSearch] = useState('');
   const [toastMessage, setToastMessage] = useState('');
   const [toastTitle, setToastTitle] = useState('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+  // ✅ Monitorizar nuevas notificaciones para feedback visual y auditivo en tiempo real (Puebas Admin)
+  const prevNotifCount = useRef(notifications.length);
+  useEffect(() => {
+    // Si el contador aumenta, es que llegó algo nuevo vía Realtime
+    if (notifications.length > prevNotifCount.current) {
+      const latest = notifications[0]; 
+      // Solo mostrar toast si es una notificación "viva" y no la de inicialización
+      if (latest && latest.id !== 'init-notif' && !latest.leida) {
+        setToastTitle(`🔔 Nueva Alerta: ${latest.titulo}`);
+        setToastMessage(latest.mensaje);
+        
+        // Nota: El sonido se dispara automáticamente desde AppContext.tsx 
+        // al detectar el INSERT en la tabla notifications.
+      }
+    }
+    prevNotifCount.current = notifications.length;
+  }, [notifications]);
+
+  // ✅ Manejador de subida de imagen promocional
+  const handleUploadBroadcastImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Generar preview local inmediata para mejor UX
+    const localUrl = URL.createObjectURL(file);
+    setBroadcastImage(localUrl);
+    setIsUploadingImage(true);
+
+    try {
+      setToastTitle('⏳ Subiendo Imagen...');
+      setToastMessage('Procesando archivo para la promoción...');
+      
+      const compressed = await compressImage(file, { maxWidth: 800, quality: 0.8 });
+      const url = await uploadFileToStorage(compressed, 'settings', `promos/${Date.now()}.webp`);
+      setBroadcastImage(url);
+      setToastTitle('✅ Imagen Lista');
+      setToastMessage('La imagen se ha vinculado a la notificación.');
+    } catch (err: any) {
+      alert('Error al subir imagen: ' + err.message);
+    } finally {
+      setIsUploadingImage(false);
+    }
+    if (e.target) e.target.value = '';
+  };
 
   // ✅ FIX: Estado del modal inline "Enviar Mensaje" a cliente (reemplaza prompt() que falla en PWA)
   const [sendMsgModal, setSendMsgModal] = useState<{ user: AppUser } | null>(null);
@@ -1272,6 +1319,20 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
                 <Send size={18} className="text-violet-600" />
                 <h3 className="text-sm font-bold text-slate-900 uppercase">Difusión y Mensajería Push</h3>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setToastTitle('🔊 Prueba de Audio/Vista');
+                      setToastMessage('Así es como el cliente visualizará y escuchará la notificación en tiempo real.');
+                      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+                      audio.volume = 0.5;
+                      audio.play().catch(() => console.warn('Audio bloqueado por el navegador'));
+                    }}
+                    className="ml-auto p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all"
+                    title="Probar sonido y vista previa"
+                  >
+                    <RefreshCcw size={14} />
+                  </button>
               </div>
               
               <form onSubmit={handleCreateBroadcast} className="flex flex-col gap-4">
@@ -1286,30 +1347,104 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                   />
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">Tipo de Alcance</label>
-                  <select 
-                    value={broadcastTipo}
-                    onChange={(e) => setBroadcastTipo(e.target.value as any)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-violet-500"
-                  >
-                    <option value="todos">Todos los Clientes (Broadcast)</option>
-                    <option value="personal">Cliente Específico (Directo)</option>
-                  </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Tipo de Alcance</label>
+                    <select 
+                      value={broadcastTipo}
+                      onChange={(e) => setBroadcastTipo(e.target.value as any)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs outline-none focus:border-violet-500"
+                    >
+                      <option value="todos">📣 Todos los Clientes</option>
+                      <option value="personal">👤 Cliente Específico</option>
+                    </select>
+                  </div>
+
+                  {broadcastTipo === 'personal' ? (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Teléfono del Destinatario</label>
+                      <input 
+                        type="text" 
+                        value={broadcastDestinatarioTelefono}
+                        onChange={(e) => setBroadcastDestinatarioTelefono(e.target.value)}
+                        placeholder="Ej: 04124976451"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-mono"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Asistente de Ofertas</label>
+                      <button 
+                        type="button"
+                        onClick={() => setShowProductPickerForBroadcast(true)}
+                        className="flex items-center justify-center gap-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-xl px-4 py-2.5 text-xs font-bold hover:bg-indigo-100 transition-colors"
+                      >
+                        <Package size={14} /> Vincular Producto
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                {broadcastTipo === 'personal' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Teléfono del Destinatario</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Imagen (URL o Subir)</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        value={broadcastImage}
+                        onChange={(e) => setBroadcastImage(e.target.value)}
+                        className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] outline-none"
+                        placeholder="https://..."
+                      />
+                      <button type="button" onClick={() => bImageInputRef.current?.click()} className="p-2.5 bg-violet-100 text-violet-600 rounded-xl hover:bg-violet-200"><Upload size={14} /></button>
+                      <input type="file" ref={bImageInputRef} hidden accept="image/*" onChange={handleUploadBroadcastImage} />
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Imagen Promocional</label>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex gap-2">
+                        <input 
+                          type="text" 
+                          value={broadcastImage}
+                          onChange={(e) => setBroadcastImage(e.target.value)}
+                          className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] outline-none"
+                          placeholder="URL de imagen o sube un archivo..."
+                        />
+                        <button type="button" onClick={() => bImageInputRef.current?.click()} className="p-2.5 bg-violet-100 text-violet-600 rounded-xl hover:bg-violet-200 transition-colors hover:bg-violet-300" title="Subir imagen"><Upload size={14} /></button>
+                        <input type="file" ref={bImageInputRef} hidden accept="image/*" onChange={handleUploadBroadcastImage} />
+                      </div>
+                      
+                      {/* Miniatura de previsualización inmediata */}
+                      {broadcastImage && (
+                        <div className="relative w-24 h-24 rounded-xl overflow-hidden border-2 border-slate-100 group shadow-sm bg-slate-50">
+                          <img src={broadcastImage} className={`w-full h-full object-cover transition-opacity duration-300 ${isUploadingImage ? 'opacity-40' : 'opacity-100'}`} alt="Preview" />
+                          {isUploadingImage && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <RefreshCcw size={16} className="text-violet-600 animate-spin" />
+                            </div>
+                          )}
+                          {!isUploadingImage && (
+                            <button 
+                              type="button"
+                              onClick={() => setBroadcastImage('')}
+                              className="absolute top-1 right-1 p-1 bg-rose-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                            >
+                              <X size={10} />
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Enlace de Acción</label>
                     <input 
                       type="text" 
-                      value={broadcastDestinatarioTelefono}
-                      onChange={(e) => setBroadcastDestinatarioTelefono(e.target.value)}
-                      placeholder="Ej: 04124976451"
+                      value={broadcastLink}
+                      onChange={(e) => setBroadcastLink(e.target.value)}
+                      placeholder="/?id=codigo-producto"
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-mono"
                     />
                   </div>
-                )}
+                </div>
 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase">Mensaje / Contenido</label>
@@ -1370,27 +1505,43 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               </div>
               
               <div className="flex flex-col gap-3 max-h-[500px] overflow-y-auto pr-2 no-scrollbar">
-                {notifications.filter(n => n.tipo === 'request' || n.tipo === 'personal').length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 text-xs italic">No hay mensajes recientes.</div>
+                {notifications.filter(n => n.tipo !== 'admin').length === 0 ? (
+                  <div className="text-center py-12 text-slate-400 text-xs italic">No hay mensajes ni difusiones recientes.</div>
                 ) : (
-                  notifications.filter(n => n.tipo === 'request' || n.tipo === 'personal').map(msg => (
+                  notifications.filter(n => n.tipo !== 'admin').map(msg => (
                     <div key={msg.id} className={`p-4 bg-white border rounded-2xl flex flex-col gap-2 transition-all ${msg.leida ? 'opacity-60 border-slate-200' : 'border-violet-200 shadow-md ring-1 ring-violet-500/5'}`}>
                       <div className="flex justify-between items-center">
                         <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${msg.tipo === 'request' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'}`}>
-                          {msg.tipo === 'request' ? 'Solicitud' : 'Mensaje'}
+                          {msg.tipo === 'request' ? 'Solicitud' : msg.tipo === 'todos' ? 'Broadcast' : 'Personal'}
                         </span>
+                        {msg.tipo === 'todos' && (
+                          <span className="flex items-center gap-1 text-[9px] font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full border border-violet-100" title="Total de aperturas/clics">
+                            <Eye size={10} />
+                            {(msg as any).click_count || 0} clics
+                          </span>
+                        )}
                         <span className="text-[9px] text-slate-400 font-mono">{msg.fecha}</span>
                       </div>
                       <h4 className="text-xs font-bold text-slate-800">{msg.titulo}</h4>
                       <p className="text-[11px] text-slate-600 leading-relaxed whitespace-pre-wrap">{msg.mensaje}</p>
                       <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-slate-50">
                         {msg.destinatario_telefono && (
+                          msg.destinatario_telefono !== config.telefono_soporte && (
+                            <a 
+                              href={`https://wa.me/${msg.destinatario_telefono.replace(/\D/g, '')}`} 
+                              target="_blank" 
+                              className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-lg text-[10px] font-bold hover:bg-emerald-100 transition-colors"
+                            >
+                              <MessageSquare size={12} /> WhatsApp
+                            </a>
+                          )
+                        )}
+                        {msg.link_url && (
                           <a 
-                            href={`https://wa.me/${msg.destinatario_telefono.replace(/\D/g, '')}`} 
-                            target="_blank" 
-                            className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-lg text-[10px] font-bold hover:bg-emerald-100 transition-colors"
+                            href={msg.link_url} 
+                            className="flex items-center gap-1.5 bg-violet-50 text-violet-700 border border-violet-200 px-3 py-1.5 rounded-lg text-[10px] font-bold hover:bg-violet-100 transition-colors"
                           >
-                            <MessageSquare size={12} /> Responder WhatsApp
+                            <ExternalLink size={12} /> Ver Enlace
                           </a>
                         )}
                         <button 
@@ -1404,6 +1555,52 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                   ))
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PICKER DE PRODUCTOS PARA NOTIFICACIÓN */}
+      {showProductPickerForBroadcast && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-white rounded-2xl p-5 shadow-2xl flex flex-col gap-4 max-h-[80vh]">
+            <div className="flex justify-between items-center border-b pb-3">
+              <h4 className="font-bold text-slate-800 uppercase text-xs tracking-wider">Vincular Producto a Promo</h4>
+              <button onClick={() => setShowProductPickerForBroadcast(false)} className="text-slate-400 hover:text-slate-600"><X size={18}/></button>
+            </div>
+            
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-3 text-slate-400" />
+              <input 
+                type="text" 
+                placeholder="Buscar por nombre o código..."
+                value={pickerSearch}
+                onChange={(e) => setPickerSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-violet-500"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex-1 overflow-y-auto flex flex-col gap-2 pr-1 no-scrollbar">
+              {pickerFilteredProducts.map(p => (
+                <button 
+                  key={p.id}
+                  onClick={() => {
+                    setBroadcastTitle(`🔥 ¡${p.nombre} en Oferta!`);
+                    setBroadcastMessage(`¡No te pierdas esta oportunidad! Llévatelo hoy por solo $${p.precio_usd.toFixed(2)}. ${p.descripcion.substring(0, 50)}...`);
+                    setBroadcastImage(p.imagen_urls[0] || '');
+                    setBroadcastLink(`/?id=${p.id}`);
+                    setShowProductPickerForBroadcast(false);
+                  }}
+                  className="flex items-center gap-3 p-2 bg-slate-50 hover:bg-violet-50 border border-slate-100 rounded-xl transition-all text-left"
+                >
+                  <img src={p.imagen_urls[0]} className="w-10 h-10 rounded-lg object-cover border" />
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-bold text-slate-700">{p.nombre}</span>
+                    <span className="text-[9px] text-slate-500 font-mono">${p.precio_usd} • Stock: {p.stock}</span>
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
         </div>

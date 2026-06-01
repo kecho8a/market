@@ -28,6 +28,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
     updateUser,
     sendPasswordResetEmail,
     markNotificationAsRead,
+    registerNotificationClick,
     syncPushSubscription,
     addNotification,
     requestPart,
@@ -1189,6 +1190,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                   {userNotifications.map(notif => (
                     <div 
                       key={notif.id} 
+                      onClick={() => registerNotificationClick(notif.id)}
                       className={`p-3.5 border rounded-xl flex items-start gap-3 relative shadow-xs transition-colors ${
                         notif.leida 
                           ? 'bg-zinc-50/40 border-zinc-200 text-zinc-700' 
@@ -1225,7 +1227,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                         {/* Action mark as read */}
                         {!notif.leida && (
                           <button
-                            onClick={() => markNotificationAsRead(notif.id)}
+                            onClick={(e) => {
+                              e.stopPropagation(); // Evita que se cuente como clic al marcar leída
+                              markNotificationAsRead(notif.id);
+                            }}
                             className="text-[10px] text-violet-600 hover:text-violet-800 hover:underline font-bold"
                           >
                             Marcar leída
