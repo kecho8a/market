@@ -1316,23 +1316,25 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Columna Izquierda: Central de Difusión (Push/Promociones) */}
             <div className="flex flex-col gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-              <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-                <Send size={18} className="text-violet-600" />
-                <h3 className="text-sm font-bold text-slate-900 uppercase">Difusión y Mensajería Push</h3>
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      setToastTitle('🔊 Prueba de Audio/Vista');
-                      setToastMessage('Así es como el cliente visualizará y escuchará la notificación en tiempo real.');
-                      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-                      audio.volume = 0.5;
-                      audio.play().catch(() => console.warn('Audio bloqueado por el navegador'));
-                    }}
-                    className="ml-auto p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all"
-                    title="Probar sonido y vista previa"
-                  >
-                    <RefreshCcw size={14} />
-                  </button>
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Send size={18} className="text-violet-600" />
+                  <h3 className="text-sm font-bold text-slate-900 uppercase">Difusión y Mensajería Push</h3>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setToastTitle('🔊 Prueba de Audio/Vista');
+                    setToastMessage('Así es como el cliente visualizará y escuchará la notificación en tiempo real.');
+                    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+                    audio.volume = 0.5;
+                    audio.play().catch(() => console.warn('Audio bloqueado por el navegador'));
+                  }}
+                  className="ml-auto p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-all"
+                  title="Probar sonido y vista previa"
+                >
+                  <RefreshCcw size={14} />
+                </button>
               </div>
               
               <form onSubmit={handleCreateBroadcast} className="flex flex-col gap-4">
@@ -1387,52 +1389,39 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Imagen (URL o Subir)</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Imagen Promocional</label>
                     <div className="flex gap-2">
                       <input 
                         type="text" 
                         value={broadcastImage}
                         onChange={(e) => setBroadcastImage(e.target.value)}
                         className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] outline-none"
-                        placeholder="https://..."
+                        placeholder="URL de imagen o sube un archivo..."
                       />
-                      <button type="button" onClick={() => bImageInputRef.current?.click()} className="p-2.5 bg-violet-100 text-violet-600 rounded-xl hover:bg-violet-200"><Upload size={14} /></button>
+                      <button type="button" onClick={() => bImageInputRef.current?.click()} className="p-2.5 bg-violet-100 text-violet-600 rounded-xl hover:bg-violet-200 transition-colors" title="Subir imagen"><Upload size={14} /></button>
                       <input type="file" ref={bImageInputRef} hidden accept="image/*" onChange={handleUploadBroadcastImage} />
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Imagen Promocional</label>
-                    <div className="flex flex-col gap-2">
-                      <div className="flex gap-2">
-                        <input 
-                          type="text" 
-                          value={broadcastImage}
-                          onChange={(e) => setBroadcastImage(e.target.value)}
-                          className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] outline-none"
-                          placeholder="URL de imagen o sube un archivo..."
-                        />
-                        <button type="button" onClick={() => bImageInputRef.current?.click()} className="p-2.5 bg-violet-100 text-violet-600 rounded-xl hover:bg-violet-200 transition-colors hover:bg-violet-300" title="Subir imagen"><Upload size={14} /></button>
-                        <input type="file" ref={bImageInputRef} hidden accept="image/*" onChange={handleUploadBroadcastImage} />
-                      </div>
-                      
-                      {/* Miniatura de previsualización inmediata */}
-                      {broadcastImage && (
-                        <div className="relative w-24 h-24 rounded-xl overflow-hidden border-2 border-slate-100 group shadow-sm bg-slate-50">
-                          <img src={broadcastImage} className={`w-full h-full object-cover transition-opacity duration-300 ${isUploadingImage ? 'opacity-40' : 'opacity-100'}`} alt="Preview" />
-                          {isUploadingImage && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <RefreshCcw size={16} className="text-violet-600 animate-spin" />
-                            </div>
-                          )}
-                          {!isUploadingImage && (
-                            <button 
-                              type="button"
-                              onClick={() => setBroadcastImage('')}
-                              className="absolute top-1 right-1 p-1 bg-rose-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                            >
-                              <X size={10} />
-                            </button>
-                          )}
-                        </div>
-                      )}
                     </div>
+                    
+                    {/* Miniatura de previsualización inmediata */}
+                    {broadcastImage && (
+                      <div className="relative w-24 h-24 rounded-xl overflow-hidden border-2 border-slate-100 group shadow-sm bg-slate-50">
+                        <img src={broadcastImage} className={`w-full h-full object-cover transition-opacity duration-300 ${isUploadingImage ? 'opacity-40' : 'opacity-100'}`} alt="Preview" />
+                        {isUploadingImage && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <RefreshCcw size={16} className="text-violet-600 animate-spin" />
+                          </div>
+                        )}
+                        {!isUploadingImage && (
+                          <button 
+                            type="button"
+                            onClick={() => setBroadcastImage('')}
+                            className="absolute top-1 right-1 p-1 bg-rose-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                          >
+                            <X size={10} />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[10px] font-bold text-slate-500 uppercase">Enlace de Acción</label>
@@ -1456,7 +1445,10 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                   />
                 </div>
 
-                      <button type="submit" className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-widest transition-all shadow-lg shadow-violet-200">
+                <button type="submit" className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-widest transition-all shadow-lg shadow-violet-200">
+                  Enviar Notificación
+                </button>
+              </form>
             </div>
 
             {/* Columna Derecha: Bandeja de Entrada (Mensajes de Tienda) */}
