@@ -964,7 +964,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
       {/* ----------------- SUBSECTION 2: CATALOG MANAGEMENT CRUD ----------------- */}
       {adminSection === 'inventory' && (
         <div className="flex flex-col gap-4">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-100 p-4 rounded-xl border border-slate-200 gap-3">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-100 p-4 rounded-xl border border-slate-200 gap-3">
             <span className="text-xs font-bold font-display text-slate-800">Editar o Cargar Productos</span>
             
             <div className="flex flex-wrap gap-2 w-full sm:w-auto">
@@ -1456,42 +1456,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                   />
                 </div>
 
-                <button type="submit" className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-widest transition-all shadow-lg shadow-violet-200">
-                  Enviar Notificación Push
-                </button>
-
-                {/* Previsualizador de Notificación de Oferta */}
-                <div className="mt-4 p-4 bg-slate-100 rounded-3xl border border-slate-200 relative overflow-hidden">
-                  <div className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1 bg-slate-300 rounded-full mb-4"></div>
-                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block text-center mb-4 mt-2">Vista Previa en Dispositivo</span>
-                  
-                  <div className="bg-white/80 backdrop-blur-md rounded-[24px] p-3 shadow-xl border border-white flex flex-col gap-2">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center text-white shrink-0 shadow-sm overflow-hidden">
-                        {config.logo_url ? <img src={config.logo_url} className="w-full h-full object-cover" /> : <Bell size={16} />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-bold text-slate-900 truncate uppercase tracking-tight">{config.site_nombre}</span>
-                          <span className="text-[8px] text-slate-400">ahora</span>
-                        </div>
-                        <h5 className="text-[11px] font-bold text-slate-800 leading-tight truncate">{broadcastTitle || 'Título de la oferta'}</h5>
-                        <p className="text-[10px] text-slate-600 leading-snug line-clamp-2">{broadcastMessage || 'Aquí aparecerá el cuerpo del mensaje...'}</p>
-                      </div>
-                    </div>
-                    {broadcastImage && (
-                      <div className="w-full h-32 rounded-xl overflow-hidden mt-1">
-                        <img src={broadcastImage} className="w-full h-full object-cover" alt="Preview offer" />
-                      </div>
-                    )}
-                    {broadcastLink && (
-                      <div className="text-[9px] text-violet-600 font-bold border-t border-slate-100 pt-2 flex items-center gap-1">
-                        <ExternalLink size={10} /> Ver Producto en Oferta
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </form>
+                      <button type="submit" className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-widest transition-all shadow-lg shadow-violet-200">
             </div>
 
             {/* Columna Derecha: Bandeja de Entrada (Mensajes de Tienda) */}
