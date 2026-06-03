@@ -22,16 +22,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
-        run: npm run build
-        env:
-          # Estas variables deben estar configuradas en GitHub → Settings → Secrets and variables → Actions
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-
-      - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CF_PAGES_API_TOKEN }}
-          accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          command: pages deploy ./dist --project-name=market --commit-dirty=true
+- name: Build
+         run: npm run build
+         env:
+           # Frontend build variables
+           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+           VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
+         - name: Deploy to Cloudflare Pages
+           uses: cloudflare/wrangler-action@v3
+           with:
+             apiToken: ${{ secrets.CF_PAGES_API_TOKEN }}
+             accountId: ${{ secrets.CF_ACCOUNT_ID }}
+             command: pages deploy ./dist --project-name=market --commit-dirty=true
+           env:
+             # Cloudflare Functions environment variables (REQUIRED for push notifications)
+             PUSH_WEBHOOK_SECRET: ${{ secrets.PUSH_WEBHOOK_SECRET }}
+             SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+             SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+             VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+             VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}

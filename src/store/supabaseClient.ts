@@ -1,4 +1,4 @@
-﻿﻿import { createClient } from '@supabase/supabase-js';
+﻿import { createClient } from '@supabase/supabase-js';
 
 // URL y Clave anónima de Supabase inyectadas desde las variables de entorno de Vite
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -68,5 +68,13 @@ export const uploadFileToStorage = async (file: File | Blob, bucket: string, fol
   if (uploadError) throw uploadError;
 
   const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+  return data.publicUrl;
+};
+
+/**
+ * Obtiene la URL pública de un archivo en Supabase Storage
+ */
+export const getPublicUrl = (bucket: string, path: string): string => {
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
   return data.publicUrl;
 };

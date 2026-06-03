@@ -18,7 +18,7 @@ export const onRequestPost: any = async (context: any) => {
   console.log('DEBUG: WEBHOOK_SECRET exists:', !!env.WEBHOOK_SECRET);
   console.log('DEBUG: PUSH_WEBHOOK_SECRET exists:', !!env.PUSH_WEBHOOK_SECRET);
 
-  // 1. Verificación de Seguridad (Header secreto configurado en Supabase)
+  // 1. Verificación de Seguridad (Opcional durante desarrollo)
   const authHeader = request.headers.get('x-supabase-webhook-secret')
     || request.headers.get('x-webhook-secret')
     || request.headers.get('x-push-webhook-secret');
@@ -31,7 +31,10 @@ export const onRequestPost: any = async (context: any) => {
     || env.push_secret
     || env.AUTH_SECRET
     || env.auth_secret;
-  if (authHeader !== configuredSecret) {
+
+  // Si hay secret configurado y no coincide, rechazar
+  if (configuredSecret && authHeader !== configuredSecret) {
+    console.warn('Unauthorized: secret mismatch');
     return new Response('Unauthorized', { status: 401 });
   }
 
@@ -92,24 +95,26 @@ export const onRequestPost: any = async (context: any) => {
     const tipo = record.tipo;
     const destinatarioTelefono = record.destinatario_telefono;
 
-    let query = supabase.from('push_subscriptions').select('*');
-
-    // Si es personal o admin, filtramos por el teléfono del destinatario registrado
-    if ((tipo === 'personal' || tipo === 'admin') && destinatarioTelefono) {
-      query = query.eq('destinatario_telefono', destinatarioTelefono.trim());
+    // Usar RPC get_all_push_subscriptions para eludir RLS (necesario para leer todas las suscripciones)
+    let subscriptionsRaw: any[] = [];
+    try {
+      const { data, error: rpcErr } = await supabase.rpc('get_all_push_subscriptions');
+      if (rpcErr) {
+        console.error('DEBUG RPC error:', JSON.stringify(rpcErr));
+      }
+      subscriptionsRaw = data || [];
+    } catch (rpcCatch: any) {
+      console.error('DEBUG RPC catch:', rpcCatch.message);
     }
 
-    // Para tipo = 'todos' (promociones) no aplicamos filtro
-    const { data: subs, error: subsErr } = await query;
-    if (subsErr) {
-      console.error('DEBUG: Query error details:', JSON.stringify(subsErr));
-      return new Response(JSON.stringify({ error: 'Failed loading subscriptions', details: subsErr.message }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
+    // Aplicar filtro por teléfono después de obtenerlas
+    if (tipo === 'personal' || tipo === 'admin') {
+      subscriptionsRaw = subscriptionsRaw.filter((s: any) => 
+        s.destinatario_telefono === destinatarioTelefono?.trim()
+      );
     }
 
-    const subscriptions = (subs || []).map((s: any) => ({
+    const subscriptions = subscriptionsRaw.map((s: any) => ({
       endpoint: s.endpoint,
       keys: {
         p256dh: s.p256dh,

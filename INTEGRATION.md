@@ -85,3 +85,44 @@ Para evitar errores `404 Not Found` al recargar páginas secundarias (como `/cat
 
 ### Paso 3: Flujo CI/CD Automático
 ¡Listo! Cada vez que hagas un `git push` a la rama `main` en GitHub, Cloudflare detectará el cambio automáticamente, compilará el proyecto en menos de 2 minutos y actualizará la aplicación globalmente sin interrupción de servicio.
+
+### Paso 4: Configurar Variables de Entorno para Push Notifications (REQUIRED)
+
+Las siguientes variables deben configurarse en **Cloudflare Pages → Settings → Environment Variables** (Environment: Production):
+
+| Variable | Descripción | Ejemplo/Valor |
+|----------|-------------|---------------|
+| `PUSH_WEBHOOK_SECRET` | Secreto para autenticar llamadas al webhook | `5fca5a4d...` (generado con `openssl rand -hex 32`) |
+| `SUPABASE_URL` | URL de tu proyecto Supabase | `https://xxx.supabase.co` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Clave de rol de servicio (para acceso admin) | Desde Supabase Dashboard → Settings → API |
+| `VAPID_PUBLIC_KEY` | Clave pública VAPID para Push API | `BK1GCkzn...` |
+| `VAPID_PRIVATE_KEY` | Clave privada VAPID para Push API | `0Al8k...` |
+
+**Además, agrega a GitHub Secrets:**
+- `PUSH_WEBHOOK_SECRET` (mismo valor)
+- `SUPABASE_URL` (mismo valor)
+- `SUPABASE_SERVICE_ROLE_KEY` (misma clave)
+- `VAPID_PUBLIC_KEY`
+- `VAPID_PRIVATE_KEY`
+
+### Paso 5: Habilitar extensión pg_net en Supabase
+
+El trigger de notificaciones push requiere la extensión `pg_net` para hacer peticiones HTTP desde PostgreSQL:
+
+1. En Supabase Dashboard, ve a **Database → Extensions**
+2. Busca `pg_net` y habilítala
+3. Ejecuta el script `schema_definitivo.sql` actualizado para crear el trigger `trigger_notify_push`
+
+---
+
+## 4. Solución de Problemas Comunes
+
+### Push Notifications no llegan al móvil
+1. Verifica que `pg_net` está habilitado en Supabase
+2. Confirma que el trigger `trigger_notify_push` existe: en SQL Editor ejecuta `SELECT * FROM pg_trigger WHERE tgname = 'trigger_notify_push';`
+3. Asegúrate que las VAPID keys coinciden entre `.env` y Cloudflare
+4. En dispositivos móviles, verifica que la PWA está instalada (no solo en navegador)
+5. Check: el usuario debe haber aceptado notificaciones desde el Perfil
+
+### Error 401 en /api/push-notify
+Significa que el `PUSH_WEBHOOK_SECRET` no coincide o falta. Verifica la variable de entorno en Cloudflare Pages.

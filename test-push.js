@@ -13,7 +13,7 @@ const envExists = fs.existsSync(envPath);
 const result = dotenv.config();
 
 if (result.error) {
-node  console.warn('⚠️ Error al cargar .env:', result.error.message);
+  console.warn('⚠️ Error al cargar .env:', result.error.message);
 }
 
 const ENDPOINT = process.env.VITE_PUSH_WEBHOOK_URL || 'https://market-cbh.pages.dev/api/push-notify';
