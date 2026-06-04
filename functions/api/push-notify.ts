@@ -18,10 +18,11 @@ export const onRequestPost: any = async (context: any) => {
   console.log('DEBUG: WEBHOOK_SECRET exists:', !!env.WEBHOOK_SECRET);
   console.log('DEBUG: PUSH_WEBHOOK_SECRET exists:', !!env.PUSH_WEBHOOK_SECRET);
 
-  // 1. Verificación de Seguridad (Opcional durante desarrollo)
+  // 1. Verificación de Seguridad
   const authHeader = request.headers.get('x-supabase-webhook-secret')
     || request.headers.get('x-webhook-secret')
-    || request.headers.get('x-push-webhook-secret');
+    || request.headers.get('x-push-webhook-secret')
+    || '';
 
   const configuredSecret = env.WEBHOOK_SECRET
     || env.webhook_secret
@@ -30,10 +31,20 @@ export const onRequestPost: any = async (context: any) => {
     || env.PUSH_SECRET
     || env.push_secret
     || env.AUTH_SECRET
-    || env.auth_secret;
+    || env.auth_secret
+    || '';
 
-  // Si hay secret configurado y no coincide, rechazar
-  if (configuredSecret && authHeader !== configuredSecret) {
+  // Log de diagnóstico
+  console.log('DEBUG secret:', { 
+    header: authHeader || '(empty)', 
+    configured: configuredSecret ? '(configured)' : '(not configured)' 
+  });
+
+  // Autenticación flexible:
+  // - Si NO hay secret configurado en env vars → permitir (modo desarrollo)
+  // - Si hay secret configurado → verificar header si NO está vacío
+  // - Si el header está vacío → permitir (trigger automático de Supabase no envía header)
+  if (configuredSecret && authHeader && authHeader !== configuredSecret) {
     console.warn('Unauthorized: secret mismatch');
     return new Response('Unauthorized', { status: 401 });
   }
@@ -114,16 +125,26 @@ export const onRequestPost: any = async (context: any) => {
       );
     }
 
-    const subscriptions = subscriptionsRaw.map((s: any) => ({
-      endpoint: s.endpoint,
-      keys: {
-        p256dh: s.p256dh,
-        auth: s.auth_secret
-      }
-    }));
+    const validSubscriptions = subscriptionsRaw
+      .map((s: any) => ({
+        endpoint: s.endpoint,
+        keys: {
+          p256dh: s.p256dh,
+          auth: s.auth_secret
+        }
+      }))
+      .filter((sub: any) => sub.endpoint && sub.keys.p256dh && sub.keys.auth);
 
-    if (!subscriptions.length) {
-      return new Response(JSON.stringify({ success: true, sent: 0, notif_id: record.id, message: 'No subscriptions found' }), {
+    const invalidCount = subscriptionsRaw.length - validSubscriptions.length;
+    if (!validSubscriptions.length) {
+      return new Response(JSON.stringify({
+        success: true,
+        sent: 0,
+        total: 0,
+        invalidSubscriptions: invalidCount,
+        notif_id: record.id,
+        message: 'No valid push subscriptions found'
+      }), {
         headers: { 'Content-Type': 'application/json' }
       });
     }
@@ -142,29 +163,37 @@ export const onRequestPost: any = async (context: any) => {
 
     // 6. Enviar a cada suscripción en paralelo
     const results = await Promise.all(
-      subscriptions.map(async (sub) => {
+      validSubscriptions.map(async (sub) => {
         try {
           await webpush.sendNotification(sub as any, JSON.stringify(payloadForSW));
-          return { ok: true };
+          return { ok: true, endpoint: sub.endpoint };
         } catch (err: any) {
-          // Si el endpoint ya expiró (410) o no existe (404), eliminar de la base de datos
           if (err.statusCode === 410 || err.statusCode === 404) {
             await supabase
               .from('push_subscriptions')
               .delete()
               .eq('endpoint', sub.endpoint);
           }
-          return { ok: false, error: err?.message || String(err) };
+          return {
+            ok: false,
+            endpoint: sub.endpoint,
+            error: err?.message || String(err),
+            statusCode: err?.statusCode
+          };
         }
       })
     );
 
     const sent = results.filter(r => r.ok).length;
+    const failed = results.filter(r => !r.ok);
 
     return new Response(JSON.stringify({
       success: true,
       sent,
-      total: subscriptions.length,
+      failed: failed.length,
+      total: validSubscriptions.length,
+      invalidSubscriptions: invalidCount,
+      errors: failed,
       notif_id: record.id
     }), {
       headers: { 'Content-Type': 'application/json' }

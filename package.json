@@ -24,6 +24,7 @@
     "react-dom": "^19.0.1",
     "recharts": "^3.8.1",
     "vite": "^6.2.3",
+    "web-push": "^3.6.7",
     "workerd": "^1.20260527.1"
   },
   "devDependencies": {
@@ -36,7 +37,6 @@
     "typescript": "~5.8.2",
     "vite": "^6.2.3",
     "vite-plugin-pwa": "^1.3.0",
-    "web-push": "^3.6.7",
     "workbox-core": "^7.4.1",
     "workbox-window": "^7.4.1",
     "wrangler": "^4.95.0"
