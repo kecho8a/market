@@ -34,11 +34,19 @@ export const onRequestPost: any = async (context: any) => {
     || env.auth_secret
     || '';
 
-  // Log de diagnóstico
-  console.log('DEBUG secret:', { 
-    header: authHeader || '(empty)', 
-    configured: configuredSecret ? '(configured)' : '(not configured)' 
+  // Log de diagnóstico (NO imprimir secretos completos)
+  const scrub = (v: string) => {
+    if (!v) return '(empty)';
+    const t = v.trim();
+    return `len=${t.length};head=${t.slice(0, 6)}...`;
+  };
+
+  console.log('DEBUG secret:', {
+    header: scrub(authHeader),
+    configured: configuredSecret ? 'configured' : '(not configured)',
+    configuredSecret: configuredSecret ? scrub(configuredSecret) : '(none)'
   });
+
 
   // Autenticación determinística (elimina ambigüedad que genera 401 inesperados)
   // - Permitimos si: (a) no hay secret configurado, o (b) el request no trae header, o (c) el header coincide.
