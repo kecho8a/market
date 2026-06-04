@@ -40,14 +40,21 @@ export const onRequestPost: any = async (context: any) => {
     configured: configuredSecret ? '(configured)' : '(not configured)' 
   });
 
-  // Autenticación flexible:
-  // - Si NO hay secret configurado en env vars → permitir (modo desarrollo)
-  // - Si hay secret configurado → verificar header si NO está vacío
-  // - Si el header está vacío → permitir (trigger automático de Supabase no envía header)
-  if (configuredSecret && authHeader && authHeader !== configuredSecret) {
+  // Autenticación determinística (elimina ambigüedad que genera 401 inesperados)
+  // - Permitimos si: (a) no hay secret configurado, o (b) el request no trae header, o (c) el header coincide.
+  // - Si hay secret configurado y el header viene y NO coincide => 401.
+  const hasConfiguredSecret = !!configuredSecret;
+  const hasHeader = !!authHeader;
+  console.log('DEBUG auth check:', { hasConfiguredSecret, hasHeader, headerMatches: hasConfiguredSecret && hasHeader ? authHeader === configuredSecret : '(skipped)' });
+
+  if (hasConfiguredSecret && hasHeader && authHeader !== configuredSecret) {
     console.warn('Unauthorized: secret mismatch');
-    return new Response('Unauthorized', { status: 401 });
+    return new Response(JSON.stringify({ error: 'Unauthorized', reason: 'secret mismatch' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
+
 
   try {
     // 2. Extraer payload enviado por Supabase
