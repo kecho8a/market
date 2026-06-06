@@ -96,6 +96,8 @@ export default defineConfig(({mode}) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        // Shim to satisfy Recharts -> react-is dependency when it's missing
+        'react-is': path.resolve(__dirname, './src/shims/react-is.ts'),
       },
     },
     build: {
