@@ -1,14 +1,50 @@
 ﻿import { createClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // URL y Clave anónima de Supabase inyectadas desde las variables de entorno de Vite
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('⚠️ Supabase credentials not found. Check your environment variables.');
-}
+const createMockClient = (): SupabaseClient => {
+  const mock: any = {
+    from: () => mock,
+    select: () => mock,
+    insert: () => mock,
+    update: () => mock,
+    delete: () => mock,
+    eq: () => mock,
+    single: () => ({ data: null, error: null }),
+    order: () => mock,
+    upsert: () => mock,
+    then: (cb: Function) => cb({ data: [], error: null }),
+    storage: {
+      from: () => ({
+        upload: async () => ({ error: null }),
+        getPublicUrl: () => ({ data: { publicUrl: '' } }),
+      }),
+    },
+    auth: {
+      getSession: async () => ({ data: { session: null }, error: null }),
+      signInWithPassword: async () => ({ data: { user: null }, error: null }),
+      signUp: async () => ({ data: { user: null }, error: null }),
+      signOut: async () => {},
+      updateUser: async () => ({ data: { user: null }, error: null }),
+      resetPasswordForEmail: async () => ({ data: null, error: null }),
+    },
+    channel: () => ({
+      send: async () => {},
+      on: () => ({}),
+      subscribe: () => ({}),
+    }),
+    removeChannel: async () => {},
+    rpc: async () => ({ data: [], error: null }),
+  };
+  return mock;
+};
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = supabaseUrl && supabaseAnonKey
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : createMockClient();
 
 /**
  * Comprime una imagen y la devuelve como un Blob listo para subir
