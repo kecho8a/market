@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build)",
+      "Bash(npm install @babel/core --save-dev)"
+    ]
+  }
+}

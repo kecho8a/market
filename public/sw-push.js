@@ -2,6 +2,19 @@
 // Loaded via workbox importScripts (generateSW strategy)
 // ⚠️  Audio API no está disponible en Service Workers — el sonido se delega al cliente vía postMessage
 
+// Deduplication cache: tag → timestamp (ms)
+const recentlyShown = new Map();
+const DEDUP_TTL_MS = 30_000; // 30 segundos
+
+function pruneDedupCache() {
+  if (recentlyShown.size > 100) {
+    const now = Date.now();
+    for (const [k, t] of recentlyShown) {
+      if (now - t > DEDUP_TTL_MS) recentlyShown.delete(k);
+    }
+  }
+}
+
 self.addEventListener('push', function(event) {
   try {
     if (!event.data) {
@@ -13,14 +26,26 @@ self.addEventListener('push', function(event) {
     console.log('[SW Push] Notificación recibida:', payload);
 
     // Mapeo flexible de campos en español (Supabase trigger) y en inglés (web-push estándar)
-    const title  = payload.titulo  || payload.title  || 'Marketo Supermercado 🍏';
-    const body   = payload.mensaje || payload.body   || '';
-    const icon   = payload.icon   || '/icon.png';
-    const badge  = '/badge.png';
-    const image  = payload.imagen_url || payload.image || undefined;
+    const title     = payload.titulo  || payload.title  || 'Marketo Supermercado 🍏';
+    const body      = payload.mensaje || payload.body   || '';
+    const icon      = payload.icon   || payload.badge || '/icon-192.png';
+    const badge     = '/badge.png';
+    const image     = payload.imagen_url || payload.image || undefined;
     const urlToOpen = payload.link_url || payload.url || '/';
-    const tag    = payload.tag || String(payload.id || Date.now());
-    const soundUrl = payload.sound_url || payload.sound || '/sounds/notification.mp3';
+    const tag       = payload.tag || String(payload.id || Date.now());
+    const soundUrl  = payload.sound_url || payload.sound || '/sounds/notification.mp3';
+
+    // --- Deduplicación: evitar duplicates en Android ---
+    const tagKey = tag;
+    if (recentlyShown.has(tagKey)) {
+      const elapsed = Date.now() - recentlyShown.get(tagKey);
+      if (elapsed < DEDUP_TTL_MS) {
+        console.log('[SW Push] Deduplicada notificación con tag:', tagKey, '| elapsed:', elapsed, 'ms');
+        return;
+      }
+    }
+    recentlyShown.set(tagKey, Date.now());
+    pruneDedupCache();
 
     const options = {
       body: body,
@@ -29,8 +54,9 @@ self.addEventListener('push', function(event) {
       image: image,
       vibrate: [200, 100, 200],
       tag: tag,
-      renotify: true,          // Vuelve a alertar aunque tenga el mismo tag
-      requireInteraction: true, // Mantiene visible hasta que el usuario la descarte
+      renotify: true,             // Vuelve a alertar aunque tenga el mismo tag
+      requireInteraction: true,   // Mantiene visible hasta que el usuario la descarte
+      silent: false,              // Explícito: permite sonido en Android
       data: {
         url: urlToOpen,
         tag: tag,
