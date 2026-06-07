@@ -636,6 +636,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => navigator.serviceWorker.removeEventListener('message', handleSWMessage);
   }, []);
 
+  // ✅ FIX: Sincronizar suscripción push automáticamente cuando el usuario inicia sesión
+  // Si el usuario ya tiene permisos de notificación granted, sincronizar su suscripción con la DB
+  useEffect(() => {
+    if (!currentUser) return;
+    if (typeof window === 'undefined') return;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+    const syncOnLogin = async () => {
+      try {
+        const permission = Notification.permission;
+        if (permission === 'granted') {
+          const registration = await navigator.serviceWorker.ready;
+          const existingSub = await registration.pushManager.getSubscription();
+          if (existingSub) {
+            console.log('🔔 Marketo: Sincronizando suscripción push automáticamente tras login...');
+            await syncPushSubscription();
+          }
+        }
+      } catch (err) {
+        console.warn('⚠️ Marketo: No se pudo sincronizar push automáticamente:', err);
+      }
+    };
+
+    syncOnLogin();
+  }, [currentUser]);
+
   useEffect(() => {
     let mainChannel: any = null;
 

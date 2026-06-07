@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(npm run build)",
-      "Bash(npm install @babel/core --save-dev)"
+      "Bash(npm install @babel/core --save-dev)",
+      "Bash(npm install @babel/core@^7.26.0 --save-dev)",
+      "Bash(npm --version)",
+      "Bash(node --version)",
+      "Bash(npm install)",
+      "Bash(npm install --legacy-peer-deps)"
     ]
   }
 }
