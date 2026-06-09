@@ -3,6 +3,18 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../store/AppContext';
 import { Bell, ShieldAlert, Sparkles, X, ChevronRight, Truck, Info, Percent } from 'lucide-react';
 
+// Función auxiliar para convertir la llave VAPID de Base64 a Uint8Array
+const urlBase64ToUint8Array = (base64String: string) => {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+};
+
 export const PushNotificationModal: React.FC = () => {
   const { addNotification } = useApp();
   const [isOpen, setIsOpen] = useState(false);
@@ -41,6 +53,33 @@ export const PushNotificationModal: React.FC = () => {
       setIsOpen(false);
 
       if (res === 'granted') {
+        // Suscribirse al Push Manager con VAPID keys
+        const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+        if (vapidKey && navigator.serviceWorker) {
+          try {
+            const registration = await navigator.serviceWorker.ready;
+            const pushSubscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(vapidKey)
+            });
+
+            // Enviar suscripción al endpoint para guardarla en la base de datos
+            const anonymousId = localStorage.getItem('trv_anonymous_id') || crypto.randomUUID();
+            localStorage.setItem('trv_anonymous_id', anonymousId);
+
+            await fetch('/api/register-subscription', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                subscription: pushSubscription.toJSON(),
+                anonymous_id: anonymousId
+              })
+            });
+          } catch (subErr) {
+            console.error('Error subscribing to push manager:', subErr);
+          }
+        }
+
         // Trigger a gorgeous, helpful native welcoming notification
         navigator.serviceWorker.ready.then(reg => {
           reg.showNotification('¡Notificaciones Activas! 🔔', {
