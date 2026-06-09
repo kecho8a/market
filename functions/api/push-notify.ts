@@ -9,51 +9,16 @@ declare const PagesFunction: any;
 export const onRequestPost: any = async (context: any) => {
   const { request, env } = context;
 
-  // DEBUG: Verificar variables de entorno disponibles
-  console.log('DEBUG: Checking env vars...');
-  console.log('DEBUG: SUPABASE_URL exists:', !!env.SUPABASE_URL);
-  console.log('DEBUG: SUPABASE_SERVICE_ROLE_KEY exists:', !!env.SUPABASE_SERVICE_ROLE_KEY);
-  console.log('DEBUG: SUPABASE_SERVICE_ROLE_KEY prefix:', env.SUPABASE_SERVICE_ROLE_KEY?.substring(0, 10));
-  console.log('DEBUG: VAPID_PUBLIC_KEY exists:', !!env.VAPID_PUBLIC_KEY);
-  console.log('DEBUG: WEBHOOK_SECRET exists:', !!env.WEBHOOK_SECRET);
-  console.log('DEBUG: PUSH_WEBHOOK_SECRET exists:', !!env.PUSH_WEBHOOK_SECRET);
-
-  // 1. Verificación de Seguridad
-  const authHeader = request.headers.get('x-supabase-webhook-secret')
+  // 1. Verificación de Seguridad (opcional)
+  const rawAuthHeader = request.headers.get('x-supabase-webhook-secret')
     || request.headers.get('x-webhook-secret')
     || request.headers.get('x-push-webhook-secret')
     || '';
+  const authHeader = rawAuthHeader.trim();
+  const configuredSecret = [env.WEBHOOK_SECRET, env.webhook_secret, env.PUSH_WEBHOOK_SECRET, env.push_webhook_secret, env.PUSH_SECRET, env.push_secret, env.AUTH_SECRET, env.auth_secret].find(Boolean) || '';
 
-  const configuredSecret = env.WEBHOOK_SECRET
-    || env.webhook_secret
-    || env.PUSH_WEBHOOK_SECRET
-    || env.push_webhook_secret
-    || env.PUSH_SECRET
-    || env.push_secret
-    || env.AUTH_SECRET
-    || env.auth_secret
-    || '';
-
-  // Log de diagnóstico (NO imprimir secretos completos)
-  const scrub = (v: string) => {
-    if (!v) return '(empty)';
-    const t = v.trim();
-    return `len=${t.length};head=${t.slice(0, 6)}...`;
-  };
-
-  console.log('DEBUG secret:', {
-    header: scrub(authHeader),
-    configured: configuredSecret ? 'configured' : '(not configured)',
-    configuredSecret: configuredSecret ? scrub(configuredSecret) : '(none)'
-  });
-
-
-  // Autenticación determinística (elimina ambigüedad que genera 401 inesperados)
-  // - Permitimos si: (a) no hay secret configurado, o (b) el request no trae header, o (c) el header coincide.
-  // - Si hay secret configurado y el header viene y NO coincide => 401.
   const hasConfiguredSecret = !!configuredSecret;
-  const hasHeader = !!authHeader;
-  console.log('DEBUG auth check:', { hasConfiguredSecret, hasHeader, headerMatches: hasConfiguredSecret && hasHeader ? authHeader === configuredSecret : '(skipped)' });
+  const hasHeader = authHeader.length > 0;
 
   if (hasConfiguredSecret && hasHeader && authHeader !== configuredSecret) {
     console.warn('Unauthorized: secret mismatch');
