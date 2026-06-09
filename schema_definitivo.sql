@@ -121,7 +121,7 @@ CREATE TABLE IF NOT EXISTS orders (
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.push_subscriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     endpoint TEXT NOT NULL,
     p256dh TEXT NOT NULL,
     auth_secret TEXT NOT NULL,
@@ -131,6 +131,9 @@ CREATE TABLE IF NOT EXISTS public.push_subscriptions (
 
 -- Agregar columna telefono para filtrar por destinatario (si no existe)
 ALTER TABLE public.push_subscriptions ADD COLUMN IF NOT EXISTS destinatario_telefono TEXT DEFAULT '';
+
+-- Agregar columna anonymous_id para identificar dispositivos sin login
+ALTER TABLE public.push_subscriptions ADD COLUMN IF NOT EXISTS anonymous_id TEXT DEFAULT '';
 
 -- Función RPC para que el admin pueda leer TODAS las suscripciones push
 -- (necesario porque RLS filtra por auth.uid = user_id, aislando cada usuario)
@@ -142,6 +145,7 @@ RETURNS TABLE (
     p256dh TEXT,
     auth_secret TEXT,
     destinatario_telefono TEXT,
+    anonymous_id TEXT,
     created_at TIMESTAMP WITH TIME ZONE
 )
 LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -149,7 +153,7 @@ BEGIN
     -- SECURITY DEFINER ejecuta con privilegios del creador (superusuario/服务role)
     -- que puede ver todas las filas sin filtro RLS.
     RETURN QUERY
-    SELECT ps.id, ps.user_id, ps.endpoint, ps.p256dh, ps.auth_secret, ps.destinatario_telefono, ps.created_at
+    SELECT ps.id, ps.user_id, ps.endpoint, ps.p256dh, ps.auth_secret, ps.destinatario_telefono, ps.anonymous_id, ps.created_at
     FROM public.push_subscriptions ps;
 END;
 $$;
@@ -647,7 +651,7 @@ BEGIN
   -- ============================
   -- push_subscriptions
   -- ============================
-  -- Habilitar RLS y crear política: cada usuario gestiona solo sus propias suscripciones
+  -- user_id es NULLABLE para permitir suscripciones anónimas (sin login)
   ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
   DROP POLICY IF EXISTS "manage_own_push_subscriptions" ON public.push_subscriptions;
   CREATE POLICY "manage_own_push_subscriptions" ON public.push_subscriptions
@@ -655,6 +659,11 @@ BEGIN
     TO authenticated
     USING (auth.uid() = user_id)
     WITH CHECK (auth.uid() = user_id);
+
+  -- Permitir inserciones anónimas con user_id IS NULL (suscripciones de usuarios no autenticados)
+  DROP POLICY IF EXISTS "allow_anonymous_push_subscriptions" ON public.push_subscriptions;
+  CREATE POLICY "allow_anonymous_push_subscriptions" ON public.push_subscriptions
+    FOR INSERT TO anon WITH CHECK (user_id IS NULL);
 
 END $$;
 
