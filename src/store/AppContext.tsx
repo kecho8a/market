@@ -1748,22 +1748,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     
     console.log('✅ Notificación guardada en Supabase:', notifId);
 
-    // Disparar Webhook Push manualmente si está configurado (Fallback a Webhooks DB)
-    if (config?.push_webhook_url) {
-      try {
-        console.log('🚀 Marketo: Disparando Webhook Push manualmente...', config.push_webhook_url);
-        fetch(config.push_webhook_url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-push-webhook-secret': config.push_webhook_secret || ''
-          },
-          body: JSON.stringify({ type: 'INSERT', table: 'notifications', record: newNotif })
-        }).catch(err => console.warn('Webhook silencioso falló:', err));
-      } catch (err) {
-        console.error('Error llamando al webhook push:', err);
-      }
-    }
+    // El disparo del Webhook Push ya no se hace desde el frontend por seguridad y para evitar errores 401.
+    // Ahora lo gestiona exclusivamente el trigger "trigger_notify_push" en Supabase 
+    // (definido en schema_definitivo.sql) usando la extensión pg_net, garantizando que el 
+    // secreto de autenticación nunca viaje por el navegador del cliente.
 
     return true;
   };

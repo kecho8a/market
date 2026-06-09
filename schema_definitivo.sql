@@ -46,19 +46,6 @@ CREATE TABLE IF NOT EXISTS store_config (
     push_webhook_secret TEXT DEFAULT '5fca5a4d8825d4de66811590f47af870b01d45e80f391920f4ea76a59ae3c8bf'
 );
 
--- Asegurarse de que las columnas existan por si la tabla ya estaba creada con la otra versión
-ALTER TABLE store_config ADD COLUMN IF NOT EXISTS tienda_lat NUMERIC(10, 6) NOT NULL DEFAULT 10.198300;
-ALTER TABLE store_config ADD COLUMN IF NOT EXISTS tienda_lng NUMERIC(10, 6) NOT NULL DEFAULT -68.004400;
-ALTER TABLE store_config ADD COLUMN IF NOT EXISTS banner_url_1 TEXT NOT NULL DEFAULT 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=1200';
-ALTER TABLE store_config ADD COLUMN IF NOT EXISTS banner_url_2 TEXT NOT NULL DEFAULT 'https://images.unsplash.com/photo-1607349913338-fca6f7fc42d0?auto=format&fit=crop&q=80&w=1200';
-ALTER TABLE store_config ADD COLUMN IF NOT EXISTS banner_url_3 TEXT NOT NULL DEFAULT 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&q=80&w=1200';
-ALTER TABLE store_config ADD COLUMN IF NOT EXISTS categories TEXT[] DEFAULT ARRAY['Lácteos y Quesos', 'Carnes y Aves', 'Charcutería', 'Frutas y Verduras', 'Víveres y Despensa', 'Panadería y Pastelería', 'Bebidas y Jugos', 'Snacks y Dulces']::TEXT[];
-ALTER TABLE store_config ADD COLUMN IF NOT EXISTS delivery_gratis BOOLEAN NOT NULL DEFAULT FALSE;
-ALTER TABLE store_config ADD COLUMN IF NOT EXISTS esta_abierta BOOLEAN NOT NULL DEFAULT TRUE;
-ALTER TABLE store_config ADD COLUMN IF NOT EXISTS mensaje_bienvenida TEXT DEFAULT 'Encuentra los mejores productos con delivery express en Valencia.';
-ALTER TABLE store_config ADD COLUMN IF NOT EXISTS push_webhook_url TEXT DEFAULT 'https://market-cbh.pages.dev/api/push-notify';
-ALTER TABLE store_config ADD COLUMN IF NOT EXISTS push_webhook_secret TEXT DEFAULT '';
-
 INSERT INTO store_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
 -- ----------------------------------------------------------------------------
@@ -73,7 +60,6 @@ CREATE TABLE IF NOT EXISTS usuarios_clientes (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-ALTER TABLE usuarios_clientes ADD COLUMN IF NOT EXISTS email TEXT UNIQUE;
 -- ----------------------------------------------------------------------------
 -- 3. products
 -- ----------------------------------------------------------------------------
@@ -102,7 +88,6 @@ CREATE TABLE IF NOT EXISTS products (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-ALTER TABLE products ADD COLUMN IF NOT EXISTS disponibilidad TEXT DEFAULT 'Disponible';
 -- ----------------------------------------------------------------------------
 -- 4. orders
 -- ----------------------------------------------------------------------------
@@ -130,12 +115,6 @@ CREATE TABLE IF NOT EXISTS orders (
     fecha TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS cliente_email TEXT;
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS cliente_uid TEXT;
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS descuento_cupon_usd NUMERIC(10,2) DEFAULT 0.00;
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS cupon_codigo TEXT;
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS notas_admin TEXT DEFAULT '';
 
 -- ----------------------------------------------------------------------------
 -- 4.6 push_subscriptions (SISTEMA DE NOTIFICACIONES PUSH)
@@ -205,11 +184,6 @@ CREATE TABLE IF NOT EXISTS notifications (
     click_count INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-
--- Asegurar compatibilidad con el frontend (imagen_url y link_url)
-ALTER TABLE notifications ADD COLUMN IF NOT EXISTS imagen_url TEXT DEFAULT '';
-ALTER TABLE notifications ADD COLUMN IF NOT EXISTS link_url TEXT DEFAULT '';
-ALTER TABLE notifications ADD COLUMN IF NOT EXISTS click_count INTEGER DEFAULT 0;
 
 -- Función para incrementar el contador de clics de una notificación de forma segura
 CREATE OR REPLACE FUNCTION public.increment_notification_click(notif_id TEXT)
@@ -694,7 +668,6 @@ VALUES
 ('CHRC-SERR-JAM', 'Jamon Serrano Reserva 150g', 'Jamon serrano curado artesanalmente.', 'Charcutería', 'Pasillo 1 - Lacteos', 'Quesos y Embutidos', 'Campestre', 'Nacional', 2000, 2026, 8.20, 20, ARRAY['https://images.unsplash.com/photo-1554037876-73313e0c2e2b?auto=format&fit=crop&q=80&w=500'], false, true, true, false, 'Listo para consumir.'),
 ('CRN-RIBE-ANG', 'Ribeye de Carne Premium Angus 400g', 'Corte selecto Ribeye de res Angus.', 'Carnes y Aves', 'Pasillo 2 - Carnes', 'Cortes Vacunos', 'Angus Gold', 'Nacional', 2000, 2026, 14.90, 12, ARRAY['https://images.unsplash.com/photo-1603048588665-791ca8aea617?auto=format&fit=crop&q=80&w=500'], false, false, true, false, 'Empacado al vacio.'),
 ('CRN-PECH-POL', 'Pechuga de Pollo 1kg', 'Pechuga de pollo fresca, deshuesada.', 'Carnes y Aves', 'Pasillo 2 - Carnes', 'Aves y Pollo', 'GranjaSol', 'Nacional', 2000, 2026, 5.80, 25, ARRAY['https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&q=80&w=500'], true, false, false, true, 'Libre de hormonas.'),
-('CHRC-SERR-JAM', 'Jamon Serrano Reserva 150g', 'Jamon serrano curado artesanalmente.', 'Charcutería', 'Pasillo 1 - Lacteos', 'Quesos y Embutidos', 'Campestre', 'Nacional', 2000, 2026, 8.20, 20, ARRAY['https://images.unsplash.com/photo-1554037876-73313e0c2e2b?auto=format&fit=crop&q=80&w=500'], false, true, true, false, 'Listo para consumir.'),
 ('FRV-FRES-MER', 'Fresas Organicas 500g', 'Fresas organicas cosechadas en Merida.', 'Frutas y Verduras', 'Pasillo 2 - Frescos', 'Frutas y Vegetales', 'ValleFresco', 'Nacional', 2000, 2026, 4.20, 18, ARRAY['https://images.unsplash.com/photo-1464965911861-746a04b4bca6?auto=format&fit=crop&q=80&w=500'], true, true, false, false, 'Lavar bien antes de consumir.'),
 ('DSP-OLIV-ESP', 'Aceite de Oliva Extra Virgen 500ml', 'Aceite de oliva prensado en frio.', 'Víveres y Despensa', 'Pasillo 3 - Despensa', 'Aceites y Abarrotes', 'Carbonell', 'Importado', 2000, 2026, 9.50, 40, ARRAY['https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&q=80&w=500'], false, true, true, false, 'Importado de España.'),
 ('PAN-BAGU-ART', 'Pan Baguette Masa Madre 250g', 'Pan tipo baguette artesanal.', 'Panadería y Pastelería', 'Pasillo 4 - Panaderia', 'Panes Frescos', 'El Rey', 'Nacional', 2000, 2026, 1.20, 40, ARRAY['https://images.unsplash.com/photo-1549931319-a545dcf3bc73?auto=format&fit=crop&q=80&w=500'], true, true, false, false, 'Corteza crujiente.'),
