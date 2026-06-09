@@ -166,7 +166,8 @@ export const onRequestPost: any = async (context: any) => {
       tag: String(record.id),
       id: String(record.id),
       requireInteraction: true,
-      badge: '/badge.png'
+      badge: '/badge.png',
+      sound: '/sounds/notification.mp3'
     };
 
     // 6. Enviar a cada suscripción en paralelo
