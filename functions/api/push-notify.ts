@@ -6,6 +6,21 @@ let webpush: any;
 
 declare const PagesFunction: any;
 
+// GET handler for diagnostics
+export const onRequestGet: any = async (context: any) => {
+  const { env } = context;
+
+  return new Response(JSON.stringify({
+    status: 'ok',
+    service: 'push-notify',
+    vapidConfigured: !!(env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY),
+    supabaseConfigured: !!(env.SUPABASE_URL && (env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY)),
+    webhookSecretConfigured: !!(env.WEBHOOK_SECRET || env.webhook_secret || env.PUSH_WEBHOOK_SECRET || env.push_webhook_secret || env.AUTH_SECRET || env.auth_secret)
+  }), {
+    headers: { 'Content-Type': 'application/json' }
+  });
+};
+
 export const onRequestPost: any = async (context: any) => {
   const { request, env } = context;
 
@@ -32,17 +47,24 @@ export const onRequestPost: any = async (context: any) => {
   try {
     // 2. Extraer payload enviado por Supabase
     const payload = await request.json();
-    const { record } = payload as any;
 
-    if (!record) {
+    // Handle both Supabase trigger format (with record wrapper) and direct test format
+    // Supabase trigger: { type: 'INSERT', table: 'notifications', record: { ... } }
+    // Test/direct format: { id: '...', title: '...', body: '...', ... }
+    let record = payload.record || payload;
+    const isSupabaseFormat = !!payload.record;
+
+    if (!record || typeof record !== 'object') {
       return new Response(JSON.stringify({ error: 'Missing record in payload' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    const titulo = record.titulo || 'Marketo';
-    const mensaje = record.mensaje || '';
+    // Fix: Support both English (title/body) and Spanish (titulo/mensaje) field names
+    // Supabase trigger sends title/body, test scripts send titulo/mensaje
+    const titulo = record.title || record.titulo || 'Marketo';
+    const mensaje = record.body || record.mensaje || '';
     const linkUrl = record.link_url || record.url || '/';
 
     // 3. Configurar WebPush (VAPID)
