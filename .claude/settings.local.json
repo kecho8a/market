@@ -7,7 +7,11 @@
       "Bash(npm --version)",
       "Bash(node --version)",
       "Bash(npm install)",
-      "Bash(npm install --legacy-peer-deps)"
+      "Bash(npm install --legacy-peer-deps)",
+      "Bash(curl -s https://market-cbh.pages.dev/api/push-notify)",
+      "Bash(curl -sv https://market-cbh.pages.dev/api/push-notify)",
+      "Bash(node -e \"fetch\\(''https://market-cbh.pages.dev/api/push-notify''\\).then\\(r=>r.text\\(\\)\\).then\\(console.log\\).catch\\(e=>console.error\\(e.message\\)\\)\")",
+      "Bash(node -e \":*)"
     ]
   }
 }
