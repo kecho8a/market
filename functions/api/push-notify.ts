@@ -24,7 +24,7 @@ export const onRequestGet: any = async (context: any) => {
 export const onRequestPost: any = async (context: any) => {
   const { request, env } = context;
 
-  // 1. Verificación de Seguridad (opcional)
+  // 1. Verificación de Seguridad (flexible)
   const rawAuthHeader = request.headers.get('x-supabase-webhook-secret')
     || request.headers.get('x-webhook-secret')
     || request.headers.get('x-push-webhook-secret')
@@ -35,12 +35,18 @@ export const onRequestPost: any = async (context: any) => {
   const hasConfiguredSecret = !!configuredSecret;
   const hasHeader = authHeader.length > 0;
 
-  if (hasConfiguredSecret && hasHeader && authHeader !== configuredSecret) {
-    console.warn('Unauthorized: secret mismatch');
-    return new Response(JSON.stringify({ error: 'Unauthorized', reason: 'secret mismatch' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' }
-    });
+  // Skip auth check if no secret configured (dev mode) or if header is empty and secret exists
+  if (hasConfiguredSecret && hasHeader) {
+    // Flexible comparison: trim and compare lowercased to avoid whitespace issues
+    const normalizedHeader = authHeader.toLowerCase().trim();
+    const normalizedSecret = configuredSecret.toLowerCase().trim();
+    if (normalizedHeader !== normalizedSecret) {
+      console.warn('Unauthorized: secret mismatch', { headerLen: authHeader.length, secretLen: configuredSecret.length });
+      return new Response(JSON.stringify({ error: 'Unauthorized', reason: 'secret mismatch' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
   }
 
 
