@@ -39,21 +39,53 @@ export const onRequestPost: any = async (context: any) => {
     // Upsert subscription - save with user_id: null for anonymous users
     const subJSON = typeof subscription === 'string' ? JSON.parse(subscription) : subscription;
 
-    const { data, error } = await supabase
-      .from('push_subscriptions')
-      .upsert({
-        user_id: null,
-        endpoint: subJSON.endpoint,
-        p256dh: subJSON.keys?.p256dh,
-        auth_secret: subJSON.keys?.auth,
-        destinatario_telefono: null,
-        anonymous_id: anonymousId,
-        created_at: new Date().toISOString()
-      }, { onConflict: 'endpoint' });
+    // Primero verificar si ya existe esta suscripción
+    let existingSub: any = null;
+    try {
+      const { data } = await supabase
+        .from('push_subscriptions')
+        .select('id')
+        .eq('endpoint', subJSON.endpoint)
+        .single();
+      existingSub = data;
+    } catch (e: any) {
+      // No existe - es un error "No rows found", ignorable
+      console.log('No existing subscription found for endpoint');
+    }
 
-    if (error) {
-      console.error('DEBUG register-subscription upsert error:', JSON.stringify(error));
-      return new Response(JSON.stringify({ error: 'Failed to save subscription', details: error.message }), {
+    let dbError: any;
+    if (existingSub) {
+      // Actualizar si ya existe
+      const { error: updateError } = await supabase
+        .from('push_subscriptions')
+        .update({
+          p256dh: subJSON.keys?.p256dh,
+          auth_secret: subJSON.keys?.auth,
+          anonymous_id: anonymousId
+        })
+        .eq('endpoint', subJSON.endpoint);
+      dbError = updateError;
+      console.log('Updating existing subscription, result:', dbError ? dbError.message : 'success');
+    } else {
+      // Insertar nueva suscripción
+      const { error: insertError } = await supabase
+        .from('push_subscriptions')
+        .insert({
+          user_id: null,
+          endpoint: subJSON.endpoint,
+          p256dh: subJSON.keys?.p256dh,
+          auth_secret: subJSON.keys?.auth,
+          destinatario_telefono: null,
+          anonymous_id: anonymousId,
+          created_at: new Date().toISOString()
+        });
+      dbError = insertError;
+      console.log('Inserting new subscription, result:', dbError ? dbError.message : 'success');
+    }
+
+    if (dbError) {
+      console.error('DEBUG register-subscription db error:', JSON.stringify(dbError));
+      return new Response(JSON.stringify({ error: 'Failed to save subscription', details: dbError.message }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' }
       });
