@@ -490,7 +490,7 @@ ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT SELECT ON store_config, products, notifications, coupons TO anon;
 GRANT SELECT, INSERT, UPDATE ON orders TO anon;
-GRANT SELECT, INSERT ON push_subscriptions TO anon;
+GRANT SELECT, INSERT, UPDATE ON push_subscriptions TO anon;
 -- authenticated: acceso completo a sus propios datos (controlado por RLS)
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
@@ -664,6 +664,11 @@ BEGIN
   DROP POLICY IF EXISTS "allow_anonymous_push_subscriptions" ON public.push_subscriptions;
   CREATE POLICY "allow_anonymous_push_subscriptions" ON public.push_subscriptions
     FOR INSERT TO anon WITH CHECK (user_id IS NULL);
+
+  -- Permitir updates anónimas (para actualizar suscripciones existentes)
+  DROP POLICY IF EXISTS "allow_anonymous_push_update" ON public.push_subscriptions;
+  CREATE POLICY "allow_anonymous_push_update" ON public.push_subscriptions
+    FOR UPDATE TO anon USING (user_id IS NULL);
 
 END $$;
 
