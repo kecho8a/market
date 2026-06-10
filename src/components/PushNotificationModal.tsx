@@ -55,6 +55,7 @@ export const PushNotificationModal: React.FC = () => {
       if (res === 'granted') {
         // Suscribirse al Push Manager con VAPID keys
         const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+        console.log('VAPID key exists:', !!vapidKey, 'serviceWorker exists:', !!navigator.serviceWorker);
         if (vapidKey && navigator.serviceWorker) {
           try {
             const registration = await navigator.serviceWorker.ready;
@@ -67,14 +68,23 @@ export const PushNotificationModal: React.FC = () => {
             const anonymousId = localStorage.getItem('trv_anonymous_id') || crypto.randomUUID();
             localStorage.setItem('trv_anonymous_id', anonymousId);
 
-            await fetch('/api/register-subscription', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                subscription: pushSubscription.toJSON(),
-                anonymous_id: anonymousId
-              })
-            });
+            try {
+              const response = await fetch('/api/register-subscription', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  subscription: pushSubscription.toJSON(),
+                  anonymous_id: anonymousId
+                })
+              });
+              const result = await response.json();
+              console.log('Push subscription registration result:', result);
+              if (!response.ok || result.error) {
+                console.error('Failed to register subscription:', result);
+              }
+            } catch (subErr) {
+              console.error('Error sending subscription to server:', subErr);
+            }
           } catch (subErr) {
             console.error('Error subscribing to push manager:', subErr);
           }

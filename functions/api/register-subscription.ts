@@ -22,8 +22,9 @@ export const onRequestPost: any = async (context: any) => {
 
     const supabaseUrl = env.SUPABASE_URL;
     const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY;
+    console.log('DEBUG register-subscription: SUPABASE_URL exists:', !!supabaseUrl, 'SUPABASE_SERVICE_ROLE_KEY exists:', !!env.SUPABASE_SERVICE_ROLE_KEY, 'SUPABASE_ANON_KEY exists:', !!env.SUPABASE_ANON_KEY);
     if (!supabaseUrl || !supabaseKey) {
-      return new Response(JSON.stringify({ error: 'Missing SUPABASE_URL or keys in env' }), {
+      return new Response(JSON.stringify({ error: 'Missing SUPABASE_URL or keys in env', debug: { hasUrl: !!supabaseUrl, hasServiceKey: !!env.SUPABASE_SERVICE_ROLE_KEY, hasAnonKey: !!env.SUPABASE_ANON_KEY } }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' }
       });
