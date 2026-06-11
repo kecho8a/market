@@ -488,7 +488,7 @@ ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
 -- Permisos base (mínimos necesarios — las RLS controlan el acceso real)
 -- anon: solo lectura de catálogo público (store_config, products, notifications tipo=todos)
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
-GRANT SELECT ON store_config, products, notifications, coupons TO anon;
+GRANT SELECT ON store_config, products, notifications, coupons, usuarios_clientes TO anon;
 GRANT SELECT, INSERT, UPDATE ON orders TO anon;
 GRANT SELECT, INSERT, UPDATE ON push_subscriptions TO anon;
 -- authenticated: acceso completo a sus propios datos (controlado por RLS)
@@ -653,12 +653,13 @@ BEGIN
   -- ============================
   -- user_id es NULLABLE para permitir suscripciones anónimas (sin login)
   ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
+  -- CORREGIDA: Permitir acceso a propias suscripciones (auth) o anónimas (NULL user_id)
   DROP POLICY IF EXISTS "manage_own_push_subscriptions" ON public.push_subscriptions;
   CREATE POLICY "manage_own_push_subscriptions" ON public.push_subscriptions
     FOR ALL
     TO authenticated
-    USING (auth.uid() = user_id)
-    WITH CHECK (auth.uid() = user_id);
+    USING (auth.uid() = user_id OR user_id IS NULL)
+    WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
 
   -- Permitir inserciones anónimas con user_id IS NULL (suscripciones de usuarios no autenticados)
   DROP POLICY IF EXISTS "allow_anonymous_push_subscriptions" ON public.push_subscriptions;
