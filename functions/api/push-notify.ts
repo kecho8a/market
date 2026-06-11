@@ -169,14 +169,18 @@ export const onRequestPost: any = async (context: any) => {
       sound_url: 'default'        // Sonido por defecto del sistema
     };
 
-    // 6. Enviar a cada suscripción en paralelo
+    // 6. Enviar a cada suscripción en paralelo con logging detallado
+    console.log('Sending push to', validSubscriptions.length, 'subscriptions with payload:', JSON.stringify(payloadForSW));
+
     const results = await Promise.all(
       validSubscriptions.map(async (sub) => {
         try {
+          console.log('Sending to endpoint:', sub.endpoint.substring(0, 50) + '...');
           await webpush.sendNotification(sub as any, JSON.stringify(payloadForSW));
+          console.log('✓ Push sent successfully to:', sub.endpoint.substring(0, 30));
           return { ok: true, endpoint: sub.endpoint };
         } catch (err: any) {
-          if (err.statusCode === 410 || err.statusCode === 404) {
+          console.error('✗ Push error:', err.statusCode, err.message || err.body);
             await supabase
               .from('push_subscriptions')
               .delete()
