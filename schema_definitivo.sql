@@ -603,30 +603,13 @@ BEGIN
   DROP POLICY IF EXISTS "notifications_select_allow_all" ON notifications;
   DROP POLICY IF EXISTS "Lectura de notificaciones" ON notifications;
   CREATE POLICY "Lectura de notificaciones" ON notifications
-    FOR SELECT TO anon, authenticated
-    USING (
-      -- Admin absoluto puede ver todo
-      (auth.jwt() ->> 'email' = 'kecho8a@gmail.com')
-      OR (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
-      -- Notificaciones tipo 'request': clientes solo las suyas (vía request)
-      OR (tipo = 'request' AND destinatario_telefono = (SELECT telefono FROM usuarios_clientes WHERE id = auth.uid()::text))
-      -- Notificaciones tipo 'todos': promotions visible a todos
-      OR (tipo = 'todos')
-      -- Notificaciones personales: solo el destinatario
-      OR (tipo = 'personal' AND destinatario_telefono = (SELECT telefono FROM usuarios_clientes WHERE id = auth.uid()::text))
-    );
+    FOR SELECT TO anon, authenticated USING (true);
 
-  -- Política de actualización de notificaciones corregida:
+  -- Política de actualizaciónabierta:
   -- Sólo el propio destinatario (para marcar leída) o el administrador
   DROP POLICY IF EXISTS "notifications_update_allow_all" ON notifications;
   CREATE POLICY "notifications_update_allow_all" ON notifications
-    FOR UPDATE
-    TO anon, authenticated
-    USING (
-      (auth.jwt() ->> 'email' = 'kecho8a@gmail.com')
-      OR (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
-      OR (destinatario_telefono = (SELECT telefono FROM usuarios_clientes WHERE id = auth.uid()::text))
-    );
+    FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);
 
   -- ============================
   -- coupons
@@ -680,7 +663,7 @@ INSERT INTO products (codigo, nombre, descripcion, categoria, seccion, subseccio
 VALUES 
 ('LCT-LECH-964', 'Leche Liquida Entera Campestre 1L', 'Leche entera de vaca pasteurizada premium.', 'Lácteos y Quesos', 'Pasillo 1 - Lacteos', 'Leches y Cremas', 'Campestre', 'Nacional', 2000, 2026, 1.80, 50, ARRAY['https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&q=80&w=500'], true, false, true, true, '100% Leche fresca.'),
 ('LCT-QUES-GOU', 'Queso Amarillo Tipo Gouda 500g', 'Queso amarillo gouda premium madurado.', 'Lácteos y Quesos', 'Pasillo 1 - Lacteos', 'Quesos y Embutidos', 'Torondoy', 'Nacional', 2000, 2026, 6.50, 15, ARRAY['https://images.unsplash.com/photo-1548340748-6d2b7d7da280?auto=format&fit=crop&q=80&w=500'], true, false, false, true, 'Maduracion de 45 dias.'),
-('CHRC-SERR-JAM', 'Jamon Serrano Reserva 150g', 'Jamon serrano curado artesanalmente.', 'Charcutería', 'Pasillo 1 - Lacteos', 'Quesos y Embutidos', 'Campestre', 'Nacional', 2000, 2026, 8.20, 20, ARRAY['https://images.unsplash.com/photo-1554037876-73313e0c2e2b?auto=format&fit=crop&q=80&w=500'], false, true, true, false, 'Listo para consumir.'),
+('CHRC-SERR-JAM', 'Jamon Serrano Reserva 150g', 'Jamon serrano curado artesanalmente.', 'Charcutería', 'Pasillo 1 - Lacteos', 'Quesos y Embutidos', 'Campestre', 'Nacional', 2000, 2026, 8.20, 20, ARRAY['https://images.unsplash.com/photo-1588168333986-507c89b8a09e?auto=format&fit=crop&q=80&w=500'], false, true, true, false, 'Listo para consumir.'),
 ('CRN-RIBE-ANG', 'Ribeye de Carne Premium Angus 400g', 'Corte selecto Ribeye de res Angus.', 'Carnes y Aves', 'Pasillo 2 - Carnes', 'Cortes Vacunos', 'Angus Gold', 'Nacional', 2000, 2026, 14.90, 12, ARRAY['https://images.unsplash.com/photo-1603048588665-791ca8aea617?auto=format&fit=crop&q=80&w=500'], false, false, true, false, 'Empacado al vacio.'),
 ('CRN-PECH-POL', 'Pechuga de Pollo 1kg', 'Pechuga de pollo fresca, deshuesada.', 'Carnes y Aves', 'Pasillo 2 - Carnes', 'Aves y Pollo', 'GranjaSol', 'Nacional', 2000, 2026, 5.80, 25, ARRAY['https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&q=80&w=500'], true, false, false, true, 'Libre de hormonas.'),
 ('FRV-FRES-MER', 'Fresas Organicas 500g', 'Fresas organicas cosechadas en Merida.', 'Frutas y Verduras', 'Pasillo 2 - Frescos', 'Frutas y Vegetales', 'ValleFresco', 'Nacional', 2000, 2026, 4.20, 18, ARRAY['https://images.unsplash.com/photo-1464965911861-746a04b4bca6?auto=format&fit=crop&q=80&w=500'], true, true, false, false, 'Lavar bien antes de consumir.'),

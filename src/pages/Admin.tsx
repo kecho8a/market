@@ -53,6 +53,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
   // Estado para Chat de Notificaciones
   const [activeChatPhone, setActiveChatPhone] = useState<string | null>(null);
   const [replyMessage, setReplyMessage] = useState('');
+  const [notifCatFilter, setNotifCatFilter] = useState<'clientes' | 'grupal' | 'sistema'>('clientes');
 
   // State para edición de items de pedido
   const [editingOrderItems, setEditingOrderItems] = useState<Order | null>(null);
@@ -1323,7 +1324,24 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">
                   <Send size={18} className="text-violet-600" />
-                  <h3 className="text-sm font-bold text-slate-900 uppercase">Difusión y Mensajería Push</h3>
+                  <h3 className="text-sm font-bold text-slate-900 uppercase">Centro de Notificaciones</h3>
+                </div>
+
+                {/* Filtros por categoría */}
+                <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
+                  {(['clientes', 'grupal', 'sistema'] as const).map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setNotifCatFilter(cat)}
+                      className={`flex-1 px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all ${
+                        notifCatFilter === cat
+                          ? 'bg-white text-violet-700 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      {cat === 'clientes' ? '👤 Clientes' : cat === 'grupal' ? '📢 Envío Grupal' : '⚙️ Sistema'}
+                    </button>
+                  ))}
                 </div>
                 <button 
                   type="button"
@@ -1457,10 +1475,29 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
 
             {/* NUEVA UI: Chat de Conversación por Cliente */}
             {(() => {
-              // Obtener clientes únicos de las notificaciones
-              const phonesWithMessages = [...new Set(notifications.filter(n => n.destinatario_telefono && n.tipo !== 'admin').map(n => n.destinatario_telefono!))];
-              const broadcastNotifs = notifications.filter(n => n.tipo === 'todos');
+              // Filtrar notificaciones según la categoría seleccionada
+              let filteredNotifications: typeof notifications = [];
+              let clientPhones: string[] = [];
+              let groupNotifs: typeof notifications = [];
+              let systemNotifs: typeof notifications = [];
+
+              if (notifCatFilter === 'clientes') {
+                // Clientes: notificaciones personales de cada cliente
+                clientPhones = [...new Set(notifications.filter(n => n.destinatario_telefono && n.tipo === 'personal').map(n => n.destinatario_telefono!))];
+                filteredNotifications = notifications.filter(n => n.destinatario_telefono && n.tipo === 'personal');
+              } else if (notifCatFilter === 'grupal') {
+                // Envío Grupal: broadcasts (tipo 'todos')
+                groupNotifs = notifications.filter(n => n.tipo === 'todos');
+                filteredNotifications = groupNotifs;
+              } else {
+                // Sistema: notificaciones del admin para sí mismo
+                systemNotifs = notifications.filter(n => n.tipo === 'admin');
+                filteredNotifications = systemNotifs;
+              }
+
+              const broadcastNotifs = groupNotifs;
               const broadcastCount = broadcastNotifs.length;
+              const phonesWithMessages = clientPhones;
 
               const getClientMessages = (phone: string) =>
                 notifications.filter(n => n.destinatario_telefono === phone).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
@@ -1471,7 +1508,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               };
 
               const handleSendReply = async () => {
-                if (!activeChatPhone || !replyMessage.trim()) return;
+                if (!activeChatPhone || !replyMessage.trim() || notifCatFilter !== 'clientes') return;
                 const sentTitle = `Re: Tu mensaje`;
                 const success = await addNotification(sentTitle, replyMessage.trim(), 'personal', activeChatPhone, '', '');
                 if (success) {
@@ -1488,45 +1525,87 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
 
               return (
                 <div className="flex gap-4 h-[600px]">
-                  {/* Sidebar: Lista de clientes */}
+                  {/* Sidebar: Lista según categoría */}
                   <div className="w-1/3 flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden">
                     <div className="p-4 border-b border-slate-100 bg-violet-50">
                       <div className="flex items-center gap-2 mb-3">
-                        <MessageSquare size={16} className="text-violet-600" />
-                        <h3 className="text-xs font-bold text-slate-800 uppercase">Conversaciones</h3>
-                        <span className="ml-auto text-[10px] bg-violet-200 text-violet-800 px-2 py-0.5 rounded-full font-bold">{phonesWithMessages.length}</span>
+                        {notifCatFilter === 'clientes' ? <MessageSquare size={16} className="text-violet-600" /> : notifCatFilter === 'grupal' ? <Send size={16} className="text-violet-600" /> : <Settings size={16} className="text-violet-600" />}
+                        <h3 className="text-xs font-bold text-slate-800 uppercase">
+                          {notifCatFilter === 'clientes' ? 'Clientes' : notifCatFilter === 'grupal' ? 'Envíos Grupales' : 'Registro del Sistema'}
+                        </h3>
+                        <span className="ml-auto text-[10px] bg-violet-200 text-violet-800 px-2 py-0.5 rounded-full font-bold">
+                          {notifCatFilter === 'clientes' ? phonesWithMessages.length : notifCatFilter === 'grupal' ? broadcastCount : systemNotifs.length}
+                        </span>
                       </div>
-                      {broadcastCount > 0 && (
+                      {notifCatFilter === 'grupal' && broadcastCount > 0 && (
                         <button
                           onClick={() => setActiveChatPhone('broadcast')}
                           className={`w-full text-left p-2.5 rounded-xl text-xs font-bold mb-2 transition-all ${activeChatPhone === 'broadcast' ? 'bg-violet-600 text-white shadow-lg' : 'bg-white border border-violet-200 text-violet-700 hover:bg-violet-50'}`}
                         >
-                          📢 Broadcasts ({broadcastCount})
+                          📢 Todos los Broadcasts
                         </button>
                       )}
                     </div>
                     <div className="flex-1 overflow-y-auto">
-                      {phonesWithMessages.length === 0 ? (
-                        <div className="text-center py-12 text-slate-400 text-xs italic px-4">No hay conversaciones de clientes aún.</div>
-                      ) : (
-                        phonesWithMessages.map(phone => {
-                          const lastMsg = getLastMessage(phone);
-                          const unread = getClientMessages(phone).filter(m => !m.leida).length;
-                          return (
+                      {notifCatFilter === 'clientes' ? (
+                        phonesWithMessages.length === 0 ? (
+                          <div className="text-center py-12 text-slate-400 text-xs italic px-4">No hay mensajes de clientes aún.</div>
+                        ) : (
+                          phonesWithMessages.map(phone => {
+                            const lastMsg = getLastMessage(phone);
+                            const unread = getClientMessages(phone).filter(m => !m.leida).length;
+                            return (
+                              <button
+                                key={phone}
+                                onClick={() => setActiveChatPhone(phone)}
+                                className={`w-full text-left p-3 border-b border-slate-50 hover:bg-slate-50 transition-all ${activeChatPhone === phone ? 'bg-violet-50 border-l-4 border-l-violet-600' : ''}`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-bold text-slate-800">{phone}</span>
+                                  {unread > 0 && <span className="w-5 h-5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{unread}</span>}
+                                </div>
+                                <p className="text-[10px] text-slate-500 truncate mt-1">{lastMsg?.mensaje || 'Sin mensajes'}</p>
+                                <p className="text-[9px] text-slate-400 mt-1">{lastMsg?.fecha}</p>
+                              </button>
+                            );
+                          })
+                        )
+                      ) : notifCatFilter === 'grupal' ? (
+                        broadcastCount === 0 ? (
+                          <div className="text-center py-12 text-slate-400 text-xs italic px-4">No hay envíos grupales.</div>
+                        ) : (
+                          broadcastNotifs.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()).map(notif => (
                             <button
-                              key={phone}
-                              onClick={() => setActiveChatPhone(phone)}
-                              className={`w-full text-left p-3 border-b border-slate-50 hover:bg-slate-50 transition-all ${activeChatPhone === phone ? 'bg-violet-50 border-l-4 border-l-violet-600' : ''}`}
+                              key={notif.id}
+                              onClick={() => { setActiveChatPhone('broadcast'); }}
+                              className="w-full text-left p-3 border-b border-slate-50 hover:bg-slate-50"
                             >
                               <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-slate-800">{phone}</span>
-                                {unread > 0 && <span className="w-5 h-5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{unread}</span>}
+                                <span className="text-xs font-bold text-slate-800">📢 Broadcast</span>
+                                <span className="text-[9px] text-slate-400">{notif.fecha}</span>
                               </div>
-                              <p className="text-[10px] text-slate-500 truncate mt-1">{lastMsg?.mensaje || 'Sin mensajes'}</p>
-                              <p className="text-[9px] text-slate-400 mt-1">{lastMsg?.fecha}</p>
+                              <p className="text-[10px] text-slate-500 truncate mt-1">{notif.titulo}</p>
                             </button>
-                          );
-                        })
+                          ))
+                        )
+                      ) : (
+                        systemNotifs.length === 0 ? (
+                          <div className="text-center py-12 text-slate-400 text-xs italic px-4">No hay notificaciones del sistema.</div>
+                        ) : (
+                          systemNotifs.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()).map(notif => (
+                            <button
+                              key={notif.id}
+                              onClick={() => { setActiveChatPhone('system'); }}
+                              className="w-full text-left p-3 border-b border-slate-50 hover:bg-slate-50"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-slate-800">⚙️ Sistema</span>
+                                <span className="text-[9px] text-slate-400">{notif.fecha}</span>
+                              </div>
+                              <p className="text-[10px] text-slate-500 truncate mt-1">{notif.titulo}</p>
+                            </button>
+                          ))
+                        )
                       )}
                     </div>
                   </div>
@@ -1542,13 +1621,19 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                               <User size={18} className="text-violet-600" />
                             </div>
                             <div>
-                              <h4 className="text-sm font-bold text-slate-800">{activeChatPhone === 'broadcast' ? '📢 Todos los Clientes' : activeChatPhone}</h4>
+                              <h4 className="text-sm font-bold text-slate-800">
+                                {activeChatPhone === 'broadcast' ? '📢 Todos los Clientes' :
+                                 activeChatPhone === 'system' ? '⚙️ Registro del Sistema' :
+                                 activeChatPhone}
+                              </h4>
                               <p className="text-[10px] text-slate-500">
-                                {activeChatPhone === 'broadcast' ? `${broadcastCount} mensajes broadcast` : `${getClientMessages(activeChatPhone).length} mensajes`}
+                                {activeChatPhone === 'broadcast' ? `${broadcastCount} mensajes broadcast` :
+                                 activeChatPhone === 'system' ? `${systemNotifs.length} mensajes` :
+                                 `${getClientMessages(activeChatPhone).length} mensajes`}
                               </p>
                             </div>
                           </div>
-                          {activeChatPhone !== 'broadcast' && (
+                          {activeChatPhone !== 'broadcast' && activeChatPhone !== 'system' && (
                             <div className="flex gap-2">
                               <a href={`https://wa.me/${activeChatPhone.replace(/\D/g, '')}`} target="_blank" className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-colors" title="WhatsApp">
                                 <MessageCircle size={16} />
@@ -1562,7 +1647,8 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
 
                         {/* Mensajes como burbujas */}
                         <div className="flex-1 overflow-y-auto p-4 bg-slate-50 flex flex-col gap-3">
-                          {(activeChatPhone === 'broadcast' ? broadcastNotifs : getClientMessages(activeChatPhone)).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()).map(msg => (
+                          {/* Mostrar según el tipo de chat activo */}
+                          {(activeChatPhone === 'broadcast' || activeChatPhone === 'system' ? filteredNotifications : getClientMessages(activeChatPhone)).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()).map(msg => (
                             <div key={msg.id} className={`flex ${msg.tipo === 'admin' ? 'justify-end' : 'justify-start'}`}>
                               <div className={`max-w-[75%] ${msg.tipo === 'admin' ? 'order-2' : 'order-1'}`}>
                                 {/*如果是admin的消息显示在右边，个人的显示在左边*/}
@@ -1592,8 +1678,8 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                           ))}
                         </div>
 
-                        {/* Input para responder (solo si no es broadcast) */}
-                        {activeChatPhone !== 'broadcast' && (
+                        {/* Input para responder (solo si es un cliente) */}
+                        {activeChatPhone !== 'broadcast' && activeChatPhone !== 'system' && (
                           <div className="p-3 border-t border-slate-100 bg-white flex gap-2">
                             <input
                               type="text"
@@ -1626,8 +1712,6 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                 </div>
               );
             })()}
-              </div>
-            </div>
           </div>
         </div>
       )}

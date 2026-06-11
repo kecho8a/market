@@ -1195,6 +1195,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                     )}
                   </div>
 
+                <>
+
                   {userNotifications.length === 0 ? (
                 <div className="text-center py-16 bg-zinc-50 border border-zinc-200 rounded-xl flex flex-col items-center gap-2">
                   <span className="text-3xl mt-1"></span>
@@ -1271,38 +1273,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                     </div>
                   ))}
                 </div>
-              ) : (
-                  /* Pestaña: Estado del Pedido */
-                  <div className="flex flex-col gap-4">
-                    <div className="p-4 bg-violet-50 border border-violet-200 rounded-xl">
-                      <h4 className="text-xs font-bold text-violet-900 mb-3">Estado de tu Pedido Reciente</h4>
-                      {orders.length === 0 ? (
-                        <p className="text-[11px] text-slate-500">No tienes pedidos activos aún.</p>
-                      ) : (
-                        <div className="flex flex-col gap-3">
-                          {orders.slice(0, 3).map(order => (
-                            <div key={order.id} className="p-3 bg-white border border-violet-100 rounded-lg">
-                              <div className="flex justify-between items-center mb-2">
-                                <span className="text-[10px] font-mono text-slate-500">{order.id}</span>
-                                <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
-                                  order.status === 'Pendiente' ? 'bg-amber-100 text-amber-700' :
-                                  order.status === 'Procesando' ? 'bg-blue-100 text-blue-700' :
-                                  order.status === 'En preparación' ? 'bg-indigo-100 text-indigo-700' :
-                                  order.status === 'En camino' ? 'bg-violet-100 text-violet-700' :
-                                  'bg-green-100 text-green-700'
-                                }`}>{order.status}</span>
-                              </div>
-                              <div className="text-[10px] text-slate-600 mb-2">${order.total_usd?.toFixed(2)} USD</div>
-                              <a href={`https://wa.me/${config.telefono_soporte.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola, necesito info de mi pedido ${order.id}`)}`} target="_blank" className="text-[10px] text-violet-600 font-bold hover:underline">
-                                Contactar por WhatsApp →
-                              </a>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+              )}
 
               {/* Pestaña Estado del Pedido */}
               {notifSubTab === 'orders' && (
