@@ -15,13 +15,16 @@ export default defineConfig(({mode}) => {
         strategies: 'generateSW',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'sounds/notification.mp3'],
         manifest: {
-          name: 'Marketo',
+          name: 'Marketo - Supermercado Gourmet & Delivery Express',
           short_name: 'Marketo',
-          description: 'Premium Supermarket & Delivery',
+          description: 'Tu supermercado premium con despacho express en el Gran Valencia, Carabobo.',
+          scope: '/',
+          start_url: '/',
           theme_color: '#ffffff',
           background_color: '#ffffff',
-          display: 'fullscreen',
+          display: 'standalone',
           orientation: 'portrait',
+          prefer_related_applications: false,
           icons: [
             {
               src: 'pwa-192x192.png',

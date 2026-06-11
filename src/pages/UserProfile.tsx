@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../store/AppContext';
 import { motion } from 'motion/react';
 import { supabase } from '../store/supabaseClient';
-import { 
+import {
   User, Lock, Phone, UserPlus, LogIn, LogOut, Bell, Package, Mail,
   CheckCircle, Clock, Truck, MapPin, Edit2, AlertCircle, Eye, EyeOff, Tag,
-  Copy, Check, X, Smartphone
+  Copy, Check, X, Smartphone, MessageSquare, Send, ExternalLink, Trash2
 } from 'lucide-react';
 import { SEOHead } from '../components/SEOHead';
 
@@ -66,6 +66,11 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
     }
     return Notification.permission as 'default' | 'granted' | 'denied';
   });
+
+  // Subpestaña para notificaciones: messages | orders
+  const [notifSubTab, setNotifSubTab] = useState<'messages' | 'orders'>('messages');
+  // Estado para responder mensaje
+  const [replyMessage, setReplyMessage] = useState('');
 
   // Sync state if user enables it somewhere else
   useEffect(() => {
@@ -1107,77 +1112,90 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
           {/* ACTIVE TAB CONTENT Area: NOTIFICATIONS & PROMOTIONS (Requested) */}
           {activeSubTab === 'notifications' && (
             <div className="flex flex-col gap-4 text-xs">
-              <div className="flex justify-between items-center">
-                <h3 className="text-sm font-bold font-display text-zinc-900">Mensajería Directa & Avisos</h3>
-                {unreadCount > 0 && (
-                  <span className="bg-red-500 text-white font-bold px-2 py-0.5 rounded-full text-[9px]">{unreadCount} nuevos</span>
-                )}
+              {/* Pestañas: Mensajes | Estado Pedido */}
+              <div className="flex gap-2 border-b border-slate-200 pb-2">
+                <button
+                  onClick={() => setNotifSubTab('messages')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-colors ${notifSubTab === 'messages' ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                  <MessageSquare size={14} /> Mensajes
+                  {unreadCount > 0 && <span className="w-5 h-5 bg-red-500 text-white rounded-full text-[9px] flex items-center justify-center">{unreadCount}</span>}
+                </button>
+                <button
+                  onClick={() => setNotifSubTab('orders')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-colors ${notifSubTab === 'orders' ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                  <Package size={14} /> Estado del Pedido
+                </button>
               </div>
 
-              {/* Browser Push Notifications Utility Box */}
-              <div id="browser-push-settings" className="p-4 border border-violet-200 bg-violet-50/10 rounded-xl relative overflow-hidden flex flex-col gap-3">
-                <div className="flex gap-2.5 items-start">
-                  <div className="p-2 bg-violet-100 rounded-lg text-violet-600 shrink-0">
-                    <Bell size={16} />
-                  </div>
-                  <div className="flex-1 flex flex-col gap-0.5">
-                    <h4 className="font-bold text-zinc-950 text-xs">Notificaciones de Escritorio / Móvil</h4>
-                    <p className="text-[11px] text-zinc-650 leading-relaxed font-sans">
-                      Permite que la app te envíe avisos rápidos de promociones y estado de tus pedidos directamente en tu pantalla.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Sub-status control based on state */}
-                {notificationPermission === 'unsupported' && (
-                  <div className="bg-zinc-100 border border-zinc-200 text-zinc-650 text-[10px] p-2.5 rounded-lg flex items-center gap-1.5 leading-normal">
-                     <AlertCircle size={12} className="shrink-0 text-zinc-500" />
-                    <span>Las notificaciones nativas no son soportadas por tu navegador en este contexto. Prueba abriendo en una pestaña aparte.</span>
-                  </div>
-                )}
-
-                {notificationPermission === 'denied' && (
-                  <div className="bg-rose-50 border border-rose-100 text-rose-800 text-[10px] p-2.5 rounded-lg flex flex-col gap-1 leading-normal font-sans">
-                    <div className="flex items-center gap-1.5 font-bold">
-                      <AlertCircle size={12} className="shrink-0 text-rose-500" />
-                      <span>Notificaciones Bloqueadas en tu Navegador</span>
+              {/* Contenido basado en pestaña */}
+              {notifSubTab === 'messages' ? (
+                <>
+                  {/* Browser Push Notifications Utility Box */}
+                  <div id="browser-push-settings" className="p-4 border border-violet-200 bg-violet-50/10 rounded-xl relative overflow-hidden flex flex-col gap-3">
+                    <div className="flex gap-2.5 items-start">
+                      <div className="p-2 bg-violet-100 rounded-lg text-violet-600 shrink-0">
+                        <Bell size={16} />
+                      </div>
+                      <div className="flex-1 flex flex-col gap-0.5">
+                        <h4 className="font-bold text-zinc-950 text-xs">Notificaciones de Escritorio / Móvil</h4>
+                        <p className="text-[11px] text-zinc-650 leading-relaxed font-sans">
+                          Permite que la app te envíe avisos rápidos de promociones y estado de tus pedidos directamente en tu pantalla.
+                        </p>
+                      </div>
                     </div>
-                    <span>Has desactivado los permisos de notificación. Para habilitarlos, por favor haz clic en el ícono de candado junto a la URL del navegador y cambia el permiso a "Permitir".</span>
-                  </div>
-                )}
 
-                {notificationPermission === 'default' && (
-                  <div className="flex flex-col gap-2 pt-1 border-t border-violet-100/30 font-display">
-                    <button
-                      type="button"
-                      onClick={requestNotificationPermission}
-                      className="w-full bg-violet-600 hover:bg-violet-750 text-white font-extrabold py-2.5 px-3 rounded-lg text-[11px] uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-[0.98]"
-                    >
-                      <span>Habilitar Notificaciones de Navegador</span>
-                    </button>
-                  </div>
-                )}
+                    {/* Sub-status control based on state */}
+                    {notificationPermission === 'unsupported' && (
+                      <div className="bg-zinc-100 border border-zinc-200 text-zinc-650 text-[10px] p-2.5 rounded-lg flex items-center gap-1.5 leading-normal">
+                         <AlertCircle size={12} className="shrink-0 text-zinc-500" />
+                        <span>Las notificaciones nativas no son soportadas por tu navegador en este contexto. Prueba abriendo en una pestaña aparte.</span>
+                      </div>
+                    )}
 
-                {notificationPermission === 'granted' && (
-                  <div className="flex flex-col gap-2.5 pt-1 border-t border-violet-100/30">
-                    <div className="bg-violet-50 border border-violet-150 text-violet-850 text-[10px] p-2.5 rounded-lg flex items-center gap-1.5 font-medium leading-normal">
-                      <CheckCircle size={12} className="shrink-0 text-violet-600" />
-                      <span>¡Notificaciones Habilitadas Exitosamente para Valencia!</span>
-                    </div>
-                    <div>
-                      <button
-                        type="button"
-                        onClick={sendTestPushNotification}
-                        className="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-bold py-2.5 px-3.5 rounded-lg text-[11px] transition-colors flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.97]"
-                      >
-                        🔔 Enviar Notificación de Prueba
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+                    {notificationPermission === 'denied' && (
+                      <div className="bg-rose-50 border border-rose-100 text-rose-800 text-[10px] p-2.5 rounded-lg flex flex-col gap-1 leading-normal font-sans">
+                        <div className="flex items-center gap-1.5 font-bold">
+                          <AlertCircle size={12} className="shrink-0 text-rose-500" />
+                          <span>Notificaciones Bloqueadas en tu Navegador</span>
+                        </div>
+                        <span>Has desactivado los permisos de notificación. Para habilitarlos, por favor haz clic en el ícono de candado junto a la URL del navegador y cambia el permiso a "Permitir".</span>
+                      </div>
+                    )}
 
-              {userNotifications.length === 0 ? (
+                    {notificationPermission === 'default' && (
+                      <div className="flex flex-col gap-2 pt-1 border-t border-violet-100/30 font-display">
+                        <button
+                          type="button"
+                          onClick={requestNotificationPermission}
+                          className="w-full bg-violet-600 hover:bg-violet-750 text-white font-extrabold py-2.5 px-3 rounded-lg text-[11px] uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-[0.98]"
+                        >
+                          <span>Habilitar Notificaciones de Navegador</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {notificationPermission === 'granted' && (
+                      <div className="flex flex-col gap-2.5 pt-1 border-t border-violet-100/30">
+                        <div className="bg-violet-50 border border-violet-150 text-violet-850 text-[10px] p-2.5 rounded-lg flex items-center gap-1.5 font-medium leading-normal">
+                          <CheckCircle size={12} className="shrink-0 text-violet-600" />
+                          <span>¡Notificaciones Habilitadas Exitosamente para Valencia!</span>
+                        </div>
+                        <div>
+                          <button
+                            type="button"
+                            onClick={sendTestPushNotification}
+                            className="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-bold py-2.5 px-3.5 rounded-lg text-[11px] transition-colors flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.97]"
+                          >
+                            🔔 Enviar Notificación de Prueba
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {userNotifications.length === 0 ? (
                 <div className="text-center py-16 bg-zinc-50 border border-zinc-200 rounded-xl flex flex-col items-center gap-2">
                   <span className="text-3xl mt-1"></span>
                   <p className="font-semibold text-zinc-700">Tu bandeja de avisos está limpia</p>
@@ -1252,6 +1270,63 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                       </div>
                     </div>
                   ))}
+                </div>
+              ) : (
+                  /* Pestaña: Estado del Pedido */
+                  <div className="flex flex-col gap-4">
+                    <div className="p-4 bg-violet-50 border border-violet-200 rounded-xl">
+                      <h4 className="text-xs font-bold text-violet-900 mb-3">Estado de tu Pedido Reciente</h4>
+                      {orders.length === 0 ? (
+                        <p className="text-[11px] text-slate-500">No tienes pedidos activos aún.</p>
+                      ) : (
+                        <div className="flex flex-col gap-3">
+                          {orders.slice(0, 3).map(order => (
+                            <div key={order.id} className="p-3 bg-white border border-violet-100 rounded-lg">
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-[10px] font-mono text-slate-500">{order.id}</span>
+                                <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
+                                  order.status === 'Pendiente' ? 'bg-amber-100 text-amber-700' :
+                                  order.status === 'Procesando' ? 'bg-blue-100 text-blue-700' :
+                                  order.status === 'En preparación' ? 'bg-indigo-100 text-indigo-700' :
+                                  order.status === 'En camino' ? 'bg-violet-100 text-violet-700' :
+                                  'bg-green-100 text-green-700'
+                                }`}>{order.status}</span>
+                              </div>
+                              <div className="text-[10px] text-slate-600 mb-2">${order.total_usd?.toFixed(2)} USD</div>
+                              <a href={`https://wa.me/${config.telefono_soporte.replace(/\D/g, '')}?text=${encodeURIComponent(`Hola, necesito info de mi pedido ${order.id}`)}`} target="_blank" className="text-[10px] text-violet-600 font-bold hover:underline">
+                                Contactar por WhatsApp →
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              {/* Pestaña Estado del Pedido */}
+              {notifSubTab === 'orders' && (
+                <div className="p-4 bg-violet-50 border border-violet-200 rounded-xl">
+                  <h4 className="text-xs font-bold text-violet-900 mb-3">Tu Pedido Reciente</h4>
+                  {orders.length === 0 ? (
+                    <p className="text-[11px] text-slate-500">No tienes pedidos activos.</p>
+                  ) : (
+                    orders.slice(0, 2).map(order => (
+                      <div key={order.id} className="p-3 bg-white border border-violet-100 rounded-lg mb-2">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[10px] font-mono text-slate-600">{order.id}</span>
+                          <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
+                            order.status === 'Pendiente' ? 'bg-amber-100 text-amber-700' :
+                            order.status === 'Procesando' ? 'bg-blue-100 text-blue-700' :
+                            order.status === 'En preparación' ? 'bg-indigo-100 text-indigo-700' :
+                            order.status === 'En camino' ? 'bg-violet-100 text-violet-700' :
+                            'bg-green-100 text-green-700'
+                          }`}>{order.status}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-700">${order.total_usd?.toFixed(2)} USD</div>
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
 

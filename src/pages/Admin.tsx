@@ -3,10 +3,10 @@ import { useApp } from '../store/AppContext';
 import { Producto, Order, OrderItem, AppUser } from '../types/store';
 import { supabase, uploadFileToStorage, compressImage, getPublicUrl } from '../store/supabaseClient';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line } from 'recharts';
-import { 
+import {
   Plus, Edit, Trash2, Landmark, Settings, ShoppingBag, BarChart3, Mic, FileJson,
   Search, CheckCircle, Truck, PackageCheck, AlertTriangle, Send, Bell, Ticket,
-  Receipt, Printer, Check, X, MessageSquare, ExternalLink, Upload, DollarSign, Package, ShoppingCart, User, Download, FileSpreadsheet, Eye, EyeOff, Calendar, AlertCircle, RefreshCcw
+  Receipt, Printer, Check, X, MessageSquare, MessageCircle, ExternalLink, Upload, DollarSign, Package, ShoppingCart, User, Download, FileSpreadsheet, Eye, EyeOff, Calendar, AlertCircle, RefreshCcw
 } from 'lucide-react';
 import { SEOHead } from '../components/SEOHead';
 import { EditProductForm } from '../components/EditProductForm';
@@ -49,6 +49,10 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
   const [openOrderDetailIds, setOpenOrderDetailIds] = useState<string[]>([]);
   const [statusUpdateTarget, setStatusUpdateTarget] = useState<{id: string, nextStatus: Order['status']} | null>(null);
   const [estimatedTimeInput, setEstimatedTimeInput] = useState('');
+
+  // Estado para Chat de Notificaciones
+  const [activeChatPhone, setActiveChatPhone] = useState<string | null>(null);
+  const [replyMessage, setReplyMessage] = useState('');
 
   // State para edición de items de pedido
   const [editingOrderItems, setEditingOrderItems] = useState<Order | null>(null);
@@ -1451,66 +1455,177 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               </form>
             </div>
 
-            {/* Columna Derecha: Bandeja de Entrada (Mensajes de Tienda) */}
-            <div className="flex flex-col gap-4 bg-slate-50 p-5 rounded-2xl border border-slate-200">
-              <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-                <div className="flex items-center gap-2">
-                  <Bell size={18} className="text-violet-600" />
-                  <h3 className="text-sm font-bold text-slate-900 uppercase">Mensajes Recibidos</h3>
-                </div>
-                <button onClick={() => clearAllNotifications()} className="text-[9px] font-bold text-slate-400 hover:text-red-500 uppercase">Limpiar todo</button>
-              </div>
-              
-              <div className="flex flex-col gap-3 max-h-[500px] overflow-y-auto pr-2 no-scrollbar">
-                {notifications.filter(n => n.tipo !== 'admin').length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 text-xs italic">No hay mensajes ni difusiones recientes.</div>
-                ) : (
-                  notifications.filter(n => n.tipo !== 'admin').map(msg => (
-                    <div key={msg.id} className={`p-4 bg-white border rounded-2xl flex flex-col gap-2 transition-all ${msg.leida ? 'opacity-60 border-slate-200' : 'border-violet-200 shadow-md ring-1 ring-violet-500/5'}`}>
-                      <div className="flex justify-between items-center">
-                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${msg.tipo === 'request' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'}`}>
-                          {msg.tipo === 'request' ? 'Solicitud' : msg.tipo === 'todos' ? 'Broadcast' : 'Personal'}
-                        </span>
-                        {msg.tipo === 'todos' && (
-                          <span className="flex items-center gap-1 text-[9px] font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full border border-violet-100" title="Total de aperturas/clics">
-                            <Eye size={10} />
-                            {(msg as any).click_count || 0} clics
-                          </span>
-                        )}
-                        <span className="text-[9px] text-slate-400 font-mono">{msg.fecha}</span>
+            {/* NUEVA UI: Chat de Conversación por Cliente */}
+            {(() => {
+              // Obtener clientes únicos de las notificaciones
+              const phonesWithMessages = [...new Set(notifications.filter(n => n.destinatario_telefono && n.tipo !== 'admin').map(n => n.destinatario_telefono!))];
+              const broadcastNotifs = notifications.filter(n => n.tipo === 'todos');
+              const broadcastCount = broadcastNotifs.length;
+
+              const getClientMessages = (phone: string) =>
+                notifications.filter(n => n.destinatario_telefono === phone).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+
+              const getLastMessage = (phone: string) => {
+                const msgs = getClientMessages(phone);
+                return msgs[msgs.length - 1];
+              };
+
+              const handleSendReply = async () => {
+                if (!activeChatPhone || !replyMessage.trim()) return;
+                const sentTitle = `Re: Tu mensaje`;
+                const success = await addNotification(sentTitle, replyMessage.trim(), 'personal', activeChatPhone, '', '');
+                if (success) {
+                  setReplyMessage('');
+                }
+              };
+
+              const handleDeleteClientMessages = () => {
+                if (!activeChatPhone) return;
+                const clientNotifs = notifications.filter(n => n.destinatario_telefono === activeChatPhone);
+                clientNotifs.forEach(n => deleteNotification(n.id));
+                setActiveChatPhone(null);
+              };
+
+              return (
+                <div className="flex gap-4 h-[600px]">
+                  {/* Sidebar: Lista de clientes */}
+                  <div className="w-1/3 flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 bg-violet-50">
+                      <div className="flex items-center gap-2 mb-3">
+                        <MessageSquare size={16} className="text-violet-600" />
+                        <h3 className="text-xs font-bold text-slate-800 uppercase">Conversaciones</h3>
+                        <span className="ml-auto text-[10px] bg-violet-200 text-violet-800 px-2 py-0.5 rounded-full font-bold">{phonesWithMessages.length}</span>
                       </div>
-                      <h4 className="text-xs font-bold text-slate-800">{msg.titulo}</h4>
-                      <p className="text-[11px] text-slate-600 leading-relaxed whitespace-pre-wrap">{msg.mensaje}</p>
-                      <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-slate-50">
-                        {msg.destinatario_telefono && (
-                          msg.destinatario_telefono !== config.telefono_soporte && (
-                            <a 
-                              href={`https://wa.me/${msg.destinatario_telefono.replace(/\D/g, '')}`} 
-                              target="_blank" 
-                              className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-lg text-[10px] font-bold hover:bg-emerald-100 transition-colors"
-                            >
-                              <MessageSquare size={12} /> WhatsApp
-                            </a>
-                          )
-                        )}
-                        {msg.link_url && (
-                          <a 
-                            href={msg.link_url} 
-                            className="flex items-center gap-1.5 bg-violet-50 text-violet-700 border border-violet-200 px-3 py-1.5 rounded-lg text-[10px] font-bold hover:bg-violet-100 transition-colors"
-                          >
-                            <ExternalLink size={12} /> Ver Enlace
-                          </a>
-                        )}
-                        <button 
-                          onClick={() => toggleNotificationReadStatus(msg.id)} 
-                          className="bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-colors"
+                      {broadcastCount > 0 && (
+                        <button
+                          onClick={() => setActiveChatPhone('broadcast')}
+                          className={`w-full text-left p-2.5 rounded-xl text-xs font-bold mb-2 transition-all ${activeChatPhone === 'broadcast' ? 'bg-violet-600 text-white shadow-lg' : 'bg-white border border-violet-200 text-violet-700 hover:bg-violet-50'}`}
                         >
-                          {msg.leida ? 'Pendiente' : 'Leído'}
+                          📢 Broadcasts ({broadcastCount})
                         </button>
-                      </div>
+                      )}
                     </div>
-                  ))
-                )}
+                    <div className="flex-1 overflow-y-auto">
+                      {phonesWithMessages.length === 0 ? (
+                        <div className="text-center py-12 text-slate-400 text-xs italic px-4">No hay conversaciones de clientes aún.</div>
+                      ) : (
+                        phonesWithMessages.map(phone => {
+                          const lastMsg = getLastMessage(phone);
+                          const unread = getClientMessages(phone).filter(m => !m.leida).length;
+                          return (
+                            <button
+                              key={phone}
+                              onClick={() => setActiveChatPhone(phone)}
+                              className={`w-full text-left p-3 border-b border-slate-50 hover:bg-slate-50 transition-all ${activeChatPhone === phone ? 'bg-violet-50 border-l-4 border-l-violet-600' : ''}`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-slate-800">{phone}</span>
+                                {unread > 0 && <span className="w-5 h-5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{unread}</span>}
+                              </div>
+                              <p className="text-[10px] text-slate-500 truncate mt-1">{lastMsg?.mensaje || 'Sin mensajes'}</p>
+                              <p className="text-[9px] text-slate-400 mt-1">{lastMsg?.fecha}</p>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Área de Chat */}
+                  <div className="w-2/3 flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                    {activeChatPhone ? (
+                      <>
+                        {/* Header del chat */}
+                        <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-violet-100 rounded-full flex items-center justify-center">
+                              <User size={18} className="text-violet-600" />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-bold text-slate-800">{activeChatPhone === 'broadcast' ? '📢 Todos los Clientes' : activeChatPhone}</h4>
+                              <p className="text-[10px] text-slate-500">
+                                {activeChatPhone === 'broadcast' ? `${broadcastCount} mensajes broadcast` : `${getClientMessages(activeChatPhone).length} mensajes`}
+                              </p>
+                            </div>
+                          </div>
+                          {activeChatPhone !== 'broadcast' && (
+                            <div className="flex gap-2">
+                              <a href={`https://wa.me/${activeChatPhone.replace(/\D/g, '')}`} target="_blank" className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-colors" title="WhatsApp">
+                                <MessageCircle size={16} />
+                              </a>
+                              <button onClick={handleDeleteClientMessages} className="p-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 transition-colors" title="Eliminar conversación">
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Mensajes como burbujas */}
+                        <div className="flex-1 overflow-y-auto p-4 bg-slate-50 flex flex-col gap-3">
+                          {(activeChatPhone === 'broadcast' ? broadcastNotifs : getClientMessages(activeChatPhone)).sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()).map(msg => (
+                            <div key={msg.id} className={`flex ${msg.tipo === 'admin' ? 'justify-end' : 'justify-start'}`}>
+                              <div className={`max-w-[75%] ${msg.tipo === 'admin' ? 'order-2' : 'order-1'}`}>
+                                {/*如果是admin的消息显示在右边，个人的显示在左边*/}
+                                <div className={`p-3 rounded-2xl ${msg.tipo === 'admin' ? 'bg-violet-600 text-white rounded-br-md' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-md'}`}>
+                                  {/* Imagen si existe */}
+                                  {msg.imagen_url && (
+                                    <div className="mb-2">
+                                      <img src={msg.imagen_url} alt="Imagen" className="w-full max-h-40 object-cover rounded-xl" />
+                                    </div>
+                                  )}
+                                  {/* Título */}
+                                  {msg.titulo && <p className="text-xs font-bold mb-1">{msg.titulo}</p>}
+                                  {/* Mensaje */}
+                                  <p className="text-xs leading-relaxed whitespace-pre-wrap">{msg.mensaje}</p>
+                                  {/* Link si existe */}
+                                  {msg.link_url && (
+                                    <a href={msg.link_url} target="_blank" className={`flex items-center gap-1 mt-2 text-[10px] font-bold ${msg.tipo === 'admin' ? 'text-violet-200' : 'text-violet-600'}`}>
+                                      <ExternalLink size={10} /> Ver oferta
+                                    </a>
+                                  )}
+                                </div>
+                                <p className={`text-[9px] mt-1 ${msg.tipo === 'admin' ? 'text-right text-violet-400' : 'text-left text-slate-400'}`}>
+                                  {msg.fecha}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Input para responder (solo si no es broadcast) */}
+                        {activeChatPhone !== 'broadcast' && (
+                          <div className="p-3 border-t border-slate-100 bg-white flex gap-2">
+                            <input
+                              type="text"
+                              value={replyMessage}
+                              onChange={(e) => setReplyMessage(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && handleSendReply()}
+                              placeholder="Escribir respuesta..."
+                              className="flex-1 bg-slate-50 border border-slate-200 rounded-full px-4 py-2 text-xs outline-none focus:border-violet-500"
+                            />
+                            <button
+                              onClick={handleSendReply}
+                              disabled={!replyMessage.trim()}
+                              className="p-2.5 bg-violet-600 text-white rounded-full hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                              <Send size={14} />
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="flex-1 flex items-center justify-center text-slate-400">
+                        <div className="text-center">
+                          <MessageSquare size={48} className="mx-auto mb-3 opacity-30" />
+                          <p className="text-xs">Selecciona una conversación</p>
+                          <p className="text-[10px] mt-1">o revisa los broadcasts</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
               </div>
             </div>
           </div>

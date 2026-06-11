@@ -488,7 +488,7 @@ ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
 -- Permisos base (mínimos necesarios — las RLS controlan el acceso real)
 -- anon: solo lectura de catálogo público (store_config, products, notifications tipo=todos)
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
-GRANT SELECT ON store_config, products, notifications, coupons, usuarios_clientes TO anon;
+GRANT SELECT, INSERT ON store_config, products, notifications, coupons, usuarios_clientes TO anon;
 GRANT SELECT, INSERT, UPDATE ON orders TO anon;
 GRANT SELECT, INSERT, UPDATE ON push_subscriptions TO anon;
 -- authenticated: acceso completo a sus propios datos (controlado por RLS)
