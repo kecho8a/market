@@ -157,18 +157,16 @@ export const onRequestPost: any = async (context: any) => {
       });
     }
 
-    // 5. Payload Web Push compatible con sw-push.js
-    // Usar URL absoluta para sonido (el archivo local /sounds/notification.mp3 está vacío)
+    // 5. Payload Web Push - simplificar para máximo compatibility
     const payloadForSW = {
-      titulo: titulo,
-      mensaje: mensaje,
+      title: titulo,      // Web Push estándar usa "title"
+      body: mensaje,     // Web Push estándar usa "body"
       link_url: linkUrl,
-      imagen_url: record.imagen_url || null,
       tag: String(record.id),
       id: String(record.id),
-      requireInteraction: true,
-      badge: '/badge.png',
-      sound: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'
+      requireInteraction: false,  // Reduce problemas en algunos browsers
+      silent: false,               // Permite sonido
+      sound_url: 'default'        // Sonido por defecto del sistema
     };
 
     // 6. Enviar a cada suscripción en paralelo
