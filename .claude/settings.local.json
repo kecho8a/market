@@ -12,7 +12,8 @@
       "Bash(curl -sv https://market-cbh.pages.dev/api/push-notify)",
       "Bash(node -e \"fetch\\(''https://market-cbh.pages.dev/api/push-notify''\\).then\\(r=>r.text\\(\\)\\).then\\(console.log\\).catch\\(e=>console.error\\(e.message\\)\\)\")",
       "Bash(node -e \":*)",
-      "Bash(ls e:/market1/*.sql)"
+      "Bash(ls e:/market1/*.sql)",
+      "Bash(node test-push.js)"
     ]
   }
 }
