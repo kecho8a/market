@@ -440,6 +440,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
       {/* Delivery Timeline Modal (llamativo, animado) */}
       {showOrderTimelineModal && modalOrder && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm">
+
           <motion.div
             initial={{ opacity: 0, y: 22, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -605,8 +606,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
           </motion.div>
         </div>
       )}
+
       {/* Title */}
       <div>
+
         <span className="text-[10px] font-mono text-violet-600 font-bold uppercase tracking-wider">Espacio del Cliente</span>
         <h2 className="text-xl font-bold font-display text-zinc-900">Panel de Usuario Inteligente</h2>
       </div>
@@ -1195,97 +1198,97 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                     )}
                   </div>
 
-                <>
-
                   {userNotifications.length === 0 ? (
-                <div className="text-center py-16 bg-zinc-50 border border-zinc-200 rounded-xl flex flex-col items-center gap-2">
-                  <span className="text-3xl mt-1"></span>
-                  <p className="font-semibold text-zinc-700">Tu bandeja de avisos está limpia</p>
-                  <p className="text-[11px] text-zinc-400 max-w-xs mt-0.5 leading-relaxed">
-                    Aquí enviaremos ofertas inmediatas en quesos, carnes frescas, embutidos y cupones de despacho gratuito en el Gran Valencia.
-                  </p>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {userNotifications.map(notif => (
-                    <div 
-                      key={notif.id} 
-                      onClick={() => registerNotificationClick(notif.id)}
-                      className={`p-3.5 border rounded-xl flex items-start gap-3 relative shadow-xs transition-colors ${
-                        notif.leida 
-                          ? 'bg-zinc-50/40 border-zinc-200 text-zinc-700' 
-                          : 'bg-violet-50/10 border-violet-200 text-zinc-950 ring-1 ring-violet-500/5'
-                      }`}
-                    >
-                      {/* Read status dot */}
-                      {!notif.leida && (
-                        <div className="absolute top-3.5 right-3.5 w-1.5 h-1.5 rounded-full bg-violet-600 animate-pulse" />
-                      )}
-
-                      <div className="p-1.5 rounded-lg bg-violet-100/60 text-violet-600 font-bold shrink-0 mt-0.5 font-mono text-[10px]">
-                        {notif.tipo === 'personal' ? 'P' : notif.tipo === 'request' ? 'R' : 'T'}
-                      </div>
-
-                      <div className="flex-1 flex flex-col gap-1 pr-4">
-                        <div className="flex items-center gap-1.5">
-                          <h4 className="font-bold text-zinc-800 text-[12px] pr-2">{notif.titulo}</h4>
-                          {notif.tipo === 'personal' && (
-                            <span className="text-[8px] bg-indigo-50 border border-indigo-200 text-indigo-600 px-1 py-0.2 rounded font-mono font-bold tracking-tight uppercase">Personal</span>
-                          )}
-                          {notif.tipo === 'todos' && (
-                            <span className="text-[8px] bg-violet-50 border border-violet-200 text-violet-600 px-1 py-0.2 rounded font-mono font-bold tracking-tight uppercase">Promo</span>
-                          )}
-                          {notif.tipo === 'request' && (
-                            <span className="text-[8px] bg-amber-50 border border-amber-200 text-amber-600 px-1 py-0.2 rounded font-mono font-bold tracking-tight uppercase">Solicitud</span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-zinc-650 leading-relaxed font-sans mt-0.5">{notif.mensaje}</p>
-                        <span className="text-[9px] font-mono text-zinc-400 mt-1">{notif.fecha}</span>
-                      </div>
-
-                      <div className="absolute bottom-3 right-3 flex gap-2 items-center">
-                        {/* Action mark as read */}
-                        {!notif.leida && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation(); // Evita que se cuente como clic al marcar leída
-                              markNotificationAsRead(notif.id);
-                            }}
-                            className="text-[10px] text-violet-600 hover:text-violet-800 hover:underline font-bold"
-                          >
-                            Marcar leída
-                          </button>
-                        )}
-
-                        {/* Delete notification (borrar mensajes) */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const ok = confirm('¿Seguro que deseas borrar este mensaje del panel?');
-                            if (ok) deleteNotification(notif.id);
-                          }}
-                          className="text-[10px] text-rose-600 hover:text-rose-800 hover:underline font-bold"
-                          title="Borrar mensaje"
-                        >
-                          Borrar
-                        </button>
-                      </div>
+                    <div className="text-center py-16 bg-zinc-50 border border-zinc-200 rounded-xl flex flex-col items-center gap-2">
+                      <span className="text-3xl mt-1"></span>
+                      <p className="font-semibold text-zinc-700">Tu bandeja de avisos está limpia</p>
+                      <p className="text-[11px] text-zinc-400 max-w-xs mt-0.5 leading-relaxed">
+                        Aquí enviaremos ofertas inmediatas en quesos, carnes frescas, embutidos y cupones de despacho gratuito en el Gran Valencia.
+                      </p>
                     </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Pestaña Estado del Pedido */}
-              {notifSubTab === 'orders' && (
-                <div className="p-4 bg-violet-50 border border-violet-200 rounded-xl">
-                  <h4 className="text-xs font-bold text-violet-900 mb-3">Tu Pedido Reciente</h4>
-                  {orders.length === 0 ? (
-                    <p className="text-[11px] text-slate-500">No tienes pedidos activos.</p>
                   ) : (
-                    orders.slice(0, 2).map(order => (
-                      <div key={order.id} className="p-3 bg-white border border-violet-100 rounded-lg mb-2">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-[10px] font-mono text-slate-600">{order.id}</span>
+                    <div className="flex flex-col gap-3">
+                      {userNotifications.map((notif) => (
+                        <div 
+                          key={notif.id} 
+                          onClick={() => registerNotificationClick(notif.id)}
+                          className={`p-3.5 border rounded-xl flex items-start gap-3 relative shadow-xs transition-colors ${
+                            notif.leida 
+                              ? 'bg-zinc-50/40 border-zinc-200 text-zinc-700' 
+                              : 'bg-violet-50/10 border-violet-200 text-zinc-950 ring-1 ring-violet-500/5'
+                          }`}
+                        >
+                          {/* Read status dot */}
+                          {!notif.leida && (
+                            <div className="absolute top-3.5 right-3.5 w-1.5 h-1.5 rounded-full bg-violet-600 animate-pulse" />
+                          )}
+
+                          <div className="p-1.5 rounded-lg bg-violet-100/60 text-violet-600 font-bold shrink-0 mt-0.5 font-mono text-[10px]">
+                    {notif.tipo === 'personal' ? 'P' : notif.tipo === 'request' ? 'R' : 'T'}
+                  </div>
+
+                          <div className="flex-1 flex flex-col gap-1 pr-4">
+                            <div className="flex items-center gap-1.5">
+                              <h4 className="font-bold text-zinc-800 text-[12px] pr-2">{notif.titulo}</h4>
+                              {notif.tipo === 'personal' && (
+                                <span className="text-[8px] bg-indigo-50 border border-indigo-200 text-indigo-600 px-1 py-0.2 rounded font-mono font-bold tracking-tight uppercase">Personal</span>
+                              )}
+                              {notif.tipo === 'todos' && (
+                                <span className="text-[8px] bg-violet-50 border border-violet-200 text-violet-600 px-1 py-0.2 rounded font-mono font-bold tracking-tight uppercase">Promo</span>
+                              )}
+                              {notif.tipo === 'request' && (
+                                <span className="text-[8px] bg-amber-50 border border-amber-200 text-amber-600 px-1 py-0.2 rounded font-mono font-bold tracking-tight uppercase">Solicitud</span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-zinc-650 leading-relaxed font-sans mt-0.5">{notif.mensaje}</p>
+                            <span className="text-[9px] font-mono text-zinc-400 mt-1">{notif.fecha}</span>
+                          </div>
+
+                          <div className="absolute bottom-3 right-3 flex gap-2 items-center">
+                            {/* Action mark as read */}
+                            {!notif.leida && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation(); // Evita que se cuente como clic al marcar leída
+                                  markNotificationAsRead(notif.id);
+                                }}
+                                className="text-[10px] text-violet-600 hover:text-violet-800 hover:underline font-bold"
+                              >
+                                Marcar leída
+                              </button>
+                            )}
+
+                            {/* Delete notification (borrar mensajes) */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const ok = confirm('¿Seguro que deseas borrar este mensaje del panel?');
+                                if (ok) deleteNotification(notif.id);
+                              }}
+                              className="text-[10px] text-rose-600 hover:text-rose-800 hover:underline font-bold"
+                              title="Borrar mensaje"
+                            >
+                              Borrar
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* Pestaña Estado del Pedido */}
+                  {notifSubTab === 'orders' && (
+                    <div className="p-4 bg-violet-50 border border-violet-200 rounded-xl">
+                      <h4 className="text-xs font-bold text-violet-900 mb-3">Tu Pedido Reciente</h4>
+                      {orders.length === 0 ? (
+                        <p className="text-[11px] text-slate-500">No tienes pedidos activos.</p>
+                      ) : (
+                        orders.slice(0, 2).map(order => (
+                          <div key={order.id} className="p-3 bg-white border border-violet-100 rounded-lg mb-2">
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="text-[10px] font-mono text-slate-600">{order.id}</span>
                           <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
                             order.status === 'Pendiente' ? 'bg-amber-100 text-amber-700' :
                             order.status === 'Procesando' ? 'bg-blue-100 text-blue-700' :
@@ -1299,6 +1302,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                     ))
                   )}
                 </div>
+                  )}
+                </>
               )}
 
               {/* Direct Message Module from User to Business */}
