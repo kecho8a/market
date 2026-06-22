@@ -424,7 +424,7 @@ const DEFAULT_CONFIG: StoreConfig = {
   transferencia_enabled: true,
   transferencia_data: 'Banesco Cuenta Corriente - 0134-1122-33-4455667788 - Marketo C.A. - RIF J-50123456-7',
   transferencia_discount_percent: 0,
-  tasa_cambio: 36.50,
+  tasa_cambio: 612.43,
   logo_url: '',
   theme_color: '#ffffff', // Neutral white to remove top purple bar
   mensaje_bienvenida: 'Encuentra los mejores cortes de carne, quesos madurados y viveres frescos con delivery express en Valencia.',
@@ -897,10 +897,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('trv_favorites', JSON.stringify(favorites));
   }, [favorites]);
 
-  // Daily Exchange Rate Update Routine
-  const fetchExchangeRate = async () => {
+  // Daily Exchange Rate Update Routine (BCV Oficial)
+  const fetchExchangeRate = async (retryCount = 0): Promise<boolean> => {
+    const MAX_RETRIES = 2;
     const endpoints = [
-      'https://ve.dolarapi.com/v1/dolares/oficiales',
+      'https://ve.dolarapi.com/v1/dolares',
       'https://pydolarve.org/api/v1/dollar'
     ];
 
@@ -908,7 +909,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         console.log(`🔍 Marketo: Intentando obtener tasa BCV desde ${url}...`);
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000);
+        const timeout = setTimeout(() => controller.abort(), 10000);
         const response = await fetch(url, { signal: controller.signal });
         clearTimeout(timeout);
 
@@ -917,32 +918,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let newRate: number | null = null;
 
         if (Array.isArray(data)) {
-          const oficial = data.find((d: any) => d.nombre === 'Oficial');
-          if (oficial) newRate = parseFloat(oficial.venta || oficial.compra);
+          const oficial = data.find((d: any) => d.nombre === 'Oficial' || d.fuente === 'oficial');
+          if (oficial) {
+            newRate = parseFloat(oficial.promedio || oficial.venta || oficial.compra);
+          }
         } else if (data && typeof data === 'object') {
           if (data.venta) newRate = parseFloat(data.venta);
           else if (data.valor) newRate = parseFloat(data.valor);
           else if (data.dollar && data.dollar.price) newRate = parseFloat(data.dollar.price);
+          else if (data.promedio) newRate = parseFloat(data.promedio);
         }
 
-        if (newRate && !isNaN(newRate) && newRate > 1 && newRate < 1000) {
+        // Validar: debe ser un número razonable para Bs/USD en Venezuela (actual ~600+)
+        if (newRate && !isNaN(newRate) && newRate > 10 && newRate < 10000) {
           updateExchangeRate(newRate);
-          localStorage.setItem('trv_last_rate_fetch', new Date().toDateString());
-          console.log(`✅ Tasa BCV actualizada automáticamente: ${newRate} Bs.`);
-          return;
+          const now = Date.now();
+          localStorage.setItem('trv_last_rate_fetch', now.toString());
+          console.log(`✅ Tasa BCV actualizada automáticamente: ${newRate} Bs/USD.`);
+          return true;
         }
       } catch (error: any) {
         console.warn(`⚠️ Marketo: Error con ${url}:`, error.message || error);
       }
     }
-    console.error('❌ Marketo: No se pudo obtener la tasa BCV de ninguna fuente.');
+
+    // Reintentar si quedan intentos
+    if (retryCount < MAX_RETRIES) {
+      console.log(`🔄 Marketo: Reintentando obtener tasa BCV (intento ${retryCount + 2}/${MAX_RETRIES + 1})...`);
+      await new Promise(r => setTimeout(r, 3000));
+      return fetchExchangeRate(retryCount + 1);
+    }
+
+    console.error('❌ Marketo: No se pudo obtener la tasa BCV de ninguna fuente tras varios intentos.');
+    return false;
+  };
+
+  // Verificar si la tasa necesita actualización
+  const needsRateUpdate = (): boolean => {
+    const lastFetch = localStorage.getItem('trv_last_rate_fetch');
+    if (!lastFetch) return true;
+    const lastFetchTime = parseInt(lastFetch, 10);
+    if (isNaN(lastFetchTime)) return true;
+    // Actualizar si pasaron más de 4 horas desde la última obtención exitosa
+    const FOUR_HOURS = 4 * 60 * 60 * 1000;
+    return Date.now() - lastFetchTime > FOUR_HOURS;
   };
 
   useEffect(() => {
     const initData = async () => {
       setIsGlobalLoading(true);
-      const lastFetch = localStorage.getItem('trv_last_rate_fetch');
-      const today = new Date().toDateString();
 
       // BUG FIX: Si es admin, cargar TODO. Obtener sesión primero.
       const { data: { session } } = await supabase.auth.getSession();
@@ -1027,12 +1051,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (dbNotifs) setNotifications(dbNotifs as InAppNotification[]);
       }
 
-      if (lastFetch !== today) {
+      if (needsRateUpdate()) {
         await fetchExchangeRate();
       }
       setIsGlobalLoading(false);
     };
     initData();
+
+    // Intervalo: re-intentar cada 30 minutos si la tasa no se ha actualizado
+    const rateInterval = setInterval(() => {
+      if (needsRateUpdate()) {
+        fetchExchangeRate();
+      }
+    }, 30 * 60 * 1000); // 30 minutos
+
+    return () => clearInterval(rateInterval);
   }, [currentUser, isAdminAuthenticated]); // Re-ejecutar al cambiar login o admin
 
   const toggleFavorite = (partId: string) => {
@@ -1722,7 +1755,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateExchangeRate = (rate: number) => {
-    if (isNaN(rate) || rate <= 0 || rate > 1000) {
+    if (isNaN(rate) || rate <= 10 || rate > 10000) {
       console.warn('Tasa de cambio rechazada por seguridad:', rate);
       return;
     }

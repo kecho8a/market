@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS store_config (
     transferencia_enabled BOOLEAN NOT NULL DEFAULT TRUE,
     transferencia_data TEXT NOT NULL DEFAULT 'Banesco Cuenta Corriente - 0134-1122-33-4455667788 - Marketo C.A. - RIF J-50123456-7',
     transferencia_discount_percent NUMERIC(5,2) NOT NULL DEFAULT 0.00,
-    tasa_cambio NUMERIC(10,2) NOT NULL DEFAULT 36.50,
+    tasa_cambio NUMERIC(10,2) NOT NULL DEFAULT 612.43,
     logo_url TEXT DEFAULT '',
     theme_color VARCHAR(10) NOT NULL DEFAULT '#ffffff',
     favicon_url TEXT DEFAULT '',

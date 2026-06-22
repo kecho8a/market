@@ -33,6 +33,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
     addNotification,
     requestPart,
     deleteNotification,
+    clearAllNotifications,
     hapticEnabled,
     toggleHaptic
   } = useApp();
@@ -195,6 +196,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
   const [showReminderPassword, setShowReminderPassword] = useState(false);
 
   const [directMsg, setDirectMsg] = useState('');
+  const [selectedNotification, setSelectedNotification] = useState<any>(null);
 
   const handleCopyText = (text: string, type: 'name' | 'phone' | 'password' | 'all') => {
     navigator.clipboard.writeText(text);
@@ -1207,12 +1209,29 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                       </p>
                     </div>
                   ) : (
-                    <div className="flex flex-col gap-3">
+                    <>
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm('¿Seguro que deseas borrar todas las notificaciones?')) {
+                              clearAllNotifications();
+                            }
+                          }}
+                          className="flex items-center gap-1.5 text-[10px] text-rose-500 hover:text-rose-700 font-bold transition-colors cursor-pointer"
+                        >
+                          <Trash2 size={12} /> Borrar todas
+                        </button>
+                      </div>
+                      <div className="flex flex-col gap-3">
                       {userNotifications.map((notif) => (
                         <div 
                           key={notif.id} 
-                          onClick={() => registerNotificationClick(notif.id)}
-                          className={`p-3.5 border rounded-xl flex items-start gap-3 relative shadow-xs transition-colors ${
+                          onClick={() => {
+                            registerNotificationClick(notif.id);
+                            setSelectedNotification(notif);
+                          }}
+                          className={`p-3.5 border rounded-xl flex items-start gap-3 relative shadow-xs transition-colors cursor-pointer hover:shadow-md ${
                             notif.leida 
                               ? 'bg-zinc-50/40 border-zinc-200 text-zinc-700' 
                               : 'bg-violet-50/10 border-violet-200 text-zinc-950 ring-1 ring-violet-500/5'
@@ -1273,7 +1292,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                           </div>
                         </div>
                       ))}
-                    </div>
+                      </div>
+                    </>
                   )}
                 </>
               ) : (
@@ -1354,6 +1374,112 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* NOTIFICATION DETAIL MODAL */}
+      {selectedNotification && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/55 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, y: 22, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="w-full max-w-md bg-white border border-zinc-200 rounded-2xl shadow-2xl overflow-hidden"
+          >
+            <div className="p-5 bg-gradient-to-br from-violet-600 to-violet-800 text-white flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="w-11 h-11 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center">
+                  <Mail size={18} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-wider">
+                    {selectedNotification.titulo}
+                  </h3>
+                  <p className="text-[11px] text-white/80 mt-0.5 font-mono">
+                    {selectedNotification.fecha}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedNotification(null)}
+                className="text-white/90 hover:text-white transition cursor-pointer rounded-lg p-1.5 bg-white/10 border border-white/15"
+                aria-label="Cerrar"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-5 flex flex-col gap-4 text-xs text-zinc-800">
+              {/* Type badge */}
+              <div className="flex items-center gap-2">
+                {selectedNotification.tipo === 'personal' && (
+                  <span className="text-[10px] bg-indigo-50 border border-indigo-200 text-indigo-600 px-2 py-0.5 rounded font-mono font-bold tracking-tight uppercase">Personal</span>
+                )}
+                {selectedNotification.tipo === 'todos' && (
+                  <span className="text-[10px] bg-violet-50 border border-violet-200 text-violet-600 px-2 py-0.5 rounded font-mono font-bold tracking-tight uppercase">Promo</span>
+                )}
+                {selectedNotification.tipo === 'request' && (
+                  <span className="text-[10px] bg-amber-50 border border-amber-200 text-amber-600 px-2 py-0.5 rounded font-mono font-bold tracking-tight uppercase">Solicitud</span>
+                )}
+                {selectedNotification.leida ? (
+                  <span className="text-[10px] bg-green-50 border border-green-200 text-green-600 px-2 py-0.5 rounded font-mono font-bold">Leída</span>
+                ) : (
+                  <span className="text-[10px] bg-red-50 border border-red-200 text-red-600 px-2 py-0.5 rounded font-mono font-bold">No leída</span>
+                )}
+              </div>
+
+              {/* Full message content */}
+              <div className="p-4 bg-zinc-50/60 border border-zinc-200 rounded-xl">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 font-mono block mb-2">
+                  Mensaje completo
+                </span>
+                <p className="text-[12px] text-zinc-700 leading-relaxed font-sans whitespace-pre-wrap">
+                  {selectedNotification.mensaje}
+                </p>
+              </div>
+
+              {/* Link */}
+              {selectedNotification.link_url && (
+                <a
+                  href={selectedNotification.link_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 p-3 bg-violet-50 border border-violet-200 rounded-lg text-violet-700 text-[11px] font-bold hover:bg-violet-100 transition-colors"
+                >
+                  <ExternalLink size={14} /> Ver enlace adjunto
+                </a>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-2">
+                {!selectedNotification.leida && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      markNotificationAsRead(selectedNotification.id);
+                      setSelectedNotification({ ...selectedNotification, leida: true });
+                    }}
+                    className="flex-1 bg-violet-600 hover:bg-violet-700 text-white font-bold py-2.5 px-3 rounded-lg text-[11px] transition-colors cursor-pointer uppercase tracking-wider flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle size={14} /> Marcar leída
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm('¿Seguro que deseas borrar este mensaje?')) {
+                      deleteNotification(selectedNotification.id);
+                      setSelectedNotification(null);
+                    }
+                  }}
+                  className="flex-1 bg-white hover:bg-zinc-50 border border-zinc-200 text-rose-600 font-bold py-2.5 px-3 rounded-lg text-[11px] transition-colors cursor-pointer uppercase tracking-wider flex items-center justify-center gap-2"
+                >
+                  <Trash2 size={14} /> Borrar
+                </button>
+              </div>
+            </div>
+          </motion.div>
         </div>
       )}
 
