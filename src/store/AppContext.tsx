@@ -449,7 +449,7 @@ const DEFAULT_CONFIG: StoreConfig = {
     'Snacks y Dulces'
   ],
   push_webhook_url: 'https://market-cbh.pages.dev/api/push-notify',
-  push_webhook_secret: '5fca5a4d8825d4de66811590f47af870b01d45e80f391920f4ea76a59ae3c8bf'
+  push_webhook_secret: import.meta.env.VITE_WEBHOOK_SECRET || ''
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -507,15 +507,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return localStorage.getItem('trv_admin_auth') === 'true';
   });
 
-  const [adminUser, setAdminUser] = useState<string>(() => {
-    const saved = localStorage.getItem('trv_admin_user')?.trim();
-    return saved && saved.length > 0 ? saved : 'admin';
-  });
-
-  const [adminPass, setAdminPass] = useState<string>(() => {
-    const saved = localStorage.getItem('trv_admin_pass')?.trim();
-    return saved && saved.length > 0 ? saved : 'admin123';
-  });
+  const [adminUser] = useState<string>('admin');
+  const [adminPass] = useState<string>('admin123');
 
   const [displayCurrency, setDisplayCurrency] = useState<'USD' | 'BS'>(() => {
     return (localStorage.getItem('trv_currency') as 'USD' | 'BS') || 'USD';
@@ -904,11 +897,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('trv_favorites', JSON.stringify(favorites));
   }, [favorites]);
 
-  useEffect(() => {
-    localStorage.setItem('trv_admin_user', adminUser);
-    localStorage.setItem('trv_admin_pass', adminPass);
-  }, [adminUser, adminPass]);
-
   // Daily Exchange Rate Update Routine
   const fetchExchangeRate = async () => {
     try {
@@ -966,11 +954,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           coordenadas_tienda: { lat: dbConfig.tienda_lat, lng: dbConfig.tienda_lng },
           banners: [dbConfig.banner_url_1, dbConfig.banner_url_2, dbConfig.banner_url_3].filter(Boolean),
           pagomovil_data: dbConfig.pagomovil_data,
+          pagomovil_enabled: dbConfig.pagomovil_enabled ?? prev.pagomovil_enabled,
+          pagomovil_discount_percent: dbConfig.pagomovil_discount_percent ?? prev.pagomovil_discount_percent,
           zelle_data: dbConfig.zelle_data,
+          zelle_enabled: dbConfig.zelle_enabled ?? prev.zelle_enabled,
+          zelle_discount_percent: dbConfig.zelle_discount_percent ?? prev.zelle_discount_percent,
           efectivo_data: dbConfig.efectivo_data,
+          efectivo_enabled: dbConfig.efectivo_enabled ?? prev.efectivo_enabled,
+          efectivo_discount_percent: dbConfig.efectivo_discount_percent ?? prev.efectivo_discount_percent,
           transferencia_data: dbConfig.transferencia_data,
+          transferencia_enabled: dbConfig.transferencia_enabled ?? prev.transferencia_enabled,
+          transferencia_discount_percent: dbConfig.transferencia_discount_percent ?? prev.transferencia_discount_percent,
           push_webhook_url: dbConfig.push_webhook_url,
-          push_webhook_secret: dbConfig.push_webhook_secret
+          push_webhook_secret: dbConfig.push_webhook_secret,
+          logo_url: dbConfig.logo_url || prev.logo_url,
+          theme_color: dbConfig.theme_color || prev.theme_color,
+          favicon_url: dbConfig.favicon_url || prev.favicon_url,
+          banner_texts: dbConfig.banner_texts || prev.banner_texts,
+          categories: dbConfig.categories || prev.categories,
+          mensaje_bienvenida: dbConfig.mensaje_bienvenida || prev.mensaje_bienvenida,
+          delivery_gratis: dbConfig.delivery_gratis ?? prev.delivery_gratis,
+          costo_delivery_km: dbConfig.costo_delivery_km ?? prev.costo_delivery_km,
+          envio_nacional: dbConfig.envio_nacional ?? prev.envio_nacional,
+          costo_envio_nacional: dbConfig.costo_envio_nacional ?? prev.costo_envio_nacional
         }));
       }
 
@@ -1494,48 +1500,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const loginUser = async (identifier: string, contrasena: string): Promise<AppUser | null> => {
-    // 1. Try local list first for speed
     const cleanId = identifier.trim().toLowerCase();
-    let user = users.find(u => (u.telefono.trim() === cleanId || u.email?.toLowerCase() === cleanId) && u.contrasena.trim() === contrasena.trim());
     
-    // 2. If not found locally, check Supabase
-    if (!user) {
-      const { data, error } = await supabase
+    // Determine if identifier is email or phone
+    const isEmail = cleanId.includes('@');
+    
+    // Use Supabase Auth for secure login
+    let authEmail = cleanId;
+    if (!isEmail) {
+      // If phone number, look up the email from usuarios_clientes
+      const { data: lookupData } = await supabase
         .from('usuarios_clientes')
-        .select('*')
-        .or(`telefono.eq.${identifier},email.eq.${cleanId}`)
-        .eq('contrasena', contrasena.trim())
-        .limit(1)
+        .select('email')
+        .eq('telefono', identifier.trim())
         .single();
-        
-      if (data && !error) {
-        user = {
-          id: data.id,
-          nombre: data.nombre,
-          email: data.email,
-          telefono: data.telefono,
-          contrasena: data.contrasena,
-          createdAt: data.created_at || new Date().toISOString()
-        };
-        // Add to local state
-        setUsers(prev => {
-          const filtered = prev.filter(u => u.id !== data.id);
-          return [...filtered, user!];
-        });
+      
+      if (lookupData?.email) {
+        authEmail = lookupData.email;
+      } else {
+        return null; // No account found for this phone
       }
     }
 
-    if (user) {
-      setCurrentUser(user);
-      addNotification(
-        'Sesión Iniciada',
-        `Bienvenido de vuelta, ${user.nombre}. Accede a tus notificaciones y estatus de compras desde este panel.`,
-        'personal',
-        user.telefono
-      );
-      return user;
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: authEmail,
+      password: contrasena.trim()
+    });
+
+    if (error || !data.user) {
+      console.error('Login error:', error?.message);
+      return null;
     }
-    return null;
+
+    // Build user from Supabase Auth data
+    const user: AppUser = {
+      id: data.user.id,
+      nombre: data.user.user_metadata?.nombre || data.user.email?.split('@')[0] || 'Usuario',
+      email: data.user.email || '',
+      telefono: data.user.user_metadata?.telefono || '',
+      contrasena: 'auth_managed',
+      createdAt: data.user.created_at || new Date().toISOString()
+    };
+
+    setCurrentUser(user);
+    addNotification(
+      'Sesión Iniciada',
+      `Bienvenido de vuelta, ${user.nombre}. Accede a tus notificaciones y estatus de compras desde este panel.`,
+      'personal',
+      user.telefono
+    );
+    return user;
   };
 
   const sendPasswordResetEmail = async (email: string): Promise<{ success: boolean; error?: string }> => {

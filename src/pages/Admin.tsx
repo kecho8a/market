@@ -19,7 +19,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
   const { 
     parts, orders, config, notifications, searchPartsSemantically,
     addPart, updatePart, deletePart, updateConfig, updateExchangeRate, currentUser, syncPushSubscription,
-    updateOrderStatus, updateOrderItems, addNotification, toggleNotificationReadStatus,
+    updateOrderStatus, updateOrderItems, addNotification, toggleNotificationReadStatus, deleteNotification,
     updateAdminCredentials, adminUser, adminPass, users, updateUserByAdmin,
     addCategory, deleteCategory, updateCategory, 
     coupons, addCoupon, updateCoupon, deleteCoupon, clearAllNotifications
@@ -1483,7 +1483,9 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
 
               if (notifCatFilter === 'clientes') {
                 // Clientes: notificaciones personales de cada cliente
-                clientPhones = [...new Set(notifications.filter(n => n.destinatario_telefono && n.tipo === 'personal').map(n => n.destinatario_telefono!))];
+                const phoneSet = new Set<string>();
+                notifications.filter(n => n.destinatario_telefono && n.tipo === 'personal').forEach(n => phoneSet.add(n.destinatario_telefono!));
+                clientPhones = Array.from(phoneSet);
                 filteredNotifications = notifications.filter(n => n.destinatario_telefono && n.tipo === 'personal');
               } else if (notifCatFilter === 'grupal') {
                 // Envío Grupal: broadcasts (tipo 'todos')

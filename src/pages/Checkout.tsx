@@ -720,27 +720,22 @@ ${productosDetailText}
             <span className="text-zinc-900 font-bold font-display text-sm mb-1">Instrucciones de Pago:</span>
             {selectedPayment === 'Pago Movil' && (
               <>
-                <div>Banco: <strong className="text-zinc-900">Banesco (0134)</strong></div>
-                <div>Cedula / RIF: <strong className="text-zinc-900">J-50123456-7</strong></div>
-                <div>Telefono: <strong className="text-zinc-900">0412-4976451</strong></div>
+                <div>{config.pagomovil_data || 'Banesco (0134) - RIF J-50123456-7 - Tel: 0412-4976451'}</div>
                 <div className="text-violet-750 font-black pt-1 bg-violet-50/50 px-2 py-1 rounded inline-block mt-1">Calcular al cambio: {totalBs.toFixed(2)} Bs.</div>
               </>
             )}
             {selectedPayment === 'Zelle' && (
               <>
-                <div>Correo: <strong className="text-zinc-900">pagos@marketo.com.ve</strong></div>
-                <div>Titular: <strong className="text-zinc-900">Marketo C.A.</strong></div>
+                <div>{config.zelle_data || 'pagos@marketo.com.ve'}</div>
                 <div className="text-violet-750 font-black pt-1 bg-violet-50/50 px-2 py-1 rounded inline-block mt-1">Monto exacto: ${totalUsd.toFixed(2)} USD.</div>
               </>
             )}
             {selectedPayment === 'Efectivo' && (
-              <div className="text-zinc-700">Paga en efectivo al motorizado al momento del delivery en Valencia, o en taquilla fisica de retiro en Sector Las Acacias.</div>
+              <div className="text-zinc-700">{config.efectivo_data || 'Paga al motorizado en efectivo (USD/Bs) al recibir tu delivery'}</div>
             )}
             {selectedPayment === 'Transferencia' && (
               <>
-                <div>Banesco Cuenta Corriente:</div>
-                <div className="text-zinc-900 font-bold">0134-1122-33-4455667788</div>
-                <div>RIF: <strong className="text-zinc-900">J-50123456-7 (Marketo C.A.)</strong></div>
+                <div>{config.transferencia_data || 'Banesco Cuenta Corriente - 0134-1122-33-4455667788 - Marketo C.A.'}</div>
               </>
             )}
           </div>

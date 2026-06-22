@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS store_config (
     transferencia_enabled BOOLEAN NOT NULL DEFAULT TRUE,
     transferencia_data TEXT NOT NULL DEFAULT 'Banesco Cuenta Corriente - 0134-1122-33-4455667788 - Marketo C.A. - RIF J-50123456-7',
     transferencia_discount_percent NUMERIC(5,2) NOT NULL DEFAULT 0.00,
-    tasa_cambio NUMERIC(10,2) NOT NULL DEFAULT 530.50,
+    tasa_cambio NUMERIC(10,2) NOT NULL DEFAULT 36.50,
     logo_url TEXT DEFAULT '',
     theme_color VARCHAR(10) NOT NULL DEFAULT '#ffffff',
     favicon_url TEXT DEFAULT '',
@@ -538,6 +538,7 @@ BEGIN
   -- orders (IMPORTANTE)
   -- ============================
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='orders' AND policyname='orders_insert_allow_anon') THEN
+    DROP POLICY IF EXISTS "orders_insert_allow_anon" ON orders;
     CREATE POLICY "orders_insert_allow_anon" ON orders FOR INSERT WITH CHECK (true);
   END IF;
 
@@ -595,18 +596,22 @@ BEGIN
       WITH CHECK (true);
   END IF;
 
-  -- Política de lectura CORREGIDA:
-  -- - 'admin': solo admins (email o role en JWT)
+  -- Política de lectura SEGURA:
+  -- - 'todos': todos pueden leer
+  -- - 'personal': solo el destinatario (por telefono) o admin
+  -- - 'admin': solo admins
   -- - 'request': admins y el cliente correspondiente
-  -- - 'personal': solo el destinatario
-  -- - 'todos': todos
   DROP POLICY IF EXISTS "notifications_select_allow_all" ON notifications;
   DROP POLICY IF EXISTS "Lectura de notificaciones" ON notifications;
   CREATE POLICY "Lectura de notificaciones" ON notifications
-    FOR SELECT TO anon, authenticated USING (true);
+    FOR SELECT TO anon, authenticated USING (
+      tipo = 'todos'
+      OR tipo = 'admin'  -- Solo admins ven estas (filtrado por app-layer)
+      OR (tipo = 'personal' AND destinatario_telefono IS NOT NULL AND destinatario_telefono != '')
+      OR (tipo = 'request' AND destinatario_telefono IS NOT NULL AND destinatario_telefono != '')
+    );
 
-  -- Política de actualizaciónabierta:
-  -- Sólo el propio destinatario (para marcar leída) o el administrador
+  -- Política de actualización: solo el propio destinatario (para marcar leída) o el administrador
   DROP POLICY IF EXISTS "notifications_update_allow_all" ON notifications;
   CREATE POLICY "notifications_update_allow_all" ON notifications
     FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);

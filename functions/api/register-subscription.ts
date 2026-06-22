@@ -4,6 +4,16 @@
 
 declare const PagesFunction: any;
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+export const onRequestOptions: any = async () => {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+};
+
 export const onRequestPost: any = async (context: any) => {
   const { request, env } = context;
 
@@ -16,17 +26,16 @@ export const onRequestPost: any = async (context: any) => {
     if (!subscription || !subscription.endpoint) {
       return new Response(JSON.stringify({ error: 'Missing subscription object or endpoint' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS }
       });
     }
 
     const supabaseUrl = env.SUPABASE_URL;
     const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_ANON_KEY;
-    console.log('DEBUG register-subscription: SUPABASE_URL exists:', !!supabaseUrl, 'SUPABASE_SERVICE_ROLE_KEY exists:', !!env.SUPABASE_SERVICE_ROLE_KEY, 'SUPABASE_ANON_KEY exists:', !!env.SUPABASE_ANON_KEY);
     if (!supabaseUrl || !supabaseKey) {
-      return new Response(JSON.stringify({ error: 'Missing SUPABASE_URL or keys in env', debug: { hasUrl: !!supabaseUrl, hasServiceKey: !!env.SUPABASE_SERVICE_ROLE_KEY, hasAnonKey: !!env.SUPABASE_ANON_KEY } }), {
+      return new Response(JSON.stringify({ error: 'Server configuration error' }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS }
       });
     }
 
@@ -50,7 +59,6 @@ export const onRequestPost: any = async (context: any) => {
       existingSub = data;
     } catch (e: any) {
       // No existe - es un error "No rows found", ignorable
-      console.log('No existing subscription found for endpoint');
     }
 
     let dbError: any;
@@ -65,7 +73,6 @@ export const onRequestPost: any = async (context: any) => {
         })
         .eq('endpoint', subJSON.endpoint);
       dbError = updateError;
-      console.log('Updating existing subscription, result:', dbError ? dbError.message : 'success');
     } else {
       // Insertar nueva suscripción
       const { error: insertError } = await supabase
@@ -80,14 +87,12 @@ export const onRequestPost: any = async (context: any) => {
           created_at: new Date().toISOString()
         });
       dbError = insertError;
-      console.log('Inserting new subscription, result:', dbError ? dbError.message : 'success');
     }
 
     if (dbError) {
-      console.error('DEBUG register-subscription db error:', JSON.stringify(dbError));
-      return new Response(JSON.stringify({ error: 'Failed to save subscription', details: dbError.message }), {
+      return new Response(JSON.stringify({ error: 'Failed to save subscription' }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS }
       });
     }
 
@@ -96,16 +101,15 @@ export const onRequestPost: any = async (context: any) => {
       message: 'Subscription saved',
       anonymous_id: anonymousId
     }), {
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS }
     });
 
   } catch (error: any) {
     return new Response(JSON.stringify({
-      error: 'Error registering subscription',
-      details: error?.message || String(error)
+      error: 'Error registering subscription'
     }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS }
     });
   }
 };

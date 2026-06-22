@@ -334,8 +334,8 @@ function AppContent() {
 
           {/* 1. PREMIUM HEADER SYSTEM - Woolworths Inspired */}
           <div className="sticky top-0 z-40 flex flex-col w-full select-none shadow-sm">
-            {/* A. Top Woolworths Green Bar */}
-            <div className="bg-violet-600 text-white py-2.5 px-4 flex items-center justify-between gap-3 border-b border-violet-700">
+            {/* A. Top Header Bar */}
+            <div className="text-white py-2.5 px-4 flex items-center justify-between gap-3 border-b" style={{ backgroundColor: config.theme_color || '#0f5d34', borderColor: 'rgba(0,0,0,0.1)' }}>
               {/* Menu Trigger & Brand Logo */}
               <div className="flex items-center gap-3">
                 <button
@@ -477,7 +477,7 @@ function AppContent() {
 
               <div className="flex items-center gap-1.5 text-zinc-500 shrink-0 text-xs font-medium">
                 <MapPin size={12} className="text-violet-600" />
-                <span>Valencia • Sede Las Acacias</span>
+                <span>{config.direccion_fisica ? config.direccion_fisica.split(',').slice(-2).join(',').trim() : 'Valencia • Sede Las Acacias'}</span>
               </div>
             </div>
           </div>
