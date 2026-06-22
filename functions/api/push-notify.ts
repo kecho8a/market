@@ -181,11 +181,10 @@ export const onRequestPost: any = async (context: any) => {
           return { ok: true, endpoint: sub.endpoint };
         } catch (err: any) {
           console.error('✗ Push error:', err.statusCode, err.message || err.body);
-            await supabase
-              .from('push_subscriptions')
-              .delete()
-              .eq('endpoint', sub.endpoint);
-          }
+          await supabase
+            .from('push_subscriptions')
+            .delete()
+            .eq('endpoint', sub.endpoint);
           return {
             ok: false,
             endpoint: sub.endpoint,
