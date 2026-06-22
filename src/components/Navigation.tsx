@@ -49,7 +49,7 @@ export const Navigation: React.FC<NavigationProps> = ({
           className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors relative ${currentTab === 'home' ? 'text-violet-650 font-semibold' : 'text-zinc-500'}`}
         >
           {currentTab === 'home' && (
-            <span className="absolute -top-1 w-5 h-[2px] bg-violet-600 rounded-full" />
+            <span className="absolute -top-1 w-5 h-[2px] rounded-full" style={{ backgroundColor: config.theme_color || '#0f5d34' }} />
           )}
           <Home size={20} />
           <span className="text-[10px] mt-0.5 font-display font-medium">Inicio</span>
@@ -59,7 +59,8 @@ export const Navigation: React.FC<NavigationProps> = ({
           <button
             type="button"
             onClick={() => setTab('admin')}
-            className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors relative ${currentTab === 'admin' ? 'text-violet-650 font-semibold' : 'text-amber-600'}`}
+            className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors relative ${currentTab === 'admin' ? 'font-semibold' : ''}`}
+            style={{ color: currentTab === 'admin' ? (config.theme_color || '#0f5d34') : undefined }}
           >
             <ShieldAlert size={20} />
             <span className="text-[10px] mt-0.5 font-display font-medium">Admin</span>
@@ -70,10 +71,11 @@ export const Navigation: React.FC<NavigationProps> = ({
         <button
           type="button"
           onClick={() => setTab('catalog')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors relative ${currentTab === 'catalog' ? 'text-violet-650 font-semibold' : 'text-zinc-500'}`}
+          className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors relative ${currentTab === 'catalog' ? 'font-semibold' : 'text-zinc-500'}`}
+          style={currentTab === 'catalog' ? { color: config.theme_color || '#0f5d34' } : undefined}
         >
           {currentTab === 'catalog' && (
-            <span className="absolute -top-1 w-5 h-[2px] bg-violet-600 rounded-full" />
+            <span className="absolute -top-1 w-5 h-[2px] rounded-full" style={{ backgroundColor: config.theme_color || '#0f5d34' }} />
           )}
           <Grid size={20} />
           <span className="text-[10px] mt-0.5 font-display font-medium">Pasillos</span>
@@ -83,15 +85,16 @@ export const Navigation: React.FC<NavigationProps> = ({
         <button
           type="button"
           onClick={() => setTab('cart')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors relative ${currentTab === 'cart' ? 'text-violet-650 font-semibold' : 'text-zinc-500'}`}
+          className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors relative ${currentTab === 'cart' ? 'font-semibold' : 'text-zinc-500'}`}
+          style={currentTab === 'cart' ? { color: config.theme_color || '#0f5d34' } : undefined}
         >
           {currentTab === 'cart' && (
-            <span className="absolute -top-1 w-5 h-[2px] bg-violet-600 rounded-full" />
+            <span className="absolute -top-1 w-5 h-[2px] rounded-full" style={{ backgroundColor: config.theme_color || '#0f5d34' }} />
           )}
           <div className="relative">
             <ShoppingCart size={20} />
             {cartCount > 0 && (
-              <span className="absolute -top-1.5 -right-2 bg-gradient-to-r from-violet-600 to-violet-800 text-white font-mono font-bold text-[9px] w-4 h-4 rounded-full flex items-center justify-center animate-bounce">
+              <span className="absolute -top-1.5 -right-2 text-white font-mono font-bold text-[9px] w-4 h-4 rounded-full flex items-center justify-center animate-bounce" style={{ backgroundColor: config.theme_color || '#0f5d34' }}>
                 {cartCount}
               </span>
             )}
@@ -103,10 +106,11 @@ export const Navigation: React.FC<NavigationProps> = ({
         <button
           type="button"
           onClick={() => setTab('profile')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors relative ${currentTab === 'profile' ? 'text-violet-650 font-semibold' : 'text-zinc-500'}`}
+          className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors relative ${currentTab === 'profile' ? 'font-semibold' : 'text-zinc-500'}`}
+          style={currentTab === 'profile' ? { color: config.theme_color || '#0f5d34' } : undefined}
         >
           {currentTab === 'profile' && (
-            <span className="absolute -top-1 w-5 h-[2px] bg-violet-600 rounded-full" />
+            <span className="absolute -top-1 w-5 h-[2px] rounded-full" style={{ backgroundColor: config.theme_color || '#0f5d34' }} />
           )}
           <div className="relative">
             <User size={20} />

@@ -131,10 +131,10 @@ function AppContent() {
 
   if (isGlobalLoading) {
     return (
-      <div className="min-h-screen bg-violet-600 flex flex-col items-center justify-center text-white relative overflow-hidden">
+      <div className="min-h-screen flex flex-col items-center justify-center text-white relative overflow-hidden" style={{ backgroundColor: config.theme_color || '#0f5d34' }}>
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
         <div className="z-10 flex flex-col items-center animate-pulse">
-          <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center text-violet-600 mb-4 shadow-2xl">
+          <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center mb-4 shadow-2xl" style={{ color: config.theme_color || '#0f5d34' }}>
             <ShoppingBag size={40} />
           </div>
           <h1 className="text-3xl font-extrabold font-display tracking-tight">Marketo</h1>
@@ -164,13 +164,13 @@ function AppContent() {
                   {config.logo_url ? (
                     <img src={config.logo_url} alt={config.site_nombre} className="w-10 h-10 object-contain rounded" />
                   ) : (
-                    <div className="w-9 h-9 rounded-xl bg-violet-50 border border-violet-150 flex items-center justify-center text-violet-600 shadow-sm shadow-violet-500/15 group-hover:bg-violet-650 group-hover:text-white transition-all shrink-0">
+                    <div className="w-9 h-9 rounded-xl border flex items-center justify-center shadow-sm transition-all shrink-0 group-hover:text-white" style={{ backgroundColor: `${config.theme_color || '#0f5d34'}15`, borderColor: `${config.theme_color || '#0f5d34'}25`, color: config.theme_color || '#0f5d34' }}>
                       <ShoppingBag size={18} className="group-hover:rotate-12 transition-transform duration-300" />
                     </div>
                   )}
                   <div className="flex flex-col truncate">
                     <h1 className="text-sm font-extrabold tracking-tight text-zinc-900 font-display leading-tight line-clamp-1">
-                      <span className="text-zinc-900 group-hover:text-violet-600 transition-colors duration-150">{config.site_nombre}</span>
+                      <span className="text-zinc-900 transition-colors duration-150" style={{ ['--tw-group-hover-color' as any]: config.theme_color || '#0f5d34' }}>{config.site_nombre}</span>
                     </h1>
                     <span className="text-[8px] text-zinc-400 font-bold uppercase tracking-[0.22em] font-mono leading-none mt-1">
                       Premium Supermarket
@@ -198,10 +198,10 @@ function AppContent() {
                   className="w-full flex items-center justify-between text-zinc-650 font-mono gap-1 bg-white border border-zinc-200 px-3 py-1.5 rounded-lg hover:border-violet-300 transition-colors cursor-pointer active:scale-95 shadow-sm"
                 >
                   <div className="flex items-center gap-2 font-bold text-zinc-800">
-                    <RefreshCw size={13} className="text-violet-600" /> 
+                    <RefreshCw size={13} style={{ color: config.theme_color || '#0f5d34' }} /> 
                     {displayCurrency === 'USD' ? 'Dólares (USD)' : 'Bolívares (Bs.)'}
                   </div>
-                  <span className="text-[9px] text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded uppercase">Cambiar</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded uppercase" style={{ color: config.theme_color || '#0f5d34', backgroundColor: `${config.theme_color || '#0f5d34'}15` }}>Cambiar</span>
                 </button>
               </div>
 
@@ -244,7 +244,8 @@ function AppContent() {
                 <button
                   type="button"
                   onClick={() => setTab('profile')}
-                  className={`flex items-center gap-3 w-full px-3 py-2.5 text-xs rounded-xl font-bold transition-all cursor-pointer ${tab === 'profile' ? 'bg-violet-600 text-white shadow-md shadow-violet-500/10' : 'text-zinc-750 hover:bg-zinc-200/50'}`}
+                  className={`flex items-center gap-3 w-full px-3 py-2.5 text-xs rounded-xl font-bold transition-all cursor-pointer ${tab === 'profile' ? 'text-white shadow-md' : 'text-zinc-750 hover:bg-zinc-200/50'}`}
+                  style={tab === 'profile' ? { backgroundColor: config.theme_color || '#0f5d34' } : undefined}
                 >
                   Mi Cuenta / Perfil
                 </button>
@@ -266,7 +267,8 @@ function AppContent() {
                   href={`https://wa.me/${config.telefono_soporte.replace(/[+ ]/g, '')}`}
                   target="_blank"
                   referrerPolicy="no-referrer"
-                  className="flex items-center gap-3 w-full px-3 py-2.5 text-xs text-violet-600 hover:bg-violet-600/5 rounded-xl font-bold transition-all cursor-pointer"
+                  className="flex items-center gap-3 w-full px-3 py-2.5 text-xs hover:opacity-80 rounded-xl font-bold transition-all cursor-pointer"
+                  style={{ color: config.theme_color || '#0f5d34' }}
                 >
                   Soporte en WhatsApp
                 </a>
@@ -299,7 +301,8 @@ function AppContent() {
                   <button
                     type="button"
                     onClick={() => setTab('admin')}
-                    className="w-full bg-violet-600 hover:bg-violet-700 text-white text-[11px] py-2 px-3.5 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-violet-500/15 cursor-pointer animate-pulse"
+                    className="w-full text-white text-[11px] py-2 px-3.5 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer animate-pulse hover:opacity-90"
+                    style={{ backgroundColor: config.theme_color || '#0f5d34' }}
                   >
                     Panel de Admin
                   </button>
@@ -370,11 +373,13 @@ function AppContent() {
                   value={headerSearchInput}
                   onChange={(e) => setHeaderSearchInput(e.target.value)}
                   placeholder="Buscar productos, marcas o ingredientes..."
-                  className="w-full bg-white text-zinc-900 placeholder-zinc-400 rounded-lg pl-3.5 pr-10 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 shadow-inner font-sans border-0"
+                  className="w-full bg-white text-zinc-900 placeholder-zinc-400 rounded-lg pl-3.5 pr-10 py-1.5 text-xs shadow-inner font-sans border-0"
+                  style={{ outline: 'none' }}
                 />
                 <button
                   type="submit"
-                  className="absolute right-0.5 top-0.5 bottom-0.5 px-3 bg-amber-500 hover:bg-amber-600 text-white rounded-md transition-colors cursor-pointer flex items-center justify-center"
+                  className="absolute right-0.5 top-0.5 bottom-0.5 px-3 text-white rounded-md transition-colors cursor-pointer flex items-center justify-center hover:opacity-90"
+                  style={{ backgroundColor: config.theme_color ? `color-mix(in srgb, ${config.theme_color} 85%, black)` : '#0f5d34' }}
                 >
                   <Search size={14} />
                 </button>
@@ -386,7 +391,8 @@ function AppContent() {
                   <button
                     type="button"
                     onClick={() => setTab('admin')}
-                    className="h-8 px-2.5 rounded-lg flex items-center gap-1.5 transition-all border font-mono text-[11px] cursor-pointer active:scale-95 bg-amber-500 hover:bg-amber-600 text-white font-bold border-amber-600 shadow-sm"
+                    className="h-8 px-2.5 rounded-lg flex items-center gap-1.5 transition-all border font-mono text-[11px] cursor-pointer active:scale-95 text-white font-bold shadow-sm hover:opacity-90"
+                    style={{ backgroundColor: config.theme_color ? `color-mix(in srgb, ${config.theme_color} 80%, black)` : '#0a3d26', borderColor: config.theme_color ? `color-mix(in srgb, ${config.theme_color} 70%, black)` : '#0a3d26' }}
                     title="Panel de Administración"
                   >
                     <ShieldAlert size={13} />
@@ -413,7 +419,8 @@ function AppContent() {
                 <button
                   type="button"
                   onClick={() => setTab('cart')}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold transition-all shadow-md active:scale-95 cursor-pointer text-xs font-mono"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-white font-bold transition-all shadow-md active:scale-95 cursor-pointer text-xs font-mono hover:opacity-90"
+                  style={{ backgroundColor: config.theme_color ? `color-mix(in srgb, ${config.theme_color} 80%, black)` : '#0a3d26' }}
                 >
                   <ShoppingCart size={15} />
                   <span className="hidden sm:inline text-[11px]">Carrito</span>
@@ -443,21 +450,24 @@ function AppContent() {
                 <button
                   type="button"
                   onClick={() => setTab('home')}
-                  className={`text-xs font-bold transition-colors cursor-pointer ${tab === 'home' ? 'text-violet-600' : 'text-zinc-500 hover:text-zinc-800'}`}
+                  className={`text-xs font-bold transition-colors cursor-pointer ${tab === 'home' ? '' : 'text-zinc-500 hover:text-zinc-800'}`}
+                  style={tab === 'home' ? { color: config.theme_color || '#0f5d34' } : undefined}
                 >
                   Inicio
                 </button>
                 <button
                   type="button"
                   onClick={() => { setSelectedCategory(''); setTab('catalog'); }}
-                  className={`text-xs font-bold transition-colors cursor-pointer ${tab === 'catalog' ? 'text-violet-600' : 'text-zinc-500 hover:text-zinc-800'}`}
+                  className={`text-xs font-bold transition-colors cursor-pointer ${tab === 'catalog' ? '' : 'text-zinc-500 hover:text-zinc-800'}`}
+                  style={tab === 'catalog' ? { color: config.theme_color || '#0f5d34' } : undefined}
                 >
                   Productos
                 </button>
                 <button
                   type="button"
                   onClick={() => { setTab('catalog'); }}
-                  className="text-xs font-bold text-amber-600 hover:text-amber-700 cursor-pointer"
+                  className="text-xs font-bold cursor-pointer hover:opacity-80"
+                  style={{ color: config.theme_color || '#0f5d34' }}
                 >
                   Ofertas
                 </button>
@@ -467,7 +477,8 @@ function AppContent() {
                     <button
                       type="button"
                       onClick={() => setTab('admin')}
-                      className={`text-xs font-bold transition-colors cursor-pointer ${tab === 'admin' ? 'text-violet-600' : 'text-zinc-500 hover:text-zinc-800'}`}
+                      className={`text-xs font-bold transition-colors cursor-pointer ${tab === 'admin' ? '' : 'text-zinc-500 hover:text-zinc-800'}`}
+                      style={tab === 'admin' ? { color: config.theme_color || '#0f5d34' } : undefined}
                     >
                       Panel Admin
                     </button>
@@ -476,7 +487,7 @@ function AppContent() {
               </div>
 
               <div className="flex items-center gap-1.5 text-zinc-500 shrink-0 text-xs font-medium">
-                <MapPin size={12} className="text-violet-600" />
+                <MapPin size={12} style={{ color: config.theme_color || '#0f5d34' }} />
                 <span>{config.direccion_fisica ? config.direccion_fisica.split(',').slice(-2).join(',').trim() : 'Valencia • Sede Las Acacias'}</span>
               </div>
             </div>

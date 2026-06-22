@@ -61,17 +61,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
         <div className="mt-auto flex flex-col gap-3">
           <div className="flex flex-col">
-            <span className="text-sm font-black text-violet-600">${part.precio_usd.toFixed(2)}</span>
+            <span className="text-sm font-black" style={{ color: config.theme_color || '#0f5d34' }}>${part.precio_usd.toFixed(2)}</span>
             <span className="text-[10px] text-slate-400 font-mono">{(part.precio_usd * config.tasa_cambio).toFixed(2)} Bs.</span>
           </div>
           
           <button
             onClick={() => !isAgotado && addToCart(part)}
             disabled={isAgotado}
+            style={!isAgotado ? { backgroundColor: config.theme_color || '#0f5d34' } : undefined}
             className={`w-full py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-1.5 transition-all ${
               isAgotado 
                 ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200' 
-                : 'bg-violet-600 hover:bg-violet-700 text-white shadow-md active:scale-95 cursor-pointer'
+                : 'text-white shadow-md active:scale-95 cursor-pointer hover:opacity-90'
             }`}
           >
             <ShoppingCart size={14} />

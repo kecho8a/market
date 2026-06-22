@@ -239,7 +239,7 @@ ${productosDetailText}
     return (
       <div className="flex flex-col items-center justify-center p-6 text-center py-16 gap-4 text-zinc-900 bg-white rounded-lg border border-zinc-200 shadow-sm">
         <SEOHead title="Pedido Confirmado" />
-        <div className="w-16 h-16 rounded-full bg-violet-50 border border-violet-400 font-bold text-violet-600 flex items-center justify-center text-3xl animate-bounce shadow-sm">
+        <div className="w-16 h-16 rounded-full border font-bold flex items-center justify-center text-3xl animate-bounce shadow-sm" style={{ backgroundColor: `${config.theme_color || '#0f5d34'}15`, borderColor: `${config.theme_color || '#0f5d34'}60`, color: config.theme_color || '#0f5d34' }}>
           <CheckCircle size={32} />
         </div>
 
@@ -250,11 +250,11 @@ ${productosDetailText}
         </p>
 
         <div className="w-full max-w-sm bg-zinc-50 border border-zinc-200 p-4 rounded-lg text-left text-xs text-zinc-700 flex flex-col gap-2 font-mono mt-2">
-          <span className="text-violet-600 font-bold font-display text-[15px] tracking-tight border-b border-zinc-200 pb-1 block">Recibo de Compra Marketo</span>
+          <span className="font-bold font-display text-[15px] tracking-tight border-b border-zinc-200 pb-1 block" style={{ color: config.theme_color || '#0f5d34' }}>Recibo de Compra Marketo</span>
           <div>ID: <span className="text-zinc-900 font-bold">{processedOrder.id}</span></div>
           <div>Cliente: <span className="text-zinc-900">{processedOrder.cliente_nombre}</span></div>
-          <div>Monto USD: <span className="text-violet-750 font-bold">${(processedOrder.total_usd || 0).toFixed(2)}</span></div>
-          <div>Monto Bs: <span className="text-violet-600 font-bold">{(processedOrder.total_bs || 0).toFixed(2)} Bs</span></div>
+          <div>Monto USD: <span className="font-bold" style={{ color: config.theme_color || '#0f5d34' }}>${(processedOrder.total_usd || 0).toFixed(2)}</span></div>
+          <div>Monto Bs: <span className="font-bold" style={{ color: config.theme_color || '#0f5d34' }}>{(processedOrder.total_bs || 0).toFixed(2)} Bs</span></div>
           <div>Metodo: <span className="text-zinc-900 font-bold">{processedOrder.metodo_pago}</span></div>
         </div>
 
@@ -297,7 +297,7 @@ ${productosDetailText}
             <button
               type="button"
               onClick={() => setShowPopupHelp(true)}
-              className="ml-auto text-xs text-violet-600 underline"
+              className="ml-auto text-xs underline" style={{ color: config.theme_color || '#0f5d34' }}
             >
               ¿Cómo habilitar pop‑ups?
             </button>
@@ -321,7 +321,8 @@ ${productosDetailText}
                 </ol>
                 <button
                   onClick={() => setShowPopupHelp(false)}
-                  className="mt-4 w-full bg-violet-600 hover:bg-violet-700 text-white py-2 rounded"
+                  className="mt-4 w-full text-white py-2 rounded hover:opacity-90"
+                  style={{ backgroundColor: config.theme_color || '#0f5d34' }}
                 >
                   Entendido
                 </button>
@@ -332,7 +333,8 @@ ${productosDetailText}
           <button
             type="button"
             onClick={() => { setTab('profile'); }}
-            className="w-full bg-violet-650 hover:bg-violet-750 text-white font-bold py-3 px-4 rounded-lg text-xs transition-all tracking-wider flex items-center justify-center gap-1.5 uppercase font-display cursor-pointer"
+            className="w-full text-white font-bold py-3 px-4 rounded-lg text-xs transition-all tracking-wider flex items-center justify-center gap-1.5 uppercase font-display cursor-pointer hover:opacity-90"
+            style={{ backgroundColor: config.theme_color || '#0f5d34' }}
           >
             Ver Estatus de mi Pedido 🛵
           </button>
@@ -376,7 +378,7 @@ ${productosDetailText}
                 className="absolute"
               >
                 {i % 10 === 0 ? (
-                  <Rocket size={32} className="text-violet-600 fill-violet-200" />
+                  <Rocket size={32} style={{ color: config.theme_color || '#0f5d34', fill: `${config.theme_color || '#0f5d34'}30` }} />
                 ) : (
                   <div 
                     className={`w-2.5 h-5 rounded-sm shadow-sm ${['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-blue-500', 'bg-rose-500'][i % 5]}`}
@@ -393,8 +395,8 @@ ${productosDetailText}
       {isProcessing && (
         <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-white/70 backdrop-blur-md">
           <div className="relative flex items-center justify-center">
-            <div className="w-16 h-16 border-4 border-violet-100 rounded-full"></div>
-            <div className="absolute w-16 h-16 border-4 border-violet-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-16 h-16 border-4 rounded-full" style={{ borderColor: `${config.theme_color || '#0f5d34'}20` }}></div>
+            <div className="absolute w-16 h-16 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: `${config.theme_color || '#0f5d34'} transparent` }}></div>
           </div>
           <div className="mt-6 flex flex-col items-center gap-1">
             <p className="text-sm font-black font-display text-zinc-900 uppercase tracking-tight">Procesando Pedido</p>
@@ -405,7 +407,7 @@ ${productosDetailText}
 
       {/* Heading */}
       <div>
-        <span className="text-[11px] font-mono text-violet-600 font-bold uppercase tracking-wider">Compra Segura</span>
+        <span className="text-[11px] font-mono font-bold uppercase tracking-wider" style={{ color: config.theme_color || '#0f5d34' }}>Compra Segura</span>
         <h2 className="text-[21px] font-bold font-display text-zinc-900">Carrito y Geolocalizacion Express</h2>
       </div>
 
@@ -434,7 +436,8 @@ ${productosDetailText}
               <button
                 type="button"
                 onClick={() => setTab('catalog')}
-                className="mt-4 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition-all cursor-pointer"
+                className="mt-4 text-white text-xs font-bold px-4 py-2 rounded-lg transition-all cursor-pointer hover:opacity-90"
+                style={{ backgroundColor: config.theme_color || '#0f5d34' }}
               >
                 Explorar los Pasillos
               </button>
@@ -456,7 +459,7 @@ ${productosDetailText}
                         <div>
                           <h4 className="text-xs font-bold text-zinc-800 line-clamp-1">{item.item.nombre}</h4>
                           <span className="text-[10px] text-zinc-500 font-mono">SKU: {item.item.codigo}</span>
-                          <div className="text-[12px] font-mono text-violet-600 font-bold mt-0.5">${item.item.precio_usd.toFixed(2)} c/u</div>
+                          <div className="text-[12px] font-mono font-bold mt-0.5" style={{ color: config.theme_color || '#0f5d34' }}>${item.item.precio_usd.toFixed(2)} c/u</div>
                         </div>
                       </div>
 
@@ -508,7 +511,7 @@ ${productosDetailText}
                     />
                     <button
                       onClick={handleApplyCoupon}
-                      className="bg-zinc-900 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-zinc-800 transition-colors"
+                      className="text-white px-4 py-2 rounded-lg text-xs font-bold hover:opacity-90 transition-colors" style={{ backgroundColor: config.theme_color || '#0f5d34' }}
                     >
                       Aplicar
                     </button>
@@ -535,21 +538,22 @@ ${productosDetailText}
                   <span className="font-mono text-zinc-800 font-bold text-sm">${subtotalUsd.toFixed(2)}</span>
                 </div>
                 {appliedCoupon && (
-                  <div className="flex justify-between text-violet-600 font-bold">
+                  <div className="flex justify-between font-bold" style={{ color: config.theme_color || '#0f5d34' }}>
                     <span>Descuento Cupón ({appliedCoupon.discount_percent}%):</span>
                     <span className="font-mono">-${discountFromCoupon.toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between border-t border-zinc-200 pt-2">
                   <span className="text-zinc-500">Subtotal Bs (al cambio):</span>
-                  <span className="font-mono text-violet-600 font-bold text-sm">{(subtotalUsd * config.tasa_cambio).toFixed(2)} Bs</span>
+                  <span className="font-mono font-bold text-sm" style={{ color: config.theme_color || '#0f5d34' }}>{(subtotalUsd * config.tasa_cambio).toFixed(2)} Bs</span>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={() => setStep(2)}
-                className="bg-violet-600 hover:bg-violet-700 text-white font-bold font-display text-[12px] py-3.5 rounded-lg tracking-wider transition-all uppercase cursor-pointer text-center"
+                className="text-white font-bold font-display text-[12px] py-3.5 rounded-lg tracking-wider transition-all uppercase cursor-pointer text-center hover:opacity-90"
+                style={{ backgroundColor: config.theme_color || '#0f5d34' }}
               >
                 Paso 2: Fijar Ubicacion delivery
               </button>
@@ -581,9 +585,9 @@ ${productosDetailText}
             </div>
             <div className="flex justify-between items-baseline pb-2 border-b border-zinc-200">
               <span className="text-zinc-500">Tarifa de envio:</span>
-              <span className="font-mono text-violet-600 font-extrabold">
+              <span className="font-mono font-extrabold" style={{ color: config.theme_color || '#0f5d34' }}>
                 {hasFreeDeliveryItem ? (
-                  <span className="text-violet-600 animate-pulse">¡ENVIO GRATIS!</span>
+                  <span className="animate-pulse">¡ENVIO GRATIS!</span>
                 ) : (
                   shippingCost === 0 ? "Gratis / Retiro" : `$${shippingCost.toFixed(2)}`
                 )}
@@ -591,10 +595,10 @@ ${productosDetailText}
             </div>
             
             <div className="flex justify-between pt-1">
-              <span className="text-violet-750 font-bold">Total Parcial Checkout:</span>
+              <span className="font-bold" style={{ color: config.theme_color || '#0f5d34' }}>Total Parcial Checkout:</span>
               <div className="text-right">
                 <div className="font-mono text-zinc-900 font-bold text-[15px]">${totalUsd.toFixed(2)}</div>
-                <div className="font-mono text-violet-600 font-bold text-xs">{(totalUsd * config.tasa_cambio).toFixed(2)} Bs</div>
+                <div className="font-mono font-bold text-xs" style={{ color: config.theme_color || '#0f5d34' }}>{(totalUsd * config.tasa_cambio).toFixed(2)} Bs</div>
               </div>
             </div>
           </div>
@@ -610,7 +614,8 @@ ${productosDetailText}
             <button
               type="button"
               onClick={() => setStep(3)}
-              className="bg-violet-600 hover:bg-violet-700 text-white py-3.5 rounded-lg text-xs font-bold font-display uppercase tracking-wider transition-all cursor-pointer"
+              className="text-white py-3.5 rounded-lg text-xs font-bold font-display uppercase tracking-wider transition-all cursor-pointer hover:opacity-90"
+              style={{ backgroundColor: config.theme_color || '#0f5d34' }}
             >
               Paso 3: Contacto y Pago
             </button>
@@ -679,15 +684,15 @@ ${productosDetailText}
           )}
 
           {currentUser && (
-            <div className="p-4 bg-violet-50 border border-violet-100 rounded-xl flex items-center justify-between">
+            <div className="p-4 border rounded-xl flex items-center justify-between" style={{ backgroundColor: `${config.theme_color || '#0f5d34'}08`, borderColor: `${config.theme_color || '#0f5d34'}20` }}>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-violet-600 text-white rounded-full flex items-center justify-center font-bold">{currentUser.nombre[0]}</div>
+                <div className="w-10 h-10 text-white rounded-full flex items-center justify-center font-bold" style={{ backgroundColor: config.theme_color || '#0f5d34' }}>{currentUser.nombre[0]}</div>
                 <div>
                   <p className="text-xs font-bold text-zinc-900">Comprando como {currentUser.nombre}</p>
                   <p className="text-[10px] text-zinc-500">{currentUser.email || currentUser.telefono}</p>
                 </div>
               </div>
-              <span className="text-[9px] bg-violet-200 text-violet-700 px-2 py-1 rounded font-bold uppercase">Sincronizado</span>
+              <span className="text-[9px] px-2 py-1 rounded font-bold uppercase" style={{ backgroundColor: `${config.theme_color || '#0f5d34'}20`, color: config.theme_color || '#0f5d34' }}>Sincronizado</span>
             </div>
           )}
 
@@ -717,17 +722,17 @@ ${productosDetailText}
 
           {/* Static details instructions block for payment */}
           <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-lg text-[12px] text-zinc-750 leading-relaxed font-mono flex flex-col gap-1.5 shadow-sm">
-            <span className="text-zinc-900 font-bold font-display text-sm mb-1">Instrucciones de Pago:</span>
+            <span className="font-bold font-display text-sm mb-1" style={{ color: config.theme_color || '#0f5d34' }}>Instrucciones de Pago:</span>
             {selectedPayment === 'Pago Movil' && (
               <>
                 <div>{config.pagomovil_data || 'Banesco (0134) - RIF J-50123456-7 - Tel: 0412-4976451'}</div>
-                <div className="text-violet-750 font-black pt-1 bg-violet-50/50 px-2 py-1 rounded inline-block mt-1">Calcular al cambio: {totalBs.toFixed(2)} Bs.</div>
+                <div className="font-black pt-1 px-2 py-1 rounded inline-block mt-1" style={{ color: config.theme_color || '#0f5d34', backgroundColor: `${config.theme_color || '#0f5d34'}10` }}>Calcular al cambio: {totalBs.toFixed(2)} Bs.</div>
               </>
             )}
             {selectedPayment === 'Zelle' && (
               <>
                 <div>{config.zelle_data || 'pagos@marketo.com.ve'}</div>
-                <div className="text-violet-750 font-black pt-1 bg-violet-50/50 px-2 py-1 rounded inline-block mt-1">Monto exacto: ${totalUsd.toFixed(2)} USD.</div>
+                <div className="font-black pt-1 px-2 py-1 rounded inline-block mt-1" style={{ color: config.theme_color || '#0f5d34', backgroundColor: `${config.theme_color || '#0f5d34'}10` }}>Monto exacto: ${totalUsd.toFixed(2)} USD.</div>
               </>
             )}
             {selectedPayment === 'Efectivo' && (
@@ -750,7 +755,7 @@ ${productosDetailText}
               <span className="font-medium text-[13px]">Envio / Delivery:</span>
               <span className="font-mono text-violet-300 font-semibold text-[13px]">
                 {hasFreeDeliveryItem ? (
-                  <span className="text-violet-300 animate-pulse uppercase">Gratis</span>
+                  <span className="animate-pulse uppercase" style={{ color: `${config.theme_color || '#0f5d34'}cc` }}>Gratis</span>
                 ) : (
                   shippingCost === 0 ? "Cobro a destino / Zoom" : `$${shippingCost.toFixed(2)}`
                 )}
@@ -760,7 +765,7 @@ ${productosDetailText}
               <span className="font-bold text-xs uppercase tracking-wider text-zinc-200">Total Neto a Pagar:</span>
               <div className="text-right">
                 <p className="font-mono text-xl font-black text-white leading-none">${totalUsd.toFixed(2)}</p>
-                <p className="font-mono text-xs text-violet-300 font-bold mt-1.5">{totalBs.toFixed(2)} Bs.</p>
+                <p className="font-mono text-xs font-bold mt-1.5" style={{ color: `${config.theme_color || '#0f5d34'}cc` }}>{totalBs.toFixed(2)} Bs.</p>
               </div>
             </div>
           </div>

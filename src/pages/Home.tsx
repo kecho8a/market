@@ -124,7 +124,7 @@ export const Home: React.FC<HomeProps> = ({
         name: catName,
         label: catName,
         icon,
-        color: 'text-violet-600 border-violet-200 bg-violet-50/50 hover:bg-violet-100/50'
+        color: 'border bg-white/50 hover:bg-white/80'
       };
     });
   }, [config.categories]);
@@ -210,7 +210,7 @@ export const Home: React.FC<HomeProps> = ({
           particleCount: 150,
           spread: 80,
           origin: { y: 0.6 },
-          colors: ['#7c3aed', '#f59e0b', '#ef4444', '#ffffff'],
+          colors: [config.theme_color || '#0f5d34', '#f59e0b', '#ef4444', '#ffffff'],
           shapes: ['star', 'circle']
         });
       }
@@ -238,7 +238,7 @@ export const Home: React.FC<HomeProps> = ({
 
       {/* Tasa de Cambio Oficial (Solo en Home y Checkout) */}
       <div className="flex justify-end px-1 -mb-4">
-        <div className="bg-violet-50 border border-violet-200 px-3 py-1 rounded-full text-[10px] font-mono font-bold text-violet-700 uppercase tracking-tighter shadow-sm animate-pulse">Tasa Oficial BCV: {config.tasa_cambio.toFixed(2)} Bs.</div>
+        <div className="border px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-tighter shadow-sm animate-pulse" style={{ backgroundColor: `${config.theme_color || '#0f5d34'}10`, borderColor: `${config.theme_color || '#0f5d34'}30`, color: config.theme_color || '#0f5d34' }}>Tasa Oficial BCV: {config.tasa_cambio.toFixed(2)} Bs.</div>
       </div>
 
       {/* 1. PREMIUM ROTATING BANNER */}
@@ -258,7 +258,7 @@ export const Home: React.FC<HomeProps> = ({
             <div className="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent" />
 
             <div className="absolute left-6 bottom-6 z-20 flex flex-col items-start gap-1">
-              <span className="text-[11px] uppercase font-bold tracking-wider text-white bg-violet-600/90 border border-violet-400 px-2.5 py-1 rounded">
+              <span className="text-[11px] uppercase font-bold tracking-wider text-white border px-2.5 py-1 rounded" style={{ backgroundColor: `${config.theme_color || '#0f5d34'}e0`, borderColor: `${config.theme_color || '#0f5d34'}80` }}>
                 {config.site_nombre}
               </span>
               <h2 className="text-xl md:text-2xl font-bold font-display text-white mt-1.5 max-w-sm drop-shadow-md leading-tight">
@@ -267,7 +267,8 @@ export const Home: React.FC<HomeProps> = ({
               <button
                 type="button"
                 onClick={() => setTab('catalog')}
-                className="mt-3 bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-bold px-4 py-2 rounded-lg transition-all shadow-md uppercase tracking-wider flex items-center gap-1.5 cursor-pointer animate-pulse"
+                className="mt-3 text-white text-[12px] font-bold px-4 py-2 rounded-lg transition-all shadow-md uppercase tracking-wider flex items-center gap-1.5 cursor-pointer animate-pulse hover:opacity-90"
+                style={{ backgroundColor: config.theme_color || '#0f5d34' }}
               >
                 Explorar Catálogo
               </button>
@@ -281,7 +282,8 @@ export const Home: React.FC<HomeProps> = ({
               type="button"
               key={i}
               onClick={() => setActiveBanner(i)}
-              className={`w-1.5 h-1.5 rounded-full transition-all cursor-pointer ${i === activeBanner ? 'bg-violet-600 w-4' : 'bg-white/40'}`}
+              className={`w-1.5 h-1.5 rounded-full transition-all cursor-pointer ${i === activeBanner ? 'w-4' : 'bg-white/40'}`}
+              style={i === activeBanner ? { backgroundColor: config.theme_color || '#0f5d34' } : undefined}
             />
           ))}
         </div>
@@ -300,9 +302,10 @@ export const Home: React.FC<HomeProps> = ({
                   setSelectedCategory(cat.name);
                   setTab('catalog');
                 }}
-                className="shrink-0 snap-start flex items-center gap-2 bg-violet-50 hover:bg-violet-100 text-violet-700 border border-violet-150 rounded-full px-4.5 py-2.5 text-xs font-bold transition-all shadow-sm hover:scale-105 active:scale-95 cursor-pointer animate-fade-in"
+                className="shrink-0 snap-start flex items-center gap-2 bg-white hover:bg-white/80 border rounded-full px-4.5 py-2.5 text-xs font-bold transition-all shadow-sm hover:scale-105 active:scale-95 cursor-pointer animate-fade-in"
+                style={{ borderColor: `${config.theme_color || '#0f5d34'}30`, color: config.theme_color || '#0f5d34' }}
               >
-                <IconComponent size={13} className="text-violet-600 shrink-0" />
+                <IconComponent size={13} className="shrink-0" />
                 <span>{cat.label}</span>
               </button>
             );
@@ -314,7 +317,7 @@ export const Home: React.FC<HomeProps> = ({
       {showNotificationPrompt && (
         <div id="home-notification-invite" className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-zinc-200 rounded-xl bg-gradient-to-r from-zinc-50 to-zinc-100/30 text-xs gap-3 animate-fade-in shadow-xs">
           <div className="flex gap-2.5 items-start sm:items-center">
-            <span className="p-2 rounded-lg bg-violet-50 text-violet-600 shrink-0 text-base">
+            <span className="p-2 rounded-lg shrink-0 text-base" style={{ backgroundColor: `${config.theme_color || '#0f5d34'}15`, color: config.theme_color || '#0f5d34' }}>
               <Bell size={16} />
             </span>
             <div className="flex flex-col gap-0.5">
@@ -330,11 +333,12 @@ export const Home: React.FC<HomeProps> = ({
             >
               Cerrar
             </button>
-            <button
-              type="button"
-              onClick={handleRequestPermissionHome}
-              className="bg-violet-600 hover:bg-violet-700 text-white font-extrabold max-sm:w-full font-display uppercase tracking-wider px-4 py-2 rounded-lg text-[11px] transition-all cursor-pointer shadow-xs active:scale-95"
-            >
+              <button
+                type="button"
+                onClick={handleRequestPermissionHome}
+                className="text-white font-extrabold max-sm:w-full font-display uppercase tracking-wider px-4 py-2 rounded-lg text-[11px] transition-all cursor-pointer shadow-xs active:scale-95 hover:opacity-90"
+                style={{ backgroundColor: config.theme_color || '#0f5d34' }}
+              >
               Habilitar
             </button>
           </div>
@@ -345,12 +349,13 @@ export const Home: React.FC<HomeProps> = ({
         <div className="flex flex-col gap-4">
           <div className="flex justify-between items-center">
             <h3 className="text-[19px] font-bold text-slate-900 flex items-center gap-2">
-              <Zap className="text-violet-600" size={20} /> Ofertas de Locura
+              <Zap size={20} style={{ color: config.theme_color || '#0f5d34' }} /> Ofertas de Locura
             </h3>
             <button
               type="button"
               onClick={() => { setSelectedCategory(''); setTab('catalog'); }}
-              className="text-[13px] font-semibold text-violet-650 hover:text-violet-750 cursor-pointer"
+              className="text-[13px] font-semibold cursor-pointer hover:opacity-80"
+              style={{ color: config.theme_color || '#0f5d34' }}
             >
               Ver todo
             </button>
@@ -367,12 +372,13 @@ export const Home: React.FC<HomeProps> = ({
         <div className="flex flex-col gap-4">
           <div className="flex justify-between items-center">
             <h3 className="text-[19px] font-bold text-slate-900 flex items-center gap-2">
-              <Sparkles className="text-violet-500" size={20} /> Recién Ingresados
+              <Sparkles size={20} style={{ color: config.theme_color || '#0f5d34' }} /> Recién Ingresados
             </h3>
             <button
               type="button"
               onClick={() => { setSelectedCategory(''); setTab('catalog'); }}
-              className="text-[13px] font-semibold text-violet-650 hover:text-violet-750 cursor-pointer"
+              className="text-[13px] font-semibold cursor-pointer hover:opacity-80"
+              style={{ color: config.theme_color || '#0f5d34' }}
             >
               Ver todo
             </button>
@@ -389,12 +395,13 @@ export const Home: React.FC<HomeProps> = ({
         <div className="flex flex-col gap-4">
           <div className="flex justify-between items-center">
             <h3 className="text-[19px] font-bold text-slate-900 flex items-center gap-2">
-              <Flame className="text-violet-600" size={20} /> Alimentos Más Solicitados
+              <Flame size={20} style={{ color: config.theme_color || '#0f5d34' }} /> Alimentos Más Solicitados
             </h3>
             <button
               type="button"
               onClick={() => { setSelectedCategory(''); setTab('catalog'); }}
-              className="text-[13px] font-semibold text-violet-650 hover:text-violet-750 cursor-pointer"
+              className="text-[13px] font-semibold cursor-pointer hover:opacity-80"
+              style={{ color: config.theme_color || '#0f5d34' }}
             >
               Ver todo
             </button>
@@ -410,7 +417,7 @@ export const Home: React.FC<HomeProps> = ({
       <div className="flex flex-col gap-4 p-5 border border-violet-100 rounded-2xl bg-violet-50/30 shadow-sm relative overflow-hidden">
         <div className="absolute -top-10 -right-10 w-32 h-32 bg-violet-100 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
         <h3 className="text-[18px] font-bold text-violet-900 flex items-center gap-2">
-          <MessageSquare size={20} className="text-violet-600" /> ¿Buscas un Producto Especial?
+              <MessageSquare size={20} style={{ color: config.theme_color || '#0f5d34' }} /> ¿Buscas un Producto Especial?
         </h3>
         <p className="text-[13px] text-violet-800/80 leading-relaxed font-medium">Explícanos qué ingrediente, corte o vívere necesitas y nuestro equipo te ayudará a conseguir el artículo exacto.</p>
         <div className="flex flex-col gap-3 z-10">
@@ -427,7 +434,7 @@ export const Home: React.FC<HomeProps> = ({
             id="req-desc"
             rows={3}
           />
-          <button 
+          <button
             onClick={async () => {
               const descEl = document.getElementById('req-desc') as HTMLTextAreaElement;
               const phoneEl = document.getElementById('req-phone') as HTMLInputElement;
@@ -447,7 +454,8 @@ export const Home: React.FC<HomeProps> = ({
                 alert('Por favor, ingresa tu teléfono y lo que estás buscando.');
               }
             }}
-            className="bg-violet-600 hover:bg-violet-700 text-white rounded-xl py-3.5 font-bold text-xs cursor-pointer shadow-md shadow-violet-200 transition-all active:scale-[0.98] text-[13px]"
+            className="text-white rounded-xl py-3.5 font-bold text-xs cursor-pointer shadow-md transition-all active:scale-[0.98] text-[13px] hover:opacity-90"
+            style={{ backgroundColor: config.theme_color || '#0f5d34' }}
           >
             Enviar Solicitud de Pedido Especial
           </button>
@@ -469,7 +477,7 @@ export const Home: React.FC<HomeProps> = ({
         <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex flex-col text-center md:text-left">
             <div className="flex items-center gap-2 justify-center md:justify-start">
-              <span className="text-[10px] uppercase font-black tracking-widest bg-violet-600 text-white px-2 py-0.5 rounded shadow-sm">Marketo App</span>
+              <span className="text-[10px] uppercase font-black tracking-widest text-white px-2 py-0.5 rounded shadow-sm" style={{ backgroundColor: config.theme_color || '#0f5d34' }}>Marketo App</span>
               <span className="text-[10px] uppercase font-bold tracking-widest text-zinc-300">Instalación Express</span>
             </div>
             <h3 className="text-2xl font-black font-display mt-2 leading-tight max-w-xs">Tu mercado siempre a un toque de distancia</h3>
@@ -498,7 +506,8 @@ export const Home: React.FC<HomeProps> = ({
                     alert("Para instalar en Android: 1. Abre Chrome. 2. Presiona los 3 puntos. 3. Selecciona 'Instalar aplicación'.");
                   }
                 }}
-                className="bg-violet-600 hover:bg-violet-500 text-white border border-violet-400/30 font-bold font-display uppercase tracking-wider px-6 py-3 rounded-xl text-xs transition-all cursor-pointer flex items-center justify-center gap-2"
+                className="text-white border font-bold font-display uppercase tracking-wider px-6 py-3 rounded-xl text-xs transition-all cursor-pointer flex items-center justify-center gap-2 hover:opacity-90"
+                style={{ backgroundColor: config.theme_color || '#0f5d34', borderColor: `${config.theme_color || '#0f5d34'}40` }}
               >
                 <span>¿Cómo instalar en mi móvil?</span>
               </button>

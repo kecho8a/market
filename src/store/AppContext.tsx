@@ -899,28 +899,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Daily Exchange Rate Update Routine
   const fetchExchangeRate = async () => {
-    try {
-      console.log('🔍 Marketo: Verificando tasa de cambio oficial BCV...');
-      const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
-      if (response.ok) {
+    const endpoints = [
+      'https://ve.dolarapi.com/v1/dolares/oficiales',
+      'https://pydolarve.org/api/v1/dollar'
+    ];
+
+    for (const url of endpoints) {
+      try {
+        console.log(`🔍 Marketo: Intentando obtener tasa BCV desde ${url}...`);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeout);
+
+        if (!response.ok) continue;
         const data = await response.json();
-        // DolarAPI retorna el campo 'valor' con la tasa oficial
-        const rateValue = data.valor;
-        if (rateValue) {
-          const newRate = parseFloat(rateValue);
-          // Rango de seguridad realista para evitar picos erróneos (ej. 526)
-          if (!isNaN(newRate) && newRate > 1 && newRate < 1000) {
-            updateExchangeRate(newRate);
-            localStorage.setItem('trv_last_rate_fetch', new Date().toDateString());
-            console.log(`✅ Tasa BCV actualizada automáticamente: ${newRate} Bs.`);
-          } else {
-            console.warn('Tasa de cambio fuera de rango lógico, ignorando:', newRate);
-          }
+        let newRate: number | null = null;
+
+        if (Array.isArray(data)) {
+          const oficial = data.find((d: any) => d.nombre === 'Oficial');
+          if (oficial) newRate = parseFloat(oficial.venta || oficial.compra);
+        } else if (data && typeof data === 'object') {
+          if (data.venta) newRate = parseFloat(data.venta);
+          else if (data.valor) newRate = parseFloat(data.valor);
+          else if (data.dollar && data.dollar.price) newRate = parseFloat(data.dollar.price);
         }
+
+        if (newRate && !isNaN(newRate) && newRate > 1 && newRate < 1000) {
+          updateExchangeRate(newRate);
+          localStorage.setItem('trv_last_rate_fetch', new Date().toDateString());
+          console.log(`✅ Tasa BCV actualizada automáticamente: ${newRate} Bs.`);
+          return;
+        }
+      } catch (error: any) {
+        console.warn(`⚠️ Marketo: Error con ${url}:`, error.message || error);
       }
-    } catch (error) {
-      console.error('Failed to fetch BCV rate:', error);
     }
+    console.error('❌ Marketo: No se pudo obtener la tasa BCV de ninguna fuente.');
   };
 
   useEffect(() => {
