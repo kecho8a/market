@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef } from 'react';
+﻿import React, { useEffect } from 'react';
 import { Producto } from '../types/store';
 import { useApp } from '../store/AppContext';
 
@@ -89,58 +89,32 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
       setMeta('og:image', 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=1200', 'property');
     }
 
-    // PWA Manifest dinámico: usar el logo de la tienda como icono PWA
-    const prevManifestUrl = document.getElementById('trv-dynamic-manifest-url') as HTMLMetaElement | null;
-    const oldBlobUrl = prevManifestUrl?.getAttribute('data-blob-url') || '';
-    if (oldBlobUrl) URL.revokeObjectURL(oldBlobUrl);
-
-    const iconUrl = config.logo_url || '/pwa-512x512.png';
-    const manifestObj = {
-      name: `${config.site_nombre || 'Marketo'} - Supermercado Gourmet & Delivery Express`,
-      short_name: config.site_nombre || 'Marketo',
-      description: 'Tu supermercado premium con despacho express en el Gran Valencia, Carabobo.',
-      start_url: '/',
-      scope: '/',
-      display: 'standalone',
-      orientation: 'portrait',
-      theme_color: config.theme_color || '#ffffff',
-      background_color: '#ffffff',
-      prefer_related_applications: false,
-      icons: [
-        { src: iconUrl, sizes: '192x192', type: 'image/png', purpose: 'any' },
-        { src: iconUrl, sizes: '512x512', type: 'image/png', purpose: 'any' },
-        { src: iconUrl, sizes: '512x512', type: 'image/png', purpose: 'maskable' }
-      ],
-      categories: ['shopping', 'food'],
-      shortcuts: [
-        {
-          name: 'Pasillos del Súper',
-          short_name: 'Productos',
-          url: '/?tab=catalog',
-          description: 'Explorar los pasillos de víveres, quesos y carnes finas.'
-        }
-      ]
-    };
-    const blob = new Blob([JSON.stringify(manifestObj)], { type: 'application/json' });
-    const blobUrl = URL.createObjectURL(blob);
-
-    let linkManifest = document.querySelector('link[rel="manifest"]') as HTMLLinkElement | null;
-    if (!linkManifest) {
-      linkManifest = document.createElement('link');
-      linkManifest.setAttribute('rel', 'manifest');
-      document.head.appendChild(linkManifest);
+    // PWA: el manifest estático se mantiene en /manifest.json para que beforeinstallprompt funcione.
+    // Los iconos dinámicos se manejan vía Service Worker (intercept fetch de manifest.json).
+    // Guardar logo_url en IndexedDB y notificar al SW
+    if (config.logo_url) {
+      const DB_NAME = 'marketo-pwa';
+      const DB_VERSION = 1;
+      const STORE_NAME = 'config';
+      const openReq = indexedDB.open(DB_NAME, DB_VERSION);
+      openReq.onupgradeneeded = (e: any) => {
+        e.target.result.createObjectStore(STORE_NAME);
+      };
+      openReq.onsuccess = (e: any) => {
+        const db = e.target.result;
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).put(config.logo_url, 'logo_url');
+        tx.oncomplete = () => {
+          // Notificar al SW que el logo cambió
+          if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({
+              type: 'UPDATE_LOGO_URL',
+              logoUrl: config.logo_url
+            });
+          }
+        };
+      };
     }
-    linkManifest.setAttribute('href', blobUrl);
-
-    // Metadata para rastrear el blob URL y poder revocarlo
-    let manifestMeta = document.getElementById('trv-dynamic-manifest-url') as HTMLMetaElement | null;
-    if (!manifestMeta) {
-      manifestMeta = document.createElement('meta');
-      manifestMeta.id = 'trv-dynamic-manifest-url';
-      document.head.appendChild(manifestMeta);
-    }
-    manifestMeta.setAttribute('content', blobUrl);
-    manifestMeta.setAttribute('data-blob-url', blobUrl);
 
     // Apple Touch Icon dinámico para iOS
     const appleTouchUrl = config.logo_url || config.favicon_url || '/pwa-192x192.png';

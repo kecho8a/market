@@ -1,10 +1,78 @@
 // Custom Push Notifications Service Worker Extension for Marketo PWA
 // Loaded via workbox importScripts (generateSW strategy)
-// ⚠️  Audio API no está disponible en Service Workers — el sonido se delega al cliente vía postMessage
 
-// Deduplication cache: tag → timestamp (ms)
+// ─── IndexedDB helpers para logo_url ───
+const DB_NAME = 'marketo-pwa';
+const DB_VERSION = 1;
+const STORE_NAME = 'config';
+
+function openDB() {
+  return new Promise(function(resolve, reject) {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = function(e) {
+      e.target.result.createObjectStore(STORE_NAME);
+    };
+    req.onsuccess = function(e) { resolve(e.target.result); };
+    req.onerror = function(e) { reject(e.target.error); };
+  });
+}
+
+function getLogoUrl() {
+  return openDB().then(function(db) {
+    return new Promise(function(resolve) {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.get('logo_url');
+      req.onsuccess = function() { resolve(req.result || null); };
+      req.onerror = function() { resolve(null); };
+    });
+  });
+}
+
+function setLogoUrl(url) {
+  return openDB().then(function(db) {
+    return new Promise(function(resolve) {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      store.put(url, 'logo_url');
+      tx.oncomplete = function() { resolve(); };
+      tx.onerror = function() { resolve(); };
+    });
+  });
+}
+
+// ─── Intercept manifest.json para servir iconos dinámicos ───
+self.addEventListener('fetch', function(event) {
+  const url = new URL(event.request.url);
+  // Solo interceptar manifest.json del mismo origen
+  if (url.pathname === '/manifest.json' || url.pathname === '/manifest.webmanifest') {
+    event.respondWith(
+      getLogoUrl().then(function(logoUrl) {
+        // Si no hay logo configurado, servir el manifest original
+        if (!logoUrl) {
+          return fetch(event.request);
+        }
+        // Fetch el manifest original y reemplazar iconos
+        return fetch(event.request).then(function(response) {
+          return response.clone().json().then(function(manifest) {
+            manifest.icons = [
+              { src: logoUrl, sizes: '192x192', type: 'image/png', purpose: 'any' },
+              { src: logoUrl, sizes: '512x512', type: 'image/png', purpose: 'any' },
+              { src: logoUrl, sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+            ];
+            return new Response(JSON.stringify(manifest), {
+              headers: { 'Content-Type': 'application/json' }
+            });
+          });
+        });
+      })
+    );
+  }
+});
+
+// ─── Push Notifications ───
 const recentlyShown = new Map();
-const DEDUP_TTL_MS = 30_000; // 30 segundos
+const DEDUP_TTL_MS = 30000;
 
 function pruneDedupCache() {
   if (recentlyShown.size > 100) {
@@ -25,8 +93,7 @@ self.addEventListener('push', function(event) {
     const payload = event.data.json();
     console.log('[SW Push] Notificación recibida:', payload);
 
-    // Mapeo flexible de campos en español (Supabase trigger) y en inglés (web-push estándar)
-    const title     = payload.titulo  || payload.title  || 'Marketo Supermercado 🍏';
+    const title     = payload.titulo  || payload.title  || 'Marketo Supermercado';
     const body      = payload.mensaje || payload.body   || '';
     const icon      = payload.icon   || payload.badge || '/icon-192.png';
     const badge     = '/badge.png';
@@ -35,12 +102,11 @@ self.addEventListener('push', function(event) {
     const tag       = payload.tag || String(payload.id || Date.now());
     const soundUrl  = payload.sound_url || payload.sound || '/sounds/notification.mp3';
 
-    // --- Deduplicación: evitar duplicates en Android ---
     const tagKey = tag;
     if (recentlyShown.has(tagKey)) {
       const elapsed = Date.now() - recentlyShown.get(tagKey);
       if (elapsed < DEDUP_TTL_MS) {
-        console.log('[SW Push] Deduplicada notificación con tag:', tagKey, '| elapsed:', elapsed, 'ms');
+        console.log('[SW Push] Deduplicada notificación con tag:', tagKey);
         return;
       }
     }
@@ -54,68 +120,46 @@ self.addEventListener('push', function(event) {
       image: image,
       vibrate: [200, 100, 200],
       tag: tag,
-      renotify: true,             // Vuelve a alertar aunque tenga el mismo tag
-      requireInteraction: true,   // Mantiene visible hasta que el usuario la descarte
-      silent: false,              // Explícito: permite sonido en Android
-      data: {
-        url: urlToOpen,
-        tag: tag,
-        soundUrl: soundUrl
-      },
+      renotify: true,
+      requireInteraction: true,
+      silent: false,
+      data: { url: urlToOpen, tag: tag, soundUrl: soundUrl },
       actions: [
-        { action: 'open',  title: 'Ver Detalles 🛒' },
+        { action: 'open',  title: 'Ver Detalles' },
         { action: 'close', title: 'Cerrar' }
       ]
     };
 
     event.waitUntil(
-      self.registration.showNotification(title, options).then(() => {
-        // ✅ Delegar reproducción de sonido al cliente (única forma válida en SW)
+      self.registration.showNotification(title, options).then(function() {
         return self.clients
           .matchAll({ type: 'window', includeUncontrolled: true })
-          .then(clients => {
-            clients.forEach(client => {
-              client.postMessage({
-                type: 'PLAY_NOTIFICATION_SOUND',
-                soundUrl: soundUrl
-              });
+          .then(function(clients) {
+            clients.forEach(function(client) {
+              client.postMessage({ type: 'PLAY_NOTIFICATION_SOUND', soundUrl: soundUrl });
             });
           });
       })
     );
   } catch (error) {
     console.error('[SW Push] Error procesando evento push:', error);
-    event.waitUntil(
-      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
-        clients.forEach(client => {
-          client.postMessage({
-            type: 'PUSH_ERROR',
-            error: '[SW Push] Error: ' + (error?.message || String(error))
-          });
-        });
-      })
-    );
   }
 });
 
 self.addEventListener('notificationclick', function(event) {
   try {
     event.notification.close();
-
     if (event.action === 'close') return;
 
     const targetUrl = event.notification.data?.url || '/';
-
     event.waitUntil(
       self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
-        // Reenfocar pestaña existente si la hay
         for (const client of clientList) {
           if ('focus' in client) {
             if (client.navigate) client.navigate(targetUrl);
             return client.focus();
           }
         }
-        // Si no hay pestaña abierta, abrir una nueva
         if (self.clients.openWindow) {
           return self.clients.openWindow(targetUrl);
         }
@@ -126,13 +170,32 @@ self.addEventListener('notificationclick', function(event) {
   }
 });
 
-// Escuchar mensajes del cliente (limpieza de cache, etc.)
+// ─── Message handler ───
 self.addEventListener('message', function(event) {
   if (event.data?.type === 'PUSH_CLIENT_ERROR') {
     console.error('[SW Push] Error reportado desde el cliente:', event.data.error);
   }
 
-  // Limpiar caches de imágenes y manifest después de cambiar logo/favicon
+  // Guardar logo_url en IndexedDB
+  if (event.data?.type === 'UPDATE_LOGO_URL') {
+    console.log('[SW Push] Actualizando logo_url en IndexedDB:', event.data.logoUrl);
+    event.waitUntil(
+      setLogoUrl(event.data.logoUrl).then(function() {
+        // Limpiar cache del manifest para que se regenere
+        return caches.keys().then(function(names) {
+          return Promise.all(names.map(function(n) {
+            if (n.includes('manifest')) return caches.delete(n);
+          }));
+        });
+      }).then(function() {
+        return self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      }).then(function(clients) {
+        clients.forEach(function(c) { c.postMessage({ type: 'LOGO_URL_UPDATED' }); });
+      })
+    );
+  }
+
+  // Limpiar caches de imágenes
   if (event.data?.type === 'CLEAR_ASSETS_CACHE') {
     console.log('[SW Push] Limpiando caches de assets...');
     event.waitUntil(
@@ -146,7 +209,6 @@ self.addEventListener('message', function(event) {
           })
         );
       }).then(function() {
-        // Notificar al cliente que la limpieza terminó
         return self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       }).then(function(clients) {
         clients.forEach(function(client) {

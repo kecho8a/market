@@ -2360,9 +2360,15 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                             }
                           }
                         }
-                        // Notificar al Service Worker para limpiar su cache
+                        // Notificar al Service Worker: nuevo logo para manifest dinámico
                         if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                          navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_ASSETS_CACHE' });
+                          navigator.serviceWorker.controller.postMessage({
+                            type: 'UPDATE_LOGO_URL',
+                            logoUrl: url
+                          });
+                          navigator.serviceWorker.controller.postMessage({
+                            type: 'CLEAR_ASSETS_CACHE'
+                          });
                         }
                       } catch (err) {
                         alert('Error al subir el logo: ' + (err as any).message);
