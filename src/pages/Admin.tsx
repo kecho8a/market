@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useApp } from '../store/AppContext';
-import { Producto, Order, OrderItem, AppUser } from '../types/store';
+import { Producto, Order, OrderItem, AppUser, DeliveryZone } from '../types/store';
 import { supabase, uploadFileToStorage, compressImage, getPublicUrl } from '../store/supabaseClient';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line } from 'recharts';
 import {
@@ -59,6 +59,13 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
   const [editingOrderItems, setEditingOrderItems] = useState<Order | null>(null);
   const [tempEditItems, setTempEditItems] = useState<OrderItem[]>([]);
   const [orderEditSearch, setOrderEditSearch] = useState('');
+
+  // State para editor de zonas de delivery
+  const [editingZone, setEditingZone] = useState<DeliveryZone | null>(null);
+  const [newZoneName, setNewZoneName] = useState('');
+  const [newZoneCost, setNewZoneCost] = useState(0);
+  const [newZoneMinKm, setNewZoneMinKm] = useState(0);
+  const [newZoneMaxKm, setNewZoneMaxKm] = useState(0);
 
   useEffect(() => {
     if (editingOrderItems) {
@@ -2551,6 +2558,146 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                   />
                   <span>Ofrecer Entrega por Zonas (selección manual)</span>
                 </label>
+              </div>
+            </div>
+
+            {/* Editor de Zonas de Delivery */}
+            <div className="col-span-2 border-t border-slate-100 pt-3 flex flex-col gap-3">
+              <span className="text-[10px] uppercase font-mono text-slate-500 block pb-1">Configuración de Zonas de Delivery</span>
+              <p className="text-[11px] text-slate-400">Define las zonas de entrega con su nombre, costo y rango de distancia (km). Estas zonas aparecen en el checkout cuando el cliente elige "Entrega por Zonas".</p>
+
+              {/* Lista de zonas existentes */}
+              <div className="flex flex-col gap-2">
+                {(config.delivery_zonas || []).map((z, idx) => (
+                  <div key={z.id} className="flex items-center gap-2 p-2.5 bg-white border border-slate-200 rounded-lg text-xs">
+                    <div className="flex-1 min-w-0">
+                      <span className="font-bold text-slate-800 block truncate">{z.name}</span>
+                      <span className="text-[10px] text-slate-500">{z.minKm}–{z.maxKm} km | ${z.cost.toFixed(2)}</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setEditingZone(z);
+                        setNewZoneName(z.name);
+                        setNewZoneCost(z.cost);
+                        setNewZoneMinKm(z.minKm);
+                        setNewZoneMaxKm(z.maxKm);
+                      }}
+                      className="p-1.5 rounded-md hover:bg-blue-50 text-blue-600 transition-colors cursor-pointer"
+                      title="Editar zona"
+                    >
+                      <Edit size={14} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        const updated = (config.delivery_zonas || []).filter((_, i) => i !== idx);
+                        updateConfig({ delivery_zonas: updated });
+                      }}
+                      className="p-1.5 rounded-md hover:bg-red-50 text-red-500 transition-colors cursor-pointer"
+                      title="Eliminar zona"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+                {(!config.delivery_zonas || config.delivery_zonas.length === 0) && (
+                  <p className="text-[11px] text-slate-400 italic">No hay zonas configuradas. Agrega una zona abajo.</p>
+                )}
+              </div>
+
+              {/* Formulario agregar/editar zona */}
+              <div className="flex flex-col gap-2 p-3 bg-white border border-slate-200 rounded-lg">
+                <span className="font-bold text-slate-800 text-xs">{editingZone ? 'Editar Zona' : 'Agregar Nueva Zona'}</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div className="flex flex-col gap-1 md:col-span-2">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase">Nombre de la Zona</span>
+                    <input
+                      type="text"
+                      value={newZoneName}
+                      onChange={(e) => setNewZoneName(e.target.value)}
+                      placeholder="Ej: Cercano (Guaparo, El Viñedo)"
+                      className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500 text-xs"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase">Costo ($)</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      value={newZoneCost}
+                      onChange={(e) => setNewZoneCost(parseFloat(e.target.value) || 0)}
+                      className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500 text-xs"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase">Kilómetros Mínimos</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={newZoneMinKm}
+                      onChange={(e) => setNewZoneMinKm(parseFloat(e.target.value) || 0)}
+                      className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500 text-xs"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase">Kilómetros Máximos</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={newZoneMaxKm}
+                      onChange={(e) => setNewZoneMaxKm(parseFloat(e.target.value) || 0)}
+                      className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500 text-xs"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-1">
+                  <button
+                    onClick={() => {
+                      if (!newZoneName.trim()) return;
+                      const zone: DeliveryZone = {
+                        id: editingZone ? editingZone.id : `z${Date.now()}`,
+                        name: newZoneName.trim(),
+                        cost: newZoneCost,
+                        minKm: newZoneMinKm,
+                        maxKm: newZoneMaxKm
+                      };
+                      const zones = [...(config.delivery_zonas || [])];
+                      if (editingZone) {
+                        const idx = zones.findIndex(z => z.id === editingZone.id);
+                        if (idx >= 0) zones[idx] = zone;
+                      } else {
+                        zones.push(zone);
+                      }
+                      updateConfig({ delivery_zonas: zones });
+                      setEditingZone(null);
+                      setNewZoneName('');
+                      setNewZoneCost(0);
+                      setNewZoneMinKm(0);
+                      setNewZoneMaxKm(0);
+                    }}
+                    disabled={!newZoneName.trim()}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: config.theme_color || '#0f5d34' }}
+                  >
+                    {editingZone ? 'Guardar Cambios' : 'Agregar Zona'}
+                  </button>
+                  {editingZone && (
+                    <button
+                      onClick={() => {
+                        setEditingZone(null);
+                        setNewZoneName('');
+                        setNewZoneCost(0);
+                        setNewZoneMinKm(0);
+                        setNewZoneMaxKm(0);
+                      }}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-200 text-slate-700 hover:bg-slate-300 transition-colors cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 

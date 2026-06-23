@@ -92,12 +92,21 @@ export interface StoreConfig {
   costo_envio_nacional?: number;
   recogida_en_local?: boolean;
   entrega_por_zonas?: boolean;
+  delivery_zonas?: DeliveryZone[];
   favicon_url?: string;
   banner_texts?: string[];
   categories?: string[];
   mensaje_bienvenida?: string;
   push_webhook_url?: string;
   push_webhook_secret?: string;
+}
+
+export interface DeliveryZone {
+  id: string;
+  name: string;
+  cost: number;
+  minKm: number;
+  maxKm: number;
 }
 
 export interface Coupon {

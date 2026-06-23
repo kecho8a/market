@@ -5,12 +5,6 @@ import { ListOrdered, Edit2, Trash2, MapPin, Phone, User, Landmark, Compass, Sma
 import { LeafletMap } from '../components/LeafletMap';
 import { SEOHead } from '../components/SEOHead';
 
-const CHECKOUT_ZONES = [
-  { name: 'Cercano (Trigaleña, Guaparo, Las Chimeneas, El Viñedo)', cost: 2.00 },
-  { name: 'Medio (Prebo, Mañongo, Prebo II, San Diego)', cost: 4.50 },
-  { name: 'Lejano (Guacara, Los Guayos, Tocuyito, Flor Amarillo)', cost: 7.00 },
-];
-
 interface CheckoutProps {
   setTab: (tab: 'home' | 'catalog' | 'cart' | 'admin') => void;
 }
@@ -97,10 +91,12 @@ export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
   };
 
   const handleZoneSelect = (index: number) => {
+    const zones = config.delivery_zonas || [];
+    if (index >= zones.length) return;
     setSelectedZoneIndex(index);
-    const selected = CHECKOUT_ZONES[index];
+    const selected = zones[index];
     setShippingCost(config.delivery_gratis ? 0 : selected.cost);
-    setShippingDistance(0);
+    setShippingDistance((selected.minKm + selected.maxKm) / 2);
     setShippingZone(selected.name);
   };
 
@@ -693,10 +689,10 @@ ${productosDetailText}
           {shippingMethod === 'zonas' && (
             <div className="flex flex-col gap-3">
               <p className="text-xs text-zinc-500">Selecciona la zona donde te encuentras:</p>
-              {CHECKOUT_ZONES.map((z, i) => (
+              {(config.delivery_zonas || []).map((z, i) => (
                 <button
                   type="button"
-                  key={i}
+                  key={z.id}
                   onClick={() => handleZoneSelect(i)}
                   className={`border p-4 rounded-lg text-left flex items-center justify-between transition-all outline-none cursor-pointer ${selectedZoneIndex === i ? 'bg-zinc-950 text-white border-zinc-950 font-bold' : 'bg-zinc-50 border-zinc-200 text-zinc-700 hover:bg-zinc-100'}`}
                 >
@@ -712,12 +708,13 @@ ${productosDetailText}
                 <button
                   type="button"
                   onClick={() => {
-                    setSelectedZoneIndex(3);
+                    const natIndex = (config.delivery_zonas || []).length;
+                    setSelectedZoneIndex(natIndex);
                     setShippingCost(config.delivery_gratis ? 0 : (config.costo_envio_nacional || 0));
                     setShippingDistance(100);
                     setShippingZone('Envío Nacional Estándar');
                   }}
-                  className={`border p-4 rounded-lg text-left flex items-center justify-between transition-all outline-none cursor-pointer ${selectedZoneIndex === 3 ? 'bg-zinc-950 text-white border-zinc-950 font-bold' : 'bg-zinc-50 border-zinc-200 text-zinc-700 hover:bg-zinc-100'}`}
+                  className={`border p-4 rounded-lg text-left flex items-center justify-between transition-all outline-none cursor-pointer ${selectedZoneIndex === (config.delivery_zonas || []).length ? 'bg-zinc-950 text-white border-zinc-950 font-bold' : 'bg-zinc-50 border-zinc-200 text-zinc-700 hover:bg-zinc-100'}`}
                 >
                   <div>
                     <p className="text-xs font-bold">Envío Nacional (más de 18km)</p>

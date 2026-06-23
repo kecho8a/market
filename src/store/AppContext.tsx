@@ -434,6 +434,11 @@ const DEFAULT_CONFIG: StoreConfig = {
   costo_envio_nacional: 5.0,
   recogida_en_local: true,
   entrega_por_zonas: true,
+  delivery_zonas: [
+    { id: 'z1', name: 'Cercano (Trigaleña, Guaparo, Las Chimeneas, El Viñedo)', cost: 2.00, minKm: 0, maxKm: 3 },
+    { id: 'z2', name: 'Medio (Prebo, Mañongo, Prebo II, San Diego)', cost: 4.50, minKm: 3, maxKm: 8 },
+    { id: 'z3', name: 'Lejano (Guacara, Los Guayos, Tocuyito, Flor Amarillo)', cost: 7.00, minKm: 8, maxKm: 18 },
+  ],
   favicon_url: '',
   banner_texts: [
     'Frescura garantizada directo a tu hogar',
@@ -1019,7 +1024,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           envio_nacional: dbConfig.envio_nacional ?? prev.envio_nacional,
           costo_envio_nacional: dbConfig.costo_envio_nacional ?? prev.costo_envio_nacional,
           recogida_en_local: dbConfig.recogida_en_local ?? prev.recogida_en_local,
-          entrega_por_zonas: dbConfig.entrega_por_zonas ?? prev.entrega_por_zonas
+          entrega_por_zonas: dbConfig.entrega_por_zonas ?? prev.entrega_por_zonas,
+          delivery_zonas: dbConfig.delivery_zonas ?? prev.delivery_zonas
         }));
       }
 

@@ -1,13 +1,14 @@
 ﻿import React, { useEffect, useRef, useState } from 'react';
 import { MapPin, Info, ArrowRight } from 'lucide-react';
+import { DeliveryZone } from '../types/store';
 
 interface LeafletMapProps {
   onLocationSelected: (lat: number, lng: number, distance: number, cost: number, zoneName: string) => void;
   shopCoords: { lat: number; lng: number };
-  config?: { delivery_gratis?: boolean; costo_delivery_km?: number; envio_nacional?: boolean; costo_envio_nacional?: number; site_nombre?: string };
+  config?: { delivery_gratis?: boolean; costo_delivery_km?: number; envio_nacional?: boolean; costo_envio_nacional?: number; site_nombre?: string; delivery_zonas?: DeliveryZone[] };
 }
 
-// Zonas de Valencia predefinidas
+// Zonas de Valencia predefinidas (fallback si no hay zonas configuradas)
 const VALENCIA_ZONES = [
   { name: 'Cercano (Trigaleña, Guaparo, Las Chimeneas, El Viñedo)', minKm: 0, maxKm: 3, cost: 2.00 },
   { name: 'Medio (Prebo, Mañongo, Prebo II, San Diego)', minKm: 3, maxKm: 8, cost: 4.50 },
@@ -33,6 +34,18 @@ export const calculateShippingCostSymbolic = (distanceKm: number, config?: Leafl
     return { cost: 0, zone: 'Zona Exclusiva - Delivery Gratis' };
   }
 
+  // Use configured zones if available
+  const zones = (config?.delivery_zonas && config.delivery_zonas.length > 0) 
+    ? config.delivery_zonas 
+    : VALENCIA_ZONES;
+
+  // Check if distance falls within a configured zone
+  const matchedZone = zones.find(z => distanceKm >= z.minKm && distanceKm <= z.maxKm);
+  if (matchedZone) {
+    return { cost: matchedZone.cost, zone: matchedZone.name };
+  }
+
+  // National shipping for distances beyond configured zones
   if (distanceKm > 18) {
     if (config?.envio_nacional) {
        return { cost: config.costo_envio_nacional || 0, zone: 'Envío Nacional Estándar' };
@@ -44,9 +57,7 @@ export const calculateShippingCostSymbolic = (distanceKm: number, config?: Leafl
   const ratePerKm = config?.costo_delivery_km ?? 0.45;
   const cost = parseFloat(Math.max(1.5, 1.5 + (distanceKm * ratePerKm)).toFixed(2));
   
-  // Classify zone
-  const zone = VALENCIA_ZONES.find(z => distanceKm >= z.minKm && distanceKm <= z.maxKm)?.name || 'Zona General Valencia';
-  return { cost, zone };
+  return { cost, zone: 'Zona General Valencia' };
 };
 
 export const LeafletMap: React.FC<LeafletMapProps> = ({ onLocationSelected, shopCoords, config }) => {
