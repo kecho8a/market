@@ -126,9 +126,33 @@ self.addEventListener('notificationclick', function(event) {
   }
 });
 
-// Escuchar mensajes de error del cliente
+// Escuchar mensajes del cliente (limpieza de cache, etc.)
 self.addEventListener('message', function(event) {
   if (event.data?.type === 'PUSH_CLIENT_ERROR') {
     console.error('[SW Push] Error reportado desde el cliente:', event.data.error);
+  }
+
+  // Limpiar caches de imágenes y manifest después de cambiar logo/favicon
+  if (event.data?.type === 'CLEAR_ASSETS_CACHE') {
+    console.log('[SW Push] Limpiando caches de assets...');
+    event.waitUntil(
+      caches.keys().then(function(cacheNames) {
+        return Promise.all(
+          cacheNames.map(function(name) {
+            if (name.includes('images') || name.includes('supabase') || name.includes('manifest')) {
+              console.log('[SW Push] Borrando cache:', name);
+              return caches.delete(name);
+            }
+          })
+        );
+      }).then(function() {
+        // Notificar al cliente que la limpieza terminó
+        return self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      }).then(function(clients) {
+        clients.forEach(function(client) {
+          client.postMessage({ type: 'ASSETS_CACHE_CLEARED' });
+        });
+      })
+    );
   }
 });

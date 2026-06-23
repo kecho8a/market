@@ -1,4 +1,4 @@
-﻿import React, { useEffect } from 'react';
+﻿import React, { useEffect, useRef } from 'react';
 import { Producto } from '../types/store';
 import { useApp } from '../store/AppContext';
 
@@ -89,8 +89,68 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
       setMeta('og:image', 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=1200', 'property');
     }
 
-    // PWA manifest is provided statically via `public/manifest.json`.
-    // Avoid runtime Blob-manifest injection (it can cause invalid manifest fields like `start_url`).
+    // PWA Manifest dinámico: usar el logo de la tienda como icono PWA
+    const prevManifestUrl = document.getElementById('trv-dynamic-manifest-url') as HTMLMetaElement | null;
+    const oldBlobUrl = prevManifestUrl?.getAttribute('data-blob-url') || '';
+    if (oldBlobUrl) URL.revokeObjectURL(oldBlobUrl);
+
+    const iconUrl = config.logo_url || '/pwa-512x512.png';
+    const manifestObj = {
+      name: `${config.site_nombre || 'Marketo'} - Supermercado Gourmet & Delivery Express`,
+      short_name: config.site_nombre || 'Marketo',
+      description: 'Tu supermercado premium con despacho express en el Gran Valencia, Carabobo.',
+      start_url: '/',
+      scope: '/',
+      display: 'standalone',
+      orientation: 'portrait',
+      theme_color: config.theme_color || '#ffffff',
+      background_color: '#ffffff',
+      prefer_related_applications: false,
+      icons: [
+        { src: iconUrl, sizes: '192x192', type: 'image/png', purpose: 'any' },
+        { src: iconUrl, sizes: '512x512', type: 'image/png', purpose: 'any' },
+        { src: iconUrl, sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+      ],
+      categories: ['shopping', 'food'],
+      shortcuts: [
+        {
+          name: 'Pasillos del Súper',
+          short_name: 'Productos',
+          url: '/?tab=catalog',
+          description: 'Explorar los pasillos de víveres, quesos y carnes finas.'
+        }
+      ]
+    };
+    const blob = new Blob([JSON.stringify(manifestObj)], { type: 'application/json' });
+    const blobUrl = URL.createObjectURL(blob);
+
+    let linkManifest = document.querySelector('link[rel="manifest"]') as HTMLLinkElement | null;
+    if (!linkManifest) {
+      linkManifest = document.createElement('link');
+      linkManifest.setAttribute('rel', 'manifest');
+      document.head.appendChild(linkManifest);
+    }
+    linkManifest.setAttribute('href', blobUrl);
+
+    // Metadata para rastrear el blob URL y poder revocarlo
+    let manifestMeta = document.getElementById('trv-dynamic-manifest-url') as HTMLMetaElement | null;
+    if (!manifestMeta) {
+      manifestMeta = document.createElement('meta');
+      manifestMeta.id = 'trv-dynamic-manifest-url';
+      document.head.appendChild(manifestMeta);
+    }
+    manifestMeta.setAttribute('content', blobUrl);
+    manifestMeta.setAttribute('data-blob-url', blobUrl);
+
+    // Apple Touch Icon dinámico para iOS
+    const appleTouchUrl = config.logo_url || config.favicon_url || '/pwa-192x192.png';
+    let appleLink = document.querySelector('link[rel="apple-touch-icon"]') as HTMLLinkElement | null;
+    if (!appleLink) {
+      appleLink = document.createElement('link');
+      appleLink.setAttribute('rel', 'apple-touch-icon');
+      document.head.appendChild(appleLink);
+    }
+    appleLink.setAttribute('href', appleTouchUrl);
 
     // Favicon injection
     if (config.favicon_url || config.logo_url) {
@@ -202,7 +262,7 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
       script.innerHTML = JSON.stringify(schemaObj);
       document.head.appendChild(script);
     }
-  }, [title, description, type, product, filters]);
+  }, [title, description, type, product, filters, config.site_nombre, config.theme_color, config.logo_url, config.favicon_url]);
 
   return null; // Side-effect only component
 };

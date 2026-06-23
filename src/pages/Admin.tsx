@@ -2360,6 +2360,10 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                             }
                           }
                         }
+                        // Notificar al Service Worker para limpiar su cache
+                        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                          navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_ASSETS_CACHE' });
+                        }
                       } catch (err) {
                         alert('Error al subir el logo: ' + (err as any).message);
                       }
@@ -2392,6 +2396,10 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                               await caches.delete(name);
                             }
                           }
+                        }
+                        // Notificar al Service Worker para limpiar su cache
+                        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                          navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_ASSETS_CACHE' });
                         }
                       } catch (err) {
                         alert('Error al subir el favicon: ' + (err as any).message);
