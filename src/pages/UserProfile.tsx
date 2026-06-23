@@ -222,6 +222,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
       return;
     }
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(regEmail.trim())) {
+      setAuthError('Correo electrónico inválido. Debe tener un formato válido (ej: usuario@dominio.com).');
+      return;
+    }
+
     const phoneRegex = /^\+?[0-9]{7,15}$/;
     const cleanedPhone = regPhone.replace(/[\s\-()]/g, '');
     if (!phoneRegex.test(cleanedPhone)) {

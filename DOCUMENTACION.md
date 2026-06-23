@@ -1,6 +1,6 @@
-# Documentación del Sistema - marketo
+# Documentación del Sistema - Marketo
 
-Esta documentación proporciona una guía detallada sobre la arquitectura, instalación, configuración y mantenimiento del sistema de gestión de repuestos automotrices.
+Esta documentación proporciona una guía detallada sobre la arquitectura, instalación, configuración y mantenimiento del sistema de supermercado premium Marketo.
 
 ---
 
@@ -147,9 +147,7 @@ El sistema incluye un módulo de escaneo avanzado (`BarcodeScanner.tsx`):
 
 ### Acceso al Panel Administrativo
 - **Ruta**: Puedes acceder haciendo clic en el icono de "Llave" o "Admin" (en el footer o menú).
-- **Credenciales por Defecto**:
-  - **Usuario**: `admin`
-  - **Contraseña**: `admin123`
+- **Credenciales**: Las credenciales de administrador se configuran mediante variables de entorno (`VITE_ADMIN_USER` / `VITE_ADMIN_PASS`) o se gestionan a través de Supabase Auth.
 - **Funcionalidades**:
   - Gestión completa de inventario (CRUD).
   - Configuración de la tienda (Banners, Tasas, Datos de Pago).

@@ -138,7 +138,7 @@ export const Home: React.FC<HomeProps> = ({
     return years.reverse();
   }, []);
 
-  // Preferencias de dieta o tipos de producto (Reemplaza lógica de motores automotrices)
+  // Preferencias de dieta o tipos de producto
   const dietaryPreferences = useMemo(() => {
     if (!selectedBrand || !selectedModel) return [];
     

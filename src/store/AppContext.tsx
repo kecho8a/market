@@ -507,8 +507,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return localStorage.getItem('trv_admin_auth') === 'true';
   });
 
-  const [adminUser] = useState<string>('admin');
-  const [adminPass] = useState<string>('admin123');
+  const [adminUser] = useState<string>(import.meta.env.VITE_ADMIN_USER || '');
+  const [adminPass] = useState<string>(import.meta.env.VITE_ADMIN_PASS || '');
 
   const [displayCurrency, setDisplayCurrency] = useState<'USD' | 'BS'>(() => {
     return (localStorage.getItem('trv_currency') as 'USD' | 'BS') || 'USD';
@@ -1117,7 +1117,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       es_nuevo: productData.es_nuevo,
       es_mas_vendido: productData.es_mas_vendido
     }]).select().single().then(({ data, error }) => { 
-      if (error) console.error('Add part error:', error);
+      if (error) {
+        console.error('Add part error:', error);
+        addNotification('Error al agregar producto', error.message || 'Error de base de datos');
+      }
       if (data) setProducts(prev => [data as Producto, ...prev]);
     });
   };
@@ -1131,7 +1134,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const updatePayload: any = { ...updated };
         delete updatePayload.id; // avoid id conflicts
         supabase.from('products').update(updatePayload).eq('codigo', updatedPart.codigo)
-          .then(({ error }) => { if (error) console.error('Update part error:', error); });
+          .then(({ error }) => { if (error) {
+            console.error('Update part error:', error);
+            addNotification('Error al actualizar producto', error.message || 'Error de base de datos');
+          } });
           
         return updatedPart;
       }
@@ -1143,7 +1149,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const targetPart = products.find(p => p.id === id);
     if (targetPart) {
       supabase.from('products').delete().eq('codigo', targetPart.codigo)
-        .then(({ error }) => { if (error) console.error('Delete part error:', error); });
+        .then(({ error }) => { if (error) {
+          console.error('Delete part error:', error);
+          addNotification('Error al eliminar producto', error.message || 'Error de base de datos');
+        } });
     }
     setProducts(prev => prev.filter(p => p.id !== id));
   };
@@ -1330,6 +1339,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (error) {
       console.error('Insert order error:', error);
+      addNotification('Error al procesar pedido', 'No se pudo crear la orden. Intente de nuevo.');
       return null;
     }
 
@@ -1804,7 +1814,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (error) {
       console.error('❌ Marketo Error (SQL):', error.message, '| Hint:', error.hint);
-      console.error('Payload fallido:', { notifId, tipo, targetPhone });
+      addNotification('Error de notificación', 'No se pudo guardar la notificación en el servidor.');
       return false;
     }
     
