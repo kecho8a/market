@@ -378,7 +378,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
           window.location.reload();
         }
       } catch (err) {
-        alert("Error al restaurar: El archivo no es un respaldo válido de Marketo.");
+        alert(`Error al restaurar: El archivo no es un respaldo válido de ${config.site_nombre || 'la aplicación'}.`);
       }
     };
     reader.readAsText(file);
@@ -756,7 +756,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
       {/* DASHBOARD TOP HEADER BAR */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-200 pb-4 gap-3 bg-white p-4 rounded-xl shadow-sm">
         <div>
-          <span className="text-[11px] font-mono text-violet-600 font-bold uppercase tracking-wider">Control Total • Marketo Supermarket</span>
+          <span className="text-[11px] font-mono text-violet-600 font-bold uppercase tracking-wider">Control Total • {config.site_nombre || 'Supermarket'}</span>
           <h2 className="text-[21px] font-bold font-display text-slate-900">Dashboard Administrativo</h2>
         </div>
 
@@ -2100,7 +2100,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                   return;
                 }
                 const success = await addNotification(
-                  "Prueba de Sistema Marketo 🔔", 
+                  `Prueba de Sistema ${config.site_nombre || ''} 🔔`, 
                   "Si recibes esta alerta, el sistema de Web Push real (VAPID + Supabase) está funcionando correctamente.", 
                   "admin",
                   target
@@ -2228,7 +2228,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
           <form 
             onSubmit={(e) => {
               e.preventDefault();
-              alert('¡Ajustes de sucursal física de Marketo guardados!');
+              alert(`¡Ajustes de sucursal física de ${config.site_nombre || 'la tienda'} guardados!`);
             }}
             className="flex flex-col gap-4 p-4 border border-slate-200 rounded-xl bg-white shadow-sm"
           >

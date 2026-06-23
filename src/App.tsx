@@ -108,7 +108,7 @@ function AppContent() {
   };
 
   const handleShareProduct = (part: Producto) => {
-    const text = `🍏 *${part.nombre}* en *Marketo* • Código SKU: *${part.codigo}* por un precio de *$${part.precio_usd.toFixed(2)} USD*. ¡Pídelo directo al delivery express de Marketo!`;
+    const text = `🍏 *${part.nombre}* en *${config.site_nombre || 'nuestra tienda'}* • Código SKU: *${part.codigo}* por un precio de *$${part.precio_usd.toFixed(2)} USD*. ¡Pídelo directo al delivery express de ${config.site_nombre || 'nuestra tienda'}!`;
     const phone = config.telefono_soporte.replace(/[+ ]/g, '');
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
@@ -157,13 +157,13 @@ function AppContent() {
             <img
               src={logoUrl}
               alt={config.site_nombre || 'Tienda'}
-              className="w-28 h-28 object-contain rounded-3xl mb-5 shadow-2xl bg-white p-2"
+              className="w-28 h-28 object-contain rounded-3xl mb-5"
               style={{ animation: 'logoZoomIn 0.8s cubic-bezier(0.34,1.56,0.64,1) forwards, pulseGlow 2s ease-in-out infinite 0.8s' }}
             />
           ) : (
             <div
-              className="w-28 h-28 bg-white rounded-3xl flex items-center justify-center mb-5 shadow-2xl"
-              style={{ color: config.theme_color || '#0f5d34', animation: 'logoZoomIn 0.8s cubic-bezier(0.34,1.56,0.64,1) forwards, pulseGlow 2s ease-in-out infinite 0.8s' }}
+              className="w-28 h-28 rounded-3xl flex items-center justify-center mb-5"
+              style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: '#ffffff', animation: 'logoZoomIn 0.8s cubic-bezier(0.34,1.56,0.64,1) forwards, pulseGlow 2s ease-in-out infinite 0.8s' }}
             >
               <ShoppingBag size={48} />
             </div>
@@ -320,7 +320,7 @@ function AppContent() {
                     onClick={handleInstallClick}
                     className="flex items-center gap-3 w-full px-3 py-2.5 text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl font-bold transition-all cursor-pointer shadow-sm animate-pulse"
                   >
-                    <Download size={14} /> Instalar Marketo App
+                    <Download size={14} /> Instalar {config.site_nombre || 'App'}
                   </button>
                 )}
               </div>
@@ -366,7 +366,7 @@ function AppContent() {
                 </button>
               )}
               <div className="text-[9px] text-zinc-400 font-mono text-center select-none">
-                Marketo v1.0.1 DESKTOP
+                {config.site_nombre || 'App'} v1.0.1 DESKTOP
               </div>
             </div>
           </aside>

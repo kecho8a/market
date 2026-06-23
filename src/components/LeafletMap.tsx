@@ -4,7 +4,7 @@ import { MapPin, Info, ArrowRight } from 'lucide-react';
 interface LeafletMapProps {
   onLocationSelected: (lat: number, lng: number, distance: number, cost: number, zoneName: string) => void;
   shopCoords: { lat: number; lng: number };
-  config?: { delivery_gratis?: boolean; costo_delivery_km?: number; envio_nacional?: boolean; costo_envio_nacional?: number };
+  config?: { delivery_gratis?: boolean; costo_delivery_km?: number; envio_nacional?: boolean; costo_envio_nacional?: number; site_nombre?: string };
 }
 
 // Zonas de Valencia predefinidas
@@ -149,7 +149,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({ onLocationSelected, shop
       .addTo(map)
       .bindPopup(`
         <div class="text-xs p-1 font-sans text-zinc-900">
-          <h4 class="font-bold text-emerald-600 mb-0.5">Sede Central Marketo</h4>
+          <h4 class="font-bold text-emerald-600 mb-0.5">Sede Central ${config?.site_nombre || 'de la tienda'}</h4>
           <p class="text-zinc-650">¡Retiro en tienda gratuito aquí!</p>
         </div>
       `);

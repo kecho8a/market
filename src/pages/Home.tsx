@@ -82,7 +82,7 @@ export const Home: React.FC<HomeProps> = ({
         const res = await Notification.requestPermission();
         if (res === 'granted') {
           new Notification('Notificaciones Habilitadas', {
-            body: 'Ahora recibiras alertas en tiempo real de tus pedidos y promociones de Marketo.',
+            body: 'Ahora recibiras alertas en tiempo real de tus pedidos y promociones de ' + (config.site_nombre || 'nuestra tienda') + '.',
             icon: 'https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?auto=format&fit=crop&q=80&w=100',
             tag: 'welcome-marketo'
           });
@@ -233,7 +233,7 @@ export const Home: React.FC<HomeProps> = ({
           </div>
         </div>
       )}
-      <SEOHead title="Supermercado Express Marketo en Valencia" type="home" />
+      <SEOHead title={`Supermercado Express ${config.site_nombre || ''} en Valencia`} type="home" />
       <h1 className="sr-only">Supermercado Premium en Valencia con Delivery | Compra Víveres, Carnes, Quesos y Frescos en Naguanagua y San Diego</h1>
 
       {/* Tasa de Cambio Oficial (Solo en Home y Checkout) */}
@@ -477,7 +477,7 @@ export const Home: React.FC<HomeProps> = ({
         <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex flex-col text-center md:text-left">
             <div className="flex items-center gap-2 justify-center md:justify-start">
-              <span className="text-[10px] uppercase font-black tracking-widest text-white px-2 py-0.5 rounded shadow-sm" style={{ backgroundColor: config.theme_color || '#0f5d34' }}>Marketo App</span>
+              <span className="text-[10px] uppercase font-black tracking-widest text-white px-2 py-0.5 rounded shadow-sm" style={{ backgroundColor: config.theme_color || '#0f5d34' }}>{config.site_nombre || 'App'} App</span>
               <span className="text-[10px] uppercase font-bold tracking-widest text-zinc-300">Instalación Express</span>
             </div>
             <h3 className="text-2xl font-black font-display mt-2 leading-tight max-w-xs">Tu mercado siempre a un toque de distancia</h3>
@@ -521,7 +521,7 @@ export const Home: React.FC<HomeProps> = ({
           Víveres y Delicatessen a Domicilio en Valencia, San Diego y Naguanagua
         </h2>
         <p className="text-xs leading-relaxed text-zinc-500 mb-3 font-sans">
-          ¿Buscando víveres y productos frescos en Valencia, San Diego o Naguanagua? <strong>Marketo</strong> es tu mejor opción de supermercado premium con delivery directo a tu puerta o local comercial. Somos especialistas en ofrecer el catálogo más selecto de lácteos, quesos finos, carnes premium, despensa importada, vegetales orgánicos y licores. Si no encuentras algún producto específico en nuestro sitio, ¡lo conseguimos para ti y te lo entregamos de inmediato!
+          ¿Buscando víveres y productos frescos en Valencia, San Diego o Naguanagua? <strong>{config.site_nombre || 'Nuestra tienda'}</strong> es tu mejor opción de supermercado premium con delivery directo a tu puerta o local comercial. Somos especialistas en ofrecer el catálogo más selecto de lácteos, quesos finos, carnes premium, despensa importada, vegetales orgánicos y licores. Si no encuentras algún producto específico en nuestro sitio, ¡lo conseguimos para ti y te lo entregamos de inmediato!
         </p>
         <p className="text-xs leading-relaxed text-zinc-500 mb-4 font-sans">
           Nuestra logística de <strong>Delivery Express</strong> cubre las zonas de El Viñedo, Prebo, Las Acacias, Los Nísperos, Guaparo, Tazajal, Mañongo y Flor Amarillo. Despachamos con empaques térmicos especializados para garantizar la frescura y conservación de cada producto. Aceptamos pagos en dólares (USD), Zelle y bolívares (Bs) a tasa oficial BCV, brindando transparencia y comodidad en cada entrega a domicilio en el estado Carabobo.

@@ -176,7 +176,7 @@ export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
     const finalTotalBs  = ((subtotalUsd + effectiveShippingCost) * config.tasa_cambio).toFixed(2);
 
     const whatsappMessage =
-`*Nuevo Pedido en Marketo Supermercado*
+`*Nuevo Pedido en ${config.site_nombre || 'Supermercado'}*
 ----------------------------------
 *Pedido ID:* ${preOrderId}
 *Cliente:* ${finalClientName}
@@ -250,7 +250,7 @@ ${productosDetailText}
         </p>
 
         <div className="w-full max-w-sm bg-zinc-50 border border-zinc-200 p-4 rounded-lg text-left text-xs text-zinc-700 flex flex-col gap-2 font-mono mt-2">
-          <span className="font-bold font-display text-[15px] tracking-tight border-b border-zinc-200 pb-1 block" style={{ color: config.theme_color || '#0f5d34' }}>Recibo de Compra Marketo</span>
+          <span className="font-bold font-display text-[15px] tracking-tight border-b border-zinc-200 pb-1 block" style={{ color: config.theme_color || '#0f5d34' }}>Recibo de Compra {config.site_nombre || ''}</span>
           <div>ID: <span className="text-zinc-900 font-bold">{processedOrder.id}</span></div>
           <div>Cliente: <span className="text-zinc-900">{processedOrder.cliente_nombre}</span></div>
           <div>Monto USD: <span className="font-bold" style={{ color: config.theme_color || '#0f5d34' }}>${(processedOrder.total_usd || 0).toFixed(2)}</span></div>
@@ -267,7 +267,7 @@ ${productosDetailText}
               processedOrder.items.forEach((it: any) => {
                 details += `- ${it.quantity || it.cantidad}x ${it.nombre} (SKU: ${it.codigo}) - $${(it.precio_usd * (it.quantity || it.cantidad)).toFixed(2)}\n`;
               });
-              const msg = `*Nuevo Pedido en Marketo Supermercado*\n----------------------------------\n*Pedido ID:* ${processedOrder.id}\n*Cliente:* ${processedOrder.cliente_nombre}\n*Telefono:* ${processedOrder.cliente_telefono}\n*Direccion de Entrega:* ${processedOrder.direccion_envio}\n*Ubicacion Mapa:* https://www.google.com/maps?q=${processedOrder.lat},${processedOrder.lng}\n*Metodo Despacho:* Delivery Express - Costo: $${processedOrder.costo_envio_usd.toFixed(2)}\n\n*Productos:*\n${details}\n*Total Neto a Pagar:* $${processedOrder.total_usd.toFixed(2)} / ${processedOrder.total_bs.toFixed(2)} Bs.\n*Metodo de Pago:* ${processedOrder.metodo_pago}\n----------------------------------`;
+              const msg = `*Nuevo Pedido en ${config.site_nombre || 'Supermercado'}*\n----------------------------------\n*Pedido ID:* ${processedOrder.id}\n*Cliente:* ${processedOrder.cliente_nombre}\n*Telefono:* ${processedOrder.cliente_telefono}\n*Direccion de Entrega:* ${processedOrder.direccion_envio}\n*Ubicacion Mapa:* https://www.google.com/maps?q=${processedOrder.lat},${processedOrder.lng}\n*Metodo Despacho:* Delivery Express - Costo: $${processedOrder.costo_envio_usd.toFixed(2)}\n\n*Productos:*\n${details}\n*Total Neto a Pagar:* $${processedOrder.total_usd.toFixed(2)} / ${processedOrder.total_bs.toFixed(2)} Bs.\n*Metodo de Pago:* ${processedOrder.metodo_pago}\n----------------------------------`;
               let cleanPhone = (config.telefono_soporte || '584124976451').replace(/\D/g, '');
               if (cleanPhone.startsWith('0')) cleanPhone = '58' + cleanPhone.substring(1);
               const retryUrlMobile = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
@@ -400,7 +400,7 @@ ${productosDetailText}
           </div>
           <div className="mt-6 flex flex-col items-center gap-1">
             <p className="text-sm font-black font-display text-zinc-900 uppercase tracking-tight">Procesando Pedido</p>
-            <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest animate-pulse">Sincronizando con Marketo Cloud...</p>
+            <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest animate-pulse">Sincronizando con {config.site_nombre || ''} Cloud...</p>
           </div>
         </div>
       )}
@@ -740,7 +740,7 @@ ${productosDetailText}
             )}
             {selectedPayment === 'Transferencia' && (
               <>
-                <div>{config.transferencia_data || 'Banesco Cuenta Corriente - 0134-1122-33-4455667788 - Marketo C.A.'}</div>
+                <div>{config.transferencia_data || `Banesco Cuenta Corriente - 0134-1122-33-4455667788 - ${config.site_nombre || 'Tienda'} C.A.`}</div>
               </>
             )}
           </div>

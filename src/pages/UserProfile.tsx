@@ -129,7 +129,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
 
         navigator.serviceWorker.ready.then(reg => {
           reg.showNotification('¡Notificaciones Habilitadas! 🔔', {
-            body: '¡Excelente! Ahora recibirás actualizaciones rápidas de tus pedidos y promociones de Marketo.',
+            body: '¡Excelente! Ahora recibirás actualizaciones rápidas de tus pedidos y promociones de ' + (config.site_nombre || 'nuestra tienda') + '.',
             icon: config.logo_url || '/icon.png',
             badge: '/icon.png',
             vibrate: [200, 100, 200],
@@ -391,7 +391,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
             <div className="relative h-44 bg-zinc-100 overflow-hidden">
               <img 
                 src="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=800" 
-                alt="Marketo App Screenshot" 
+                alt={`${config.site_nombre || 'App'} Screenshot`} 
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-black/20" />
@@ -412,7 +412,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                   <Smartphone size={22} />
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  <h4 className="text-[15px] font-black text-zinc-900 uppercase tracking-tight">Lleva Marketo en tu móvil</h4>
+                  <h4 className="text-[15px] font-black text-zinc-900 uppercase tracking-tight">Lleva {config.site_nombre || 'la tienda'} en tu móvil</h4>
                   <p className="text-[11px] text-zinc-500 font-medium leading-tight">Seguimiento en mapa, alertas de pedidos y compras offline más rápidas.</p>
                 </div>
               </div>
@@ -1507,7 +1507,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
               
               {/* BRAND / HEADER */}
               <div className="text-[9px] font-mono uppercase tracking-[0.2em] font-extrabold text-violet-600 bg-violet-50/50 py-1 px-2.5 rounded-md border border-violet-100/30 text-center">
-                Club de Clientes de Marketo
+                Club de Clientes de {config.site_nombre || 'la tienda'}
               </div>
 
               {/* 1. NAME CREDENTIAL */}

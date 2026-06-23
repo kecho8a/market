@@ -254,7 +254,7 @@ export const Navigation: React.FC<NavigationProps> = ({
               </button>
             )}
             <div className="text-[9px] text-zinc-400 font-mono text-center mt-2">
-              Marketo v1.0.1 PRPROD
+              {config.site_nombre || 'App'} v1.0.1
             </div>
           </div>
         </aside>

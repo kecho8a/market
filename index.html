@@ -37,7 +37,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Marketo" />
-    <meta name="theme-color" content="#7c3aed" />
+    <meta name="theme-color" content="#ffffff" />
 
     <!-- CSP: allow Google Fonts + required font formats -->
     <meta
@@ -55,6 +55,22 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   </head>
   <body class="bg-zinc-100 text-zinc-900 antialiased overflow-x-hidden">
+    <!-- Aplicar color de tienda antes de que React cargue para evitar flash blanco -->
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('trv_config');
+          if (saved) {
+            var cfg = JSON.parse(saved);
+            if (cfg.theme_color) {
+              document.body.style.backgroundColor = cfg.theme_color;
+              document.querySelector('meta[name="theme-color"]').setAttribute('content', cfg.theme_color);
+              document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').setAttribute('content', 'black-translucent');
+            }
+          }
+        } catch(e) {}
+      })();
+    </script>
     <div id="root"></div>
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

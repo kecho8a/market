@@ -37,7 +37,7 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
 
     // AIO: Automatic SEO Generation for Products
     if (type === 'product' && product) {
-      seoTitle = `${product.nombre} fresco en Valencia | Marketo Supermercado`;
+      seoTitle = `${product.nombre} fresco en Valencia | ${config.site_nombre || 'Supermercado'}`;
       seoDesc = `Compra ${product.nombre} ${product.condicion.toLowerCase()} de la mejor calidad. Despacho premium a domicilio en Valencia, Naguanagua y San Diego. Código SKU: ${product.codigo}. Delivery Express con cadena de frío garantizada.`;
       seoKeywords = `${product.nombre}, ${product.seccion}, ${product.subseccion}, ${product.categoria}, marketo, valencia, venezuela, carabobo, delicatessen naguanagua, gourmet san diego, sku ${product.codigo}, ${product.marca}`;
     }
@@ -55,8 +55,8 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
 
       const filterText = parts.length > 0 ? parts.join(' ') : 'Víveres Fresh y Delicatessen';
       
-      seoTitle = `Comprar ${filterText} en Valencia | Catálogo Marketo`;
-      seoDesc = `Catálogo gourmet de ${filterText} en Valencia, Venezuela. Quesos, embutidos, frutas frescas y despensa importada con delivery express. Naguanagua y San Diego. Compra online en Marketo con stock real.`;
+      seoTitle = `Comprar ${filterText} en Valencia | Catálogo ${config.site_nombre || 'Supermercado'}`;
+      seoDesc = `Catálogo gourmet de ${filterText} en Valencia, Venezuela. Quesos, embutidos, frutas frescas y despensa importada con delivery express. Naguanagua y San Diego. Compra online en ${config.site_nombre || 'nuestro supermercado'} con stock real.`;
       
       const kwParts = ['marketo', 'valencia', 'venezuela', 'supermercado online', 'delivery express', 'naguanagua', 'san diego'];
       if (category) kwParts.push(`compra ${category.toLowerCase()}`);
@@ -158,7 +158,7 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
       schemaObj = {
         '@context': 'https://schema.org',
         '@type': 'GroceryStore',
-        'name': 'Marketo Supermercado',
+        'name': config.site_nombre || 'Supermercado',
         'image': 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=1200',
         '@id': 'https://marketo.com.ve',
         'url': 'https://marketo.com.ve',
@@ -224,7 +224,7 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
       schemaObj = {
         '@context': 'https://schema.org',
         '@type': 'SearchResultsPage',
-        'name': 'Catálogo Premium de Víveres | Marketo',
+        'name': `Catálogo Premium de Víveres | ${config.site_nombre || 'Supermercado'}`,
         'description': 'Filtrado inteligente por pasillo, estante y dietas para artículos selectos en Valencia, Venezuela.'
       };
     }

@@ -16,7 +16,7 @@ const urlBase64ToUint8Array = (base64String: string) => {
 };
 
 export const PushNotificationModal: React.FC = () => {
-  const { addNotification } = useApp();
+  const { addNotification, config } = useApp();
   const [isOpen, setIsOpen] = useState(false);
   const [permissionType, setPermissionType] = useState<'default' | 'granted' | 'denied' | 'unsupported'>('default');
 
@@ -93,7 +93,7 @@ export const PushNotificationModal: React.FC = () => {
         // Trigger a gorgeous, helpful native welcoming notification
         navigator.serviceWorker.ready.then(reg => {
           reg.showNotification('¡Notificaciones Activas! 🔔', {
-            body: '¡Genial! Ahora recibirás alertas en tiempo real sobre tus pedidos y ofertas frescas de Marketo.',
+            body: '¡Genial! Ahora recibirás alertas en tiempo real sobre tus pedidos y ofertas frescas de ' + (config.site_nombre || 'nuestra tienda') + '.',
             icon: '/icon.png',
             badge: '/icon.png',
             vibrate: [200, 100, 200],

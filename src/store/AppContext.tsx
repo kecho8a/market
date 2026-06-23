@@ -709,7 +709,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 .join(' • ');
 
               navigator.serviceWorker.ready.then(reg => {
-                reg.showNotification('Marketo: Actualización de Pedido', {
+                reg.showNotification(`${config.site_nombre || 'App'}: Actualización de Pedido`, {
                   body: `Tu pedido ${updated.id} ahora está: ${updated.status}${extras ? `\n${extras}` : ''}`,
                   icon: '/icon.png',
                   badge: '/badge.png',
@@ -1089,7 +1089,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
      // Also notify user that request was received
      const userRes = await addNotification(
       'Solicitud de Producto Recibida',
-      `Hola ${nombre}, hemos recibido tu solicitud para "${descripcion.substring(0, 30)}...". Un agente de Marketo te contactará pronto.`,
+      `Hola ${nombre}, hemos recibido tu solicitud para "${descripcion.substring(0, 30)}...". Un agente de ${config.site_nombre || 'nuestra tienda'} te contactará pronto.`,
       'personal',
       telefono
     );
@@ -1385,7 +1385,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else if (status === 'En camino') {
       statusMsg = `🛵 ¡Tu pedido ${orderId} va en camino! Nuestro motorizado se dirige a tu ubicación en Valencia con cadena de frío.`;
     } else if (status === 'Entregado') {
-      statusMsg = `✅ Pedido ${orderId} entregado con éxito. ¡Gracias por preferir a Marketo!`;
+      statusMsg = `✅ Pedido ${orderId} entregado con éxito. ¡Gracias por preferir a ${config.site_nombre || 'nuestra tienda'}!`;
     } else {
       statusMsg = `El pedido ${orderId} ahora se encuentra en estado: ${status}.`;
     }

@@ -8,7 +8,7 @@ interface BarcodeScannerProps {
 }
 
 export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScanSuccess, onClose }) => {
-  const { parts } = useApp();
+  const { parts, config } = useApp();
   const [selectedSimulatedSKU, setSelectedSimulatedSKU] = useState<string>('');
   const [scanStatus, setScanStatus] = useState<string>('Listo para búsqueda rápida...');
 
@@ -81,7 +81,7 @@ export const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScanSuccess, o
           </div>
 
           <div className="mt-2 text-[10px] text-gray-500 border-t border-white/5 pt-2 text-center">
-            Ideal para teléfonos móviles o tabletas en el piso de la tienda Marketo. En cámara real, el haz busca el código de barras o PLU para sincronización de inventario.
+            Ideal para teléfonos móviles o tabletas en el piso de la tienda ${config.site_nombre || ''}. En cámara real, el haz busca el código de barras o PLU para sincronización de inventario.
           </div>
         </div>
       </div>
