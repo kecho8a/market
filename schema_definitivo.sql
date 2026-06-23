@@ -150,7 +150,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
-    -- SECURITY DEFINER ejecuta con privilegios del creador (superusuario/服务role)
+    -- SECURITY DEFINER ejecuta con privilegios del creador (superusuario/service_role)
     -- que puede ver todas las filas sin filtro RLS.
     RETURN QUERY
     SELECT ps.id, ps.user_id, ps.endpoint, ps.p256dh, ps.auth_secret, ps.destinatario_telefono, ps.anonymous_id, ps.created_at
@@ -215,7 +215,7 @@ BEGIN
         COALESCE(NEW.raw_user_meta_data->>'nombre', 'Usuario Nuevo'),
         NEW.email,
         COALESCE(NEW.raw_user_meta_data->>'telefono', ''),
-        'auth_managed' -- La contraseña real vive en auth.users
+        'auth_managed'
     )
     ON CONFLICT (id) DO NOTHING;
     RETURN NEW;
@@ -244,11 +244,9 @@ DECLARE
     v_notif_id text;
     v_admin_phone text;
 BEGIN
-    -- 1. Procesar Stock con resiliencia de mapeo
     FOR item_json IN SELECT jsonb_array_elements(NEW.items)
     LOOP
         BEGIN
-            -- Intentar mapear múltiples posibles nombres de campos del frontend
             v_part_id := (COALESCE(item_json->>'part_id', item_json->>'id', item_json->>'producto_id'))::uuid;
             v_cantidad := (COALESCE(item_json->>'cantidad', item_json->>'quantity', item_json->>'qty'))::int;
 
@@ -258,22 +256,18 @@ BEGIN
                 WHERE id = v_part_id;
             END IF;
         EXCEPTION WHEN OTHERS THEN
-            -- Logear error pero no romper la transacción del pedido
             RAISE WARNING 'Error actualizando stock para item %: %', v_part_id, SQLERRM;
         END;
     END LOOP;
 
-    -- 2. Gestión de Cupones
     IF NEW.cupon_codigo IS NOT NULL THEN
         UPDATE public.coupons
         SET usage_count = usage_count + 1
         WHERE code = NEW.cupon_codigo;
     END IF;
 
-    -- 3. Inserción Automática de Notificación (Atomicidad asegurada)
     v_notif_id := 'notif-' || encode(gen_random_bytes(6), 'hex');
     
-    -- Obtener teléfono del administrador para el ruteo del Push
     SELECT telefono_soporte INTO v_admin_phone FROM public.store_config WHERE id = 1;
 
     INSERT INTO public.notifications (
@@ -296,7 +290,6 @@ BEGIN
 
     RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
-    -- En caso de error fatal, permitimos que el pedido se cree pero notificamos el fallo
     RAISE WARNING 'Fallo crítico en trigger handle_new_order_actions: %', SQLERRM;
     RETURN NEW;
 END;
@@ -317,14 +310,11 @@ DECLARE
     v_mensaje text;
     v_admin_phone text;
 BEGIN
-    -- Detectar cuando el estado cambia específicamente a 'En camino'
     IF (OLD.status IS DISTINCT FROM NEW.status) AND NEW.status = 'En camino' THEN
         
         v_notif_id := 'notif-status-' || encode(gen_random_bytes(6), 'hex');
-        v_mensaje := '🛵 ¡Buenas noticias, ' || NEW.cliente_nombre || '! Tu pedido ' || NEW.id || ' ya ha sido despachado y se dirige a tu ubicación.';
+        v_mensaje := '¡Buenas noticias, ' || NEW.cliente_nombre || '! Tu pedido ' || NEW.id || ' ya ha sido despachado y se dirige a tu ubicación.';
 
-        -- Insertar notificación personal para el cliente
-        -- Esto disparará automáticamente trigger_notify_push
         INSERT INTO public.notifications (
             id, 
             titulo, 
@@ -336,21 +326,20 @@ BEGIN
             leida
         ) VALUES (
             v_notif_id,
-            '¡Pedido en camino! 🛵',
+            '¡Pedido en camino!',
             v_mensaje,
             to_char(NOW(), 'DD/MM/YYYY HH24:MI'),
             'personal',
             NEW.cliente_telefono,
-            '/?tab=profile', -- Redirige al perfil para ver el rastreo
+            '/?tab=profile',
             FALSE
         );
     
-    -- Detectar cuando el pedido es CANCELADO para avisar al administrador
     ELSIF (OLD.status IS DISTINCT FROM NEW.status) AND NEW.status = 'Cancelado' THEN
         
         SELECT telefono_soporte INTO v_admin_phone FROM public.store_config WHERE id = 1;
         v_notif_id := 'notif-cancel-' || encode(gen_random_bytes(6), 'hex');
-        v_mensaje := '🚫 El pedido ' || NEW.id || ' de ' || NEW.cliente_nombre || ' ha sido cancelado.';
+        v_mensaje := 'El pedido ' || NEW.id || ' de ' || NEW.cliente_nombre || ' ha sido cancelado.';
 
         INSERT INTO public.notifications (
             id, 
@@ -363,12 +352,12 @@ BEGIN
             leida
         ) VALUES (
             v_notif_id,
-            '🚫 Pedido Cancelado',
+            'Pedido Cancelado',
             v_mensaje,
             to_char(NOW(), 'DD/MM/YYYY HH24:MI'),
             'admin',
             COALESCE(v_admin_phone, ''),
-            '/admin', -- Redirige al panel admin
+            '/admin',
             FALSE
         );
     END IF;
@@ -409,13 +398,11 @@ DECLARE
   v_webhook_url TEXT;
   v_webhook_secret TEXT;
 BEGIN
-  -- Recuperar configuración desde la tabla store_config (Evita errores de permisos 42501)
   SELECT push_webhook_url, push_webhook_secret 
   INTO v_webhook_url, v_webhook_secret 
   FROM public.store_config 
   WHERE id = 1;
 
-  -- Procesar todos los tipos incluyendo 'request' para la mensajería interna
   IF v_webhook_url IS NOT NULL AND v_webhook_url <> '' AND NEW.tipo IN ('todos', 'personal', 'admin', 'request') THEN
     PERFORM net.http_post(
       url := v_webhook_url,
@@ -430,12 +417,12 @@ BEGIN
         'url', COALESCE(NEW.link_url, '/'),
         'record', jsonb_build_object(
           'id', NEW.id,
-          'title', NEW.titulo,      -- Campo estándar para móviles
-          'body', NEW.mensaje,       -- Campo estándar para móviles
+          'title', NEW.titulo,
+          'body', NEW.mensaje,
           'icon', COALESCE(NEW.imagen_url, '/icon.png'),
-          'tag', 'marketo-' || NEW.id, -- Agrupación única para forzar alerta
-          'renotify', true,          -- Forzar vibración/sonido aunque haya otra notif
-          'vibrate', ARRAY[200, 100, 200], -- Patrón de vibración para alerta
+          'tag', 'marketo-' || NEW.id,
+          'renotify', true,
+          'vibrate', ARRAY[200, 100, 200],
           'sound', 'default',
           'badge', '/icon.png',
           'titulo', NEW.titulo,
@@ -455,7 +442,6 @@ BEGIN
 
   RETURN NEW;
 EXCEPTION WHEN OTHERS THEN
-  -- No fallar la inserción si el webhook falla
   RAISE WARNING 'No se pudo invocar webhook de push: %', SQLERRM;
   RETURN NEW;
 END;
@@ -468,13 +454,6 @@ AFTER INSERT ON public.notifications
 FOR EACH ROW
 EXECUTE FUNCTION public.handle_new_notification_push();
 
--- NOTA: Para que el trigger funcione, se requiere:
--- 1. Habilitar la extensión pg_net en Supabase: Database -> Extensions -> pg_net -> Enable
--- 2. Configurar las variables app.settings.push_webhook_url y app.settings.webhook_secret
---    en Supabase: Database -> Config -> Parameters
--- 3. Si pg_net no está disponible, el sistema funciona igualmente ya que el webhook
---    también se invoca desde el frontend en handleCreateBroadcast (Admin.tsx)
-
 -- ----------------------------------------------------------------------------
 -- 6. POLÍTICAS RLS Y SEGURIDAD
 -- ----------------------------------------------------------------------------
@@ -485,13 +464,11 @@ ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
 
--- Permisos base (mínimos necesarios — las RLS controlan el acceso real)
--- anon: solo lectura de catálogo público (store_config, products, notifications tipo=todos)
+-- Permisos base
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT SELECT, INSERT ON store_config, products, notifications, coupons, usuarios_clientes TO anon;
 GRANT SELECT, INSERT, UPDATE ON orders TO anon;
 GRANT SELECT, INSERT, UPDATE ON push_subscriptions TO anon;
--- authenticated: acceso completo a sus propios datos (controlado por RLS)
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO authenticated;
@@ -502,9 +479,7 @@ DECLARE
   p_record RECORD;
 BEGIN
 
-  -- ============================
   -- store_config
-  -- ============================
   DROP POLICY IF EXISTS "Lectura config publica" ON store_config;
   CREATE POLICY "Lectura config publica" ON store_config FOR SELECT USING (true);
 
@@ -514,10 +489,7 @@ BEGIN
     FOR ALL TO authenticated 
     USING (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
 
-  -- ============================
-  -- products (RLS para Stock y CRUD)
-  -- ============================
-  -- Política de lectura: clientes ven solo activos; admins ven todos
+  -- products
   DROP POLICY IF EXISTS "Lectura productos activos" ON products;
   CREATE POLICY "Lectura productos activos" ON products
     FOR SELECT
@@ -534,15 +506,12 @@ BEGIN
     USING (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
     WITH CHECK (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
 
-  -- ============================
-  -- orders (IMPORTANTE)
-  -- ============================
+  -- orders
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='orders' AND policyname='orders_insert_allow_anon') THEN
     DROP POLICY IF EXISTS "orders_insert_allow_anon" ON orders;
     CREATE POLICY "orders_insert_allow_anon" ON orders FOR INSERT WITH CHECK (true);
   END IF;
 
-  -- Política de lectura optimizada para Admin y Clientes
   DROP POLICY IF EXISTS "orders_select_own_or_admin" ON orders;
   CREATE POLICY "orders_select_own_or_admin" ON orders 
     FOR SELECT 
@@ -554,16 +523,13 @@ BEGIN
       (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
     );
 
-  -- Política de actualización para Admin (necesaria para cambiar status)
   DROP POLICY IF EXISTS "orders_update_admin" ON orders;
   CREATE POLICY "orders_update_admin" ON orders 
     FOR ALL TO authenticated 
     USING (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
     WITH CHECK (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
 
-  -- ============================
   -- usuarios_clientes
-  -- ============================
   DROP POLICY IF EXISTS "Lectura propia" ON usuarios_clientes;
   DROP POLICY IF EXISTS "Admin lee todos los clientes" ON usuarios_clientes;
   CREATE POLICY "Admin lee todos los clientes" ON usuarios_clientes 
@@ -579,16 +545,13 @@ BEGIN
     CREATE POLICY "Update propio" ON usuarios_clientes FOR UPDATE TO authenticated USING (auth.uid()::text = id);
   END IF;
 
-  -- Habilitar al Admin para crear/actualizar/eliminar registros de clientes
   DROP POLICY IF EXISTS "Admin gestiona todos los clientes" ON usuarios_clientes;
   CREATE POLICY "Admin gestiona todos los clientes" ON usuarios_clientes
     FOR ALL TO authenticated
     USING (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
     WITH CHECK (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
 
-  -- ============================
-  -- notifications (IMPORTANTE)
-  -- ============================
+  -- notifications
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='notifications' AND policyname='notifications_insert_allow_anon') THEN
     CREATE POLICY "notifications_insert_allow_anon" ON notifications
       FOR INSERT
@@ -596,34 +559,25 @@ BEGIN
       WITH CHECK (true);
   END IF;
 
-  -- Política de lectura SEGURA:
-  -- - 'todos': todos pueden leer
-  -- - 'personal': solo el destinatario (por telefono) o admin
-  -- - 'admin': solo admins
-  -- - 'request': admins y el cliente correspondiente
   DROP POLICY IF EXISTS "notifications_select_allow_all" ON notifications;
   DROP POLICY IF EXISTS "Lectura de notificaciones" ON notifications;
   CREATE POLICY "Lectura de notificaciones" ON notifications
     FOR SELECT TO anon, authenticated USING (
       tipo = 'todos'
-      OR tipo = 'admin'  -- Solo admins ven estas (filtrado por app-layer)
+      OR tipo = 'admin'
       OR (tipo = 'personal' AND destinatario_telefono IS NOT NULL AND destinatario_telefono != '')
       OR (tipo = 'request' AND destinatario_telefono IS NOT NULL AND destinatario_telefono != '')
     );
 
-  -- Política de actualización: solo el propio destinatario (para marcar leída) o el administrador
   DROP POLICY IF EXISTS "notifications_update_allow_all" ON notifications;
   CREATE POLICY "notifications_update_allow_all" ON notifications
     FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);
 
-  -- ============================
   -- coupons
-  -- ============================
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='coupons' AND policyname='Lectura cupones publica') THEN
     CREATE POLICY "Lectura cupones publica" ON coupons FOR SELECT TO anon, authenticated USING (active = true);
   END IF;
 
-  -- Corregir para permitir gestión de cupones EXCLUSIVAMENTE a administradores
   DROP POLICY IF EXISTS "Gestion cupones admin" ON coupons;
   CREATE POLICY "Gestion cupones admin" ON coupons 
     FOR ALL TO authenticated 
@@ -636,12 +590,8 @@ BEGIN
       OR (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
     );
 
-  -- ============================
   -- push_subscriptions
-  -- ============================
-  -- user_id es NULLABLE para permitir suscripciones anónimas (sin login)
   ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
-  -- CORREGIDA: Permitir acceso a propias suscripciones (auth) o anónimas (NULL user_id)
   DROP POLICY IF EXISTS "manage_own_push_subscriptions" ON public.push_subscriptions;
   CREATE POLICY "manage_own_push_subscriptions" ON public.push_subscriptions
     FOR ALL
@@ -649,12 +599,10 @@ BEGIN
     USING (auth.uid() = user_id OR user_id IS NULL)
     WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
 
-  -- Permitir inserciones anónimas con user_id IS NULL (suscripciones de usuarios no autenticados)
   DROP POLICY IF EXISTS "allow_anonymous_push_subscriptions" ON public.push_subscriptions;
   CREATE POLICY "allow_anonymous_push_subscriptions" ON public.push_subscriptions
     FOR INSERT TO anon WITH CHECK (user_id IS NULL);
 
-  -- Permitir updates anónimas (para actualizar suscripciones existentes)
   DROP POLICY IF EXISTS "allow_anonymous_push_update" ON public.push_subscriptions;
   CREATE POLICY "allow_anonymous_push_update" ON public.push_subscriptions
     FOR UPDATE TO anon USING (user_id IS NULL);
@@ -662,20 +610,110 @@ BEGIN
 END $$;
 
 -- ----------------------------------------------------------------------------
--- 7. DATOS INICIALES (PRODUCTOS DE EJEMPLO)
+-- 7. PRODUCTOS (60 productos de supermercado venezolano)
+-- Ejecutar cada bloque por separado si da error de tamaño
 -- ----------------------------------------------------------------------------
-INSERT INTO products (codigo, nombre, descripcion, categoria, seccion, subseccion, marca, condicion, anio_inicio, anio_fin, precio_usd, stock, imagen_urls, es_promo, es_nuevo, es_mas_vendido, delivery_gratis, detalle_adicional)
-VALUES 
-('LCT-LECH-964', 'Leche Liquida Entera Campestre 1L', 'Leche entera de vaca pasteurizada premium.', 'Lácteos y Quesos', 'Pasillo 1 - Lacteos', 'Leches y Cremas', 'Campestre', 'Nacional', 2000, 2026, 1.80, 50, ARRAY['https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&q=80&w=500'], true, false, true, true, '100% Leche fresca.'),
-('LCT-QUES-GOU', 'Queso Amarillo Tipo Gouda 500g', 'Queso amarillo gouda premium madurado.', 'Lácteos y Quesos', 'Pasillo 1 - Lacteos', 'Quesos y Embutidos', 'Torondoy', 'Nacional', 2000, 2026, 6.50, 15, ARRAY['https://images.unsplash.com/photo-1548340748-6d2b7d7da280?auto=format&fit=crop&q=80&w=500'], true, false, false, true, 'Maduracion de 45 dias.'),
-('CHRC-SERR-JAM', 'Jamon Serrano Reserva 150g', 'Jamon serrano curado artesanalmente.', 'Charcutería', 'Pasillo 1 - Lacteos', 'Quesos y Embutidos', 'Campestre', 'Nacional', 2000, 2026, 8.20, 20, ARRAY['https://images.unsplash.com/photo-1588168333986-507c89b8a09e?auto=format&fit=crop&q=80&w=500'], false, true, true, false, 'Listo para consumir.'),
-('CRN-RIBE-ANG', 'Ribeye de Carne Premium Angus 400g', 'Corte selecto Ribeye de res Angus.', 'Carnes y Aves', 'Pasillo 2 - Carnes', 'Cortes Vacunos', 'Angus Gold', 'Nacional', 2000, 2026, 14.90, 12, ARRAY['https://images.unsplash.com/photo-1603048588665-791ca8aea617?auto=format&fit=crop&q=80&w=500'], false, false, true, false, 'Empacado al vacio.'),
-('CRN-PECH-POL', 'Pechuga de Pollo 1kg', 'Pechuga de pollo fresca, deshuesada.', 'Carnes y Aves', 'Pasillo 2 - Carnes', 'Aves y Pollo', 'GranjaSol', 'Nacional', 2000, 2026, 5.80, 25, ARRAY['https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&q=80&w=500'], true, false, false, true, 'Libre de hormonas.'),
-('FRV-FRES-MER', 'Fresas Organicas 500g', 'Fresas organicas cosechadas en Merida.', 'Frutas y Verduras', 'Pasillo 2 - Frescos', 'Frutas y Vegetales', 'ValleFresco', 'Nacional', 2000, 2026, 4.20, 18, ARRAY['https://images.unsplash.com/photo-1464965911861-746a04b4bca6?auto=format&fit=crop&q=80&w=500'], true, true, false, false, 'Lavar bien antes de consumir.'),
-('DSP-OLIV-ESP', 'Aceite de Oliva Extra Virgen 500ml', 'Aceite de oliva prensado en frio.', 'Víveres y Despensa', 'Pasillo 3 - Despensa', 'Aceites y Abarrotes', 'Carbonell', 'Importado', 2000, 2026, 9.50, 40, ARRAY['https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&q=80&w=500'], false, true, true, false, 'Importado de España.'),
-('PAN-BAGU-ART', 'Pan Baguette Masa Madre 250g', 'Pan tipo baguette artesanal.', 'Panadería y Pastelería', 'Pasillo 4 - Panaderia', 'Panes Frescos', 'El Rey', 'Nacional', 2000, 2026, 1.20, 40, ARRAY['https://images.unsplash.com/photo-1549931319-a545dcf3bc73?auto=format&fit=crop&q=80&w=500'], true, true, false, false, 'Corteza crujiente.'),
-('SNC-CHOC-DAR', 'Chocolate Oscuro 70% Cacao 80g', 'Chocolate gourmet 70% cacao Carenero.', 'Snacks y Dulces', 'Pasillo 3 - Despensa', 'Confiteria y Snacks', 'El Rey', 'Nacional', 2000, 2026, 3.50, 50, ARRAY['https://images.unsplash.com/photo-1511381939415-e44015466834?auto=format&fit=crop&q=80&w=500'], true, true, true, false, 'Cacao venezolano.')
+
+-- BLOQUE 1: LACTEOS Y QUESOS (10 productos)
+INSERT INTO products (codigo, nombre, descripcion, categoria, seccion, subseccion, marca, condicion, anio_inicio, anio_fin, precio_usd, stock, imagen_urls, es_promo, es_nuevo, es_mas_vendido, delivery_gratis, detalle_adicional, activo, disponibilidad) VALUES
+('LAC-001', 'Leche Entera Tropical 1L', 'Leche entera pasteurizada de vaca, ideal para el desayuno y preparar cafés. Rica en calcio y proteínas.', 'Lácteos y Quesos', 'Pasillo 1 - Lacteos', 'Leches', 'Tropical', 'Nacional', 7, 4, 1.85, 120, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000005174/ImgThumb.jpg'], false, false, true, false, 'Pasteurizada. Mantener refrigerada.', true, 'Disponible'),
+('LAC-002', 'Queso Blanco Rallado Mavesa 500g', 'Queso blanco rallado ideal para arepas, pastas y ensaladas. Sabor suave y textura perfecta para cocinar.', 'Lácteos y Quesos', 'Pasillo 1 - Lacteos', 'Quesos', 'Mavesa', 'Nacional', 30, 4, 3.20, 85, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000005769/ImgThumb.jpg'], false, false, true, false, 'Pasteurizado. Refrigerar entre 0-4°C.', true, 'Disponible'),
+('LAC-003', 'Yogurt Natural Yoka 170g', 'Yogurt natural con cultivos vivos activos. Fuente de probióticos para tu sistema digestivo.', 'Lácteos y Quesos', 'Pasillo 1 - Lacteos', 'Yogurt', 'Yoka', 'Nacional', 21, 4, 0.85, 200, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000030091/ImgThumb.jpg'], true, false, false, false, 'Conservar refrigerado. Producto natural sin conservantes.', true, 'Disponible'),
+('LAC-004', 'Mantequilla Mavesa 500g', 'Mantequilla cremosa perfecta para untar, repostería y cocinar. Sabor irresistible.', 'Lácteos y Quesos', 'Pasillo 1 - Lacteos', 'Mantequilla', 'Mavesa', 'Nacional', 90, 4, 4.50, 60, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000005772/ImgThumb.jpg'], false, true, false, false, 'Mantener refrigerada. Ideal para repostería.', true, 'Disponible'),
+('LAC-005', 'Crema de Leche Nestlé 200ml', 'Crema de leche espesa para preparar postres, salsas y adornar café. Textura suave y cremosa.', 'Lácteos y Quesos', 'Pasillo 1 - Lacteos', 'Cremas', 'Nestlé', 'Importado', 180, 4, 2.10, 75, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000101745/ImgThumb.jpg'], false, false, false, false, 'UHT. Abierto conservar refrigerado y consumir en 3 días.', true, 'Disponible'),
+('LAC-006', 'Queso Amarillo en Lonchas Kraft 200g', 'Queso amarillo en lonchas individuales, perfecto para sándwiches, hamburguesas y crackers.', 'Lácteos y Quesos', 'Pasillo 1 - Lacteos', 'Quesos', 'Kraft', 'Importado', 120, 4, 3.80, 50, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000145724/ImgThumb.jpg'], false, false, false, false, 'Pasteurizado. Producto importado.', true, 'Disponible'),
+('LAC-007', 'Leche Deslactosada Parmalat 1L', 'Leche deslactosada para personas con intolerancia a la lactosa. Mismo sabor y nutrientes.', 'Lácteos y Quesos', 'Pasillo 1 - Lacteos', 'Leches', 'Parmalat', 'Nacional', 7, 4, 2.10, 90, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000166553/ImgThumb.jpg'], false, true, false, false, 'UHT. No requiere refrigeración hasta abrir.', true, 'Disponible'),
+('LAC-008', 'Queso Crema Philadelphia 340g', 'Queso crema Philly suave y cremoso para untar, repostería y preparar salsas de queso.', 'Lácteos y Quesos', 'Pasillo 1 - Lacteos', 'Quesos', 'Philadelphia', 'Importado', 90, 4, 5.20, 40, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000027335/ImgThumb.jpg'], false, false, true, false, 'Producto importado. Mantener refrigerado.', true, 'Disponible'),
+('LAC-009', 'Yogurt Batido Fresa Yukery 170g', 'Yogurt batido con sabor a fresa, textura cremosa y sabor dulce natural. Ideal para snacks.', 'Lácteos y Quesos', 'Pasillo 1 - Lacteos', 'Yogurt', 'Yukery', 'Nacional', 21, 4, 0.90, 150, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000030092/ImgThumb.jpg'], false, false, false, false, 'Conservar refrigerado. Agitar antes de consumir.', true, 'Disponible'),
+('LAC-010', 'Requesón Santa Bárbara 250g', 'Requeso fresco y suave ideal para preparar hallaquitas, pasteles y postres tradicionales.', 'Lácteos y Quesos', 'Pasillo 1 - Lacteos', 'Quesos', 'Santa Bárbara', 'Nacional', 14, 4, 1.75, 65, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000147299/ImgThumb.jpg'], false, false, false, false, 'Fresco. Refrigerar y consumir rápido.', true, 'Disponible')
 ON CONFLICT (codigo) DO NOTHING;
+
+-- BLOQUE 2: CARNES Y AVES (8 productos)
+INSERT INTO products (codigo, nombre, descripcion, categoria, seccion, subseccion, marca, condicion, anio_inicio, anio_fin, precio_usd, stock, imagen_urls, es_promo, es_nuevo, es_mas_vendido, delivery_gratis, detalle_adicional, activo, disponibilidad) VALUES
+('CAR-001', 'Pechuga de Pollo Congelada 1kg', 'Pechuga de pollo entera sin hueso ni piel. Ideal para asar, freír, hervir o preparar ensaladas.', 'Carnes y Aves', 'Pasillo 2 - Carnes', 'Pollo', 'Presa Fresca', 'Nacional', 180, -18, 4.50, 80, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000163389/ImgThumb.jpg'], false, false, true, false, 'Congelado. Descongelar en refrigerador antes de usar.', true, 'Disponible'),
+('CAR-002', 'Carne Molida de Res 500g', 'Carne molida de res magra, ideal para preparar boloñesa, hamburguesas, albondigas y rellenos.', 'Carnes y Aves', 'Pasillo 2 - Carnes', 'Res', 'Presa Fresca', 'Nacional', 3, -18, 5.80, 55, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000157684/ImgThumb.jpg'], true, false, true, false, 'Congelado. Caducidad: 6 meses desde producción.', true, 'Disponible'),
+('CAR-003', 'Muslos de Pollo Congelados 1kg', 'Muslos de pollo con hueso y piel, perfectos para asar al horno, guisar o preparar fritos.', 'Carnes y Aves', 'Pasillo 2 - Carnes', 'Pollo', 'Presa Fresca', 'Nacional', 180, -18, 3.20, 95, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000163390/ImgThumb.jpg'], false, false, false, false, 'Congelado. Productos 100% nacionales.', true, 'Disponible'),
+('CAR-004', 'Costillas de Cerdo 1kg', 'Costillas de cerdo frescas para BBQ, horno o parrilla. Carnosa y jugosa.', 'Carnes y Aves', 'Pasillo 2 - Carnes', 'Cerdo', 'Presa Fresca', 'Nacional', 5, -18, 7.50, 40, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000144097/ImgThumb.jpg'], false, true, false, false, 'Refrigerado. Consumir antes de 3 días.', true, 'Disponible'),
+('CAR-005', 'Albóndigas de Pollo Congeladas 400g', 'Albóndigas precocidas de pollo con especias. Listas para caldos, salsas y pastas.', 'Carnes y Aves', 'Pasillo 2 - Carnes', 'Pollo', 'Presa Fresca', 'Nacional', 120, -18, 3.90, 70, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000027049/ImgThumb.jpg'], false, true, false, false, 'Congelado. Precocidas - solo recalentar.', true, 'Disponible'),
+('CAR-006', 'Punta de Anca 1kg', 'Corte premium de res para asar a la plancha o al horno. Tierna y jugosa, ideal para occasions especiales.', 'Carnes y Aves', 'Pasillo 2 - Carnes', 'Res', 'Presa Fresca', 'Nacional', 3, -18, 9.80, 30, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000163390/ImgThumb.jpg'], false, false, true, false, 'Corte premium. Recomendado punto a punto.', true, 'Disponible'),
+('CAR-007', 'Pechuga de Pollo Empanizada 500g', 'Pechuga de pollo empanizada y precocida, lista para freír u hornear en minutos.', 'Carnes y Aves', 'Pasillo 2 - Carnes', 'Pollo', 'Presa Fresca', 'Nacional', 90, -18, 5.20, 45, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000027049/ImgThumb.jpg'], false, true, false, false, 'Congelado. Freír con aceite caliente o horno a 200°C.', true, 'Disponible'),
+('CAR-008', 'Chuletas de Cerdo 1kg', 'Chuletas de cerdo frescas con hueso, perfectas para la parrilla, plancha u horno.', 'Carnes y Aves', 'Pasillo 2 - Carnes', 'Cerdo', 'Presa Fresca', 'Nacional', 5, -18, 6.30, 50, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000144097/ImgThumb.jpg'], false, false, false, false, 'Refrigerado. Aromatizar con ajo y limón.', true, 'Disponible')
+ON CONFLICT (codigo) DO NOTHING;
+
+-- BLOQUE 3: CHARCUTERIA (8 productos)
+INSERT INTO products (codigo, nombre, descripcion, categoria, seccion, subseccion, marca, condicion, anio_inicio, anio_fin, precio_usd, stock, imagen_urls, es_promo, es_nuevo, es_mas_vendido, delivery_gratis, detalle_adicional, activo, disponibilidad) VALUES
+('CHA-001', 'Jamón de Pavo Cooked 200g', 'Lonchas de jamón de pavo bajo en grasa, ideal para sándwiches y ensaladas saludables.', 'Charcutería', 'Pasillo 3 - Charcuteria', 'Jamones', 'Armador', 'Nacional', 45, 4, 3.50, 60, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000003161/ImgThumb.jpg'], false, false, false, false, 'Refrigerar después de abierto. Consumir en 5 días.', true, 'Disponible'),
+('CHA-002', 'Salchichón de Pollo Margarita 250g', 'Salchichón ahumado de pollo con especias naturales. Snack perfecto con galletas o pan.', 'Charcutería', 'Pasillo 3 - Charcuteria', 'Embutidos', 'Margarita', 'Nacional', 60, 4, 2.80, 80, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000010254/ImgThumb.jpg'], true, false, true, false, 'Ahumado. Refrigerar después de abierto.', true, 'Disponible'),
+('CHA-003', 'Queso de Mano Llanero 300g', 'Queso tradicional llanero, semiduro y ligeramente salado. Perfecto para arepas y golfeados.', 'Charcutería', 'Pasillo 3 - Charcuteria', 'Quesos', 'Artesanal', 'Nacional', 45, 4, 4.20, 35, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000152906/ImgThumb.jpg'], false, false, false, false, 'Artesanal. Producto típico venezolano.', true, 'Disponible'),
+('CHA-004', 'Mortadela de Pollo Margarita 300g', 'Mortadela de pollo con trozos de zanahoria y guisantes. Sándwich clásico venezolano.', 'Charcutería', 'Pasillo 3 - Charcuteria', 'Embutidos', 'Margarita', 'Nacional', 45, 4, 2.40, 70, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000010254/ImgThumb.jpg'], false, false, false, false, 'Refrigerar. Producto cocido listo para consumir.', true, 'Disponible'),
+('CHA-005', 'Chorizo Español Fresco 250g', 'Chorizo artesanal español, picante y aromático. Ideal para paella, tortilla o a la parrilla.', 'Charcutería', 'Pasillo 3 - Charcuteria', 'Chorizos', 'Artesanal', 'Importado', 30, 4, 5.50, 30, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000027049/ImgThumb.jpg'], false, true, false, false, 'Importado de España. Producto artesanal.', true, 'Disponible'),
+('CHA-006', 'Tocineta Ahumada 200g', 'Tocineta ahumada crujiente, sabor intenso para desayunos, pastas y ensaladas.', 'Charcutería', 'Pasillo 3 - Charcuteria', 'Tocinetas', 'Margarita', 'Nacional', 60, 4, 4.80, 55, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000010254/ImgThumb.jpg'], false, false, true, false, 'Ahumada. Freír a fuego medio hasta dorar.', true, 'Disponible'),
+('CHA-007', 'Salame Italiano Rodaja 150g', 'Salame italiano importado, sabor robusto y textura fina. Ideal para tablas de quesos y charcutería.', 'Charcutería', 'Pasillo 3 - Charcuteria', 'Embutidos', 'Armador', 'Importado', 90, 4, 6.20, 25, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000003161/ImgThumb.jpg'], false, false, false, false, 'Importado. Envasado al vacío.', true, 'Disponible'),
+('CHA-008', 'Queso Guayanés 400g', 'Queso guayanés fresco y suave, ideal para cachapas, arepas y ensaladas tropicales.', 'Charcutería', 'Pasillo 3 - Charcuteria', 'Quesos', 'Artesanal', 'Nacional', 14, 8, 3.80, 40, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000026638/ImgThumb.jpg'], false, false, false, false, 'Fresco. Tradición gastronómica del oriente venezolano.', true, 'Disponible')
+ON CONFLICT (codigo) DO NOTHING;
+
+-- BLOQUE 4: FRUTAS Y VERDURAS (8 productos)
+INSERT INTO products (codigo, nombre, descripcion, categoria, seccion, subseccion, marca, condicion, anio_inicio, anio_fin, precio_usd, stock, imagen_urls, es_promo, es_nuevo, es_mas_vendido, delivery_gratis, detalle_adicional, activo, disponibilidad) VALUES
+('FRU-001', 'Plátano Maduro por Kilo', 'Plátano maduro para freír, hervir o preparar mangú. Dulce y tierno, punto ideal de cocción.', 'Frutas y Verduras', 'Pasillo 4 - Frutas', 'Frutas Frescas', 'Local', 'Nacional', 3, 25, 0.80, 200, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000020833/ImgThumb.jpg'], false, false, true, false, 'Fruta fresca del día. Origen: Valencia, Carabobo.', true, 'Disponible'),
+('FRU-002', 'Tomate Italiano por Kilo', 'Tomate italiano maduro para salsas, ensaladas y guisos. Sabor intenso y textura firme.', 'Frutas y Verduras', 'Pasillo 4 - Frutas', 'Verduras', 'Local', 'Nacional', 5, 20, 1.20, 150, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000003179/ImgThumb.jpg'], false, false, false, false, 'Fresco. Lavar antes de consumir.', true, 'Disponible'),
+('FRU-003', 'Cebolla Blanca por Kilo', 'Cebolla blanca fresca, base fundamental de la cocina venezolana. Sabor aromático.', 'Frutas y Verduras', 'Pasillo 4 - Frutas', 'Verduras', 'Local', 'Nacional', 30, 20, 0.90, 180, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000020833/ImgThumb.jpg'], false, false, false, false, 'Fresco. Guardar en lugar fresco y seco.', true, 'Disponible'),
+('FRU-004', 'Papa Pastusa por Kilo', 'Papa pastusa fresca para hervir, freír o preparar puré. Variedad preferida en Venezuela.', 'Frutas y Verduras', 'Pasillo 4 - Frutas', 'Verduras', 'Local', 'Nacional', 45, 15, 1.50, 160, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000000871/ImgThumb.jpg'], false, false, false, false, 'Fresco. Origen: Estado Táchira.', true, 'Disponible'),
+('FRU-005', 'Lechuga Crespa 1/2 Kilo', 'Lechuga crespa fresca y crujiente para ensaladas, sándwiches y garnish.', 'Frutas y Verduras', 'Pasillo 4 - Frutas', 'Verduras', 'Local', 'Nacional', 5, 10, 0.75, 100, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000020845/ImgThumb.jpg'], false, false, false, false, 'Fresca. Lavar y secar antes de preparar.', true, 'Disponible'),
+('FRU-006', 'Aguacate Hass por Unidad', 'Aguacate Hass maduro, cremoso y lleno de grasas saludables. Ideal para guacamole y tostadas.', 'Frutas y Verduras', 'Pasillo 4 - Frutas', 'Frutas Frescas', 'Local', 'Nacional', 5, 20, 1.30, 90, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000020819/ImgThumb.jpg'], false, false, true, false, 'Maduración natural. Listo para consumir.', true, 'Disponible'),
+('FRU-007', 'Zanahoria por Kilo', 'Zanahoria fresca y dulce, rica en vitamina A. Para jugos, ensaladas, guisos y snacks.', 'Frutas y Verduras', 'Pasillo 4 - Frutas', 'Verduras', 'Local', 'Nacional', 21, 15, 0.70, 140, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000020861/ImgThumb.jpg'], false, false, false, false, 'Fresca. Lavar bien antes de consumir.', true, 'Disponible'),
+('FRU-008', 'Limón Tahití por Kilo', 'Limón tahití fresco y jugoso, indispensable en la cocina venezolana para aderezos y bebidas.', 'Frutas y Verduras', 'Pasillo 4 - Frutas', 'Frutas Frescas', 'Local', 'Nacional', 21, 20, 1.10, 130, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000005253/ImgThumb.jpg'], false, false, false, false, 'Fresco. Alto contenido de vitamina C.', true, 'Disponible')
+ON CONFLICT (codigo) DO NOTHING;
+
+-- BLOQUE 5: VIVERES Y DESPENSA (10 productos)
+INSERT INTO products (codigo, nombre, descripcion, categoria, seccion, subseccion, marca, condicion, anio_inicio, anio_fin, precio_usd, stock, imagen_urls, es_promo, es_nuevo, es_mas_vendido, delivery_gratis, detalle_adicional, activo, disponibilidad) VALUES
+('VIV-001', 'Arroz Mary 1kg', 'Arroz blanco largo grano, ideal para acompañar cualquier plato de la comida diaria.', 'Víveres y Despensa', 'Pasillo 5 - Despensa', 'Arroces', 'Mary', 'Nacional', 365, 25, 1.40, 200, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000147733/ImgThumb.jpg'], false, false, true, false, 'Envasado al vacío. Producto 100% nacional.', true, 'Disponible'),
+('VIV-002', 'Pasta Spaghetti Mavesa 500g', 'Pasta italiana de trigo durum, cocción perfecta en 8 minutos. Acompaña con tu salsa favorita.', 'Víveres y Despensa', 'Pasillo 5 - Despensa', 'Pastas', 'Mavesa', 'Importado', 365, 25, 1.20, 180, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000006322/ImgThumb.jpg'], false, false, false, false, 'Importada de Italia. Trigo durum de calidad.', true, 'Disponible'),
+('VIV-003', 'Aceite Vegetal Mavesa 1L', 'Aceite vegetal refinado multiuso para freír, cocinar y aderezar. Sabor neutro.', 'Víveres y Despensa', 'Pasillo 5 - Despensa', 'Aceites', 'Mavesa', 'Nacional', 365, 25, 3.50, 120, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000009674/ImgThumb.jpg'], false, false, true, false, 'Refinado. Rico en ácidos grasos esenciales.', true, 'Disponible'),
+('VIV-004', 'Azúcar Refinada Montalbán 1kg', 'Azúcar blanca refinada para endulzar bebidas, postres y repostería.', 'Víveres y Despensa', 'Pasillo 5 - Despensa', 'Azúcares', 'Montalbán', 'Nacional', 365, 25, 1.60, 200, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000011633/ImgThumb.jpg'], false, false, false, false, 'Envasada. Origen: Guayana, Bolívar.', true, 'Disponible'),
+('VIV-005', 'Salsa de Tomate Pampero 400g', 'Salsa de tomate natural para pastas, pizza y guisos. Sabor casero sin conservantes.', 'Víveres y Despensa', 'Pasillo 5 - Despensa', 'Salsas', 'Pampero', 'Nacional', 180, 25, 1.80, 90, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000027887/ImgThumb.jpg'], false, true, false, false, 'Sin conservantes artificiales. Productos naturales.', true, 'Disponible'),
+('VIV-006', 'Café Madrid Molido 250g', 'Café molido tostado y seleccionado, aroma intenso y sabor robusto para el café venezolano.', 'Víveres y Despensa', 'Pasillo 5 - Despensa', 'Café', 'Madrid', 'Nacional', 365, 25, 3.20, 100, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000141094/ImgThumb.jpg'], false, false, true, false, 'Tostado artesanal. Origen: El alto, Mérida.', true, 'Disponible'),
+('VIV-007', 'Atún Margarita 170g', 'Atún en agua, bajo en grasa y alto en proteína. Ideal para ensaladas, pastas y sándwiches.', 'Víveres y Despensa', 'Pasillo 5 - Despensa', 'Enlatados', 'Margarita', 'Nacional', 1095, 25, 2.50, 110, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000016396/ImgThumb.jpg'], true, false, false, false, 'Enlatado. Rico en omega-3 y proteínas.', true, 'Disponible'),
+('VIV-008', 'Mayonesa Mavesa 500g', 'Mayonesa cremosa y suave para ensaladas, sándwiches y acompañamientos. Sabor inigualable.', 'Víveres y Despensa', 'Pasillo 5 - Despensa', 'Aderezos', 'Mavesa', 'Nacional', 180, 25, 2.80, 85, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000010254/ImgThumb.jpg'], false, false, false, false, 'Envasada. Sin colorantes artificiales.', true, 'Disponible'),
+('VIV-009', 'Sardina Margarita 170g', 'Sardinas en aceite vegetal, ricas en calcio y ácidos grasos omega-3. Snack nutritivo.', 'Víveres y Despensa', 'Pasillo 5 - Despensa', 'Enlatados', 'Margarita', 'Nacional', 1095, 25, 1.90, 95, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000016396/ImgThumb.jpg'], false, false, false, false, 'Enlatado. Productos del mar venezolanos.', true, 'Disponible'),
+('VIV-010', 'Sal Fina Pomar 1kg', 'Sal fina yodatada para cocinar y sazonar. Esencial en toda cocina.', 'Víveres y Despensa', 'Pasillo 5 - Despensa', 'Condimentos', 'Pomar', 'Nacional', 365, 25, 0.60, 250, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000134179/ImgThumb.jpg'], false, false, false, false, 'Yodatada. Productos esenciales.', true, 'Disponible')
+ON CONFLICT (codigo) DO NOTHING;
+
+-- BLOQUE 6: PANADERIA Y PASTELERIA (8 productos)
+INSERT INTO products (codigo, nombre, descripcion, categoria, seccion, subseccion, marca, condicion, anio_inicio, anio_fin, precio_usd, stock, imagen_urls, es_promo, es_nuevo, es_mas_vendido, delivery_gratis, detalle_adicional, activo, disponibilidad) VALUES
+('PAN-001', 'Pan Blanco Sandwich Bimbo 680g', 'Pan blanco tierno y esponjoso para sándwiches, tostadas y desayunos. Favorito de la familia.', 'Panadería y Pastelería', 'Pasillo 6 - Panaderia', 'Panes', 'Bimbo', 'Nacional', 7, 25, 2.50, 150, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000024108/ImgThumb.jpg'], false, false, true, false, 'Envasado. Consumir antes de la fecha indicada.', true, 'Disponible'),
+('PAN-002', 'Galletas Oreo Original 154g', 'Galletas de chocolate rellenas de crema vainilla. Snack icónico para toda la familia.', 'Panadería y Pastelería', 'Pasillo 6 - Panaderia', 'Galletas', 'Oreo', 'Importado', 180, 25, 1.80, 200, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000163886/ImgThumb.jpg'], false, false, true, false, 'Importado. Producto premium.', true, 'Disponible'),
+('PAN-003', 'Pan integral Multi Cereal 400g', 'Pan integral con múltiples cereales, fibra natural y sabor tostado. Opción saludable.', 'Panadería y Pastelería', 'Pasillo 6 - Panaderia', 'Panes', 'Bimbo', 'Nacional', 5, 25, 3.20, 60, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000024108/ImgThumb.jpg'], false, true, false, false, 'Envasado. Rico en fibra.', true, 'Disponible'),
+('PAN-004', 'Torta de Chocolate Margarita 300g', 'Torta de chocolate húmeda y esponjosa, cobertura de ganache. Postre perfecto.', 'Panadería y Pastelería', 'Pasillo 6 - Panaderia', 'Reposteria', 'Margarita', 'Nacional', 7, 25, 4.50, 40, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000002746/ImgThumb.jpg'], false, true, false, false, 'Horneada artesanalmente. Sin conservantes.', true, 'Disponible'),
+('PAN-005', 'Cachitos de Jamón x6 unidades', 'Cachitos frescos de hojaldre rellenos de jamón y queso. Desayuno venezolano por excelencia.', 'Panadería y Pastelería', 'Pasillo 6 - Panaderia', 'Panaderia Fresca', 'Artesanal', 'Nacional', 2, 5, 3.80, 30, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000140970/ImgThumb.jpg'], false, false, false, false, 'Horneados frescos cada mañana. Sin conservantes.', true, 'Disponible'),
+('PAN-006', 'Galletas Maria Sol 400g', 'Galletas maría tradicionales, crujientes y perfectas para el café o té de la tarde.', 'Panadería y Pastelería', 'Pasillo 6 - Panaderia', 'Galletas', 'Sol', 'Nacional', 180, 25, 1.50, 120, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000163886/ImgThumb.jpg'], false, false, false, false, 'Envasadas. Tradición en cada galleta.', true, 'Disponible'),
+('PAN-007', 'Pan para Hot Dog Bimbo 8u', 'Pan suave y alargado para hot dogs y salchichas al estilo americano.', 'Panadería y Pastelería', 'Pasillo 6 - Panaderia', 'Panes', 'Bimbo', 'Nacional', 7, 25, 2.20, 80, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000024108/ImgThumb.jpg'], false, false, false, false, 'Envasado. 8 unidades por paquete.', true, 'Disponible'),
+('PAN-008', 'Donut Glaseado x3 unidades', 'Donuts glaseados recién horneados, esponjosos y cubiertos con glaseado dulce colorido.', 'Panadería y Pastelería', 'Pasillo 6 - Panaderia', 'Reposteria', 'Artesanal', 'Nacional', 3, 25, 2.80, 25, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000165396/ImgThumb.jpg'], false, true, false, false, 'Horneados frescos. Consumir el mismo día.', true, 'Disponible')
+ON CONFLICT (codigo) DO NOTHING;
+
+-- BLOQUE 7: BEBIDAS Y JUGOS (8 productos)
+INSERT INTO products (codigo, nombre, descripcion, categoria, seccion, subseccion, marca, condicion, anio_inicio, anio_fin, precio_usd, stock, imagen_urls, es_promo, es_nuevo, es_mas_vendido, delivery_gratis, detalle_adicional, activo, disponibilidad) VALUES
+('BEB-001', 'Agua Minalba 600ml', 'Agua mineral natural sin gas, pura y fresca para hidratarte todo el día.', 'Bebidas y Jugos', 'Pasillo 7 - Bebidas', 'Aguas', 'Minalba', 'Nacional', 365, 25, 0.60, 300, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000000824/ImgThumb.jpg'], false, false, true, false, 'Envase returnable. Hidratación pura.', true, 'Disponible'),
+('BEB-002', 'Jugo Yukery Naranja 1L', 'Jugo de naranja 100% natural, sin conservantes. Fuente natural de vitamina C.', 'Bebidas y Jugos', 'Pasillo 7 - Bebidas', 'Jugos', 'Yukery', 'Nacional', 30, 8, 1.80, 150, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000127630/ImgThumb.jpg'], false, false, false, false, 'Pasteurizado. Sin conservantes artificiales.', true, 'Disponible'),
+('BEB-003', 'Coca-Cola Original 2L', 'La bebida gasificada más popular del mundo. Sabor original que refresca.', 'Bebidas y Jugos', 'Pasillo 7 - Bebidas', 'Refrescos', 'Coca-Cola', 'Nacional', 180, 25, 1.90, 250, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000026897/ImgThumb.jpg'], false, false, true, false, 'Envase PET. Refrescante y familiar.', true, 'Disponible'),
+('BEB-004', 'Pepsi 2L', 'Pepsi Original, sabor audaz y refrescante para compartir en familia.', 'Bebidas y Jugos', 'Pasillo 7 - Bebidas', 'Refrescos', 'PepsiCo', 'Nacional', 180, 25, 1.85, 200, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000007238/ImgThumb.jpg'], true, false, false, false, 'Envase PET. Promoción temporal.', true, 'Disponible'),
+('BEB-005', 'Cerveza Polar Pilsen 355ml', 'Cerveza venezolana premium, refrescante y ligera. Ideal para acompañar comidas.', 'Bebidas y Jugos', 'Pasillo 7 - Bebidas', 'Cervezas', 'Empresas Polar', 'Nacional', 180, 25, 0.85, 300, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000002528/ImgThumb.jpg'], false, false, true, false, 'Envase returnable. Beber con moderación.', true, 'Disponible'),
+('BEB-006', 'Malta India 355ml', 'Malta sin alcohol, sabor dulce y refrescante. Bebida tradicional venezolana.', 'Bebidas y Jugos', 'Pasillo 7 - Bebidas', 'Malta', 'Empresas Polar', 'Nacional', 180, 25, 0.75, 180, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000002528/ImgThumb.jpg'], false, false, false, false, 'Envase returnable. Bebida sin alcohol.', true, 'Disponible'),
+('BEB-007', 'Jugo Wrapsito Frutas Tropicales 1L', 'Néctar de frutas tropicales, mezcla de mango, papaya y guayaba. Sabor tropical.', 'Bebidas y Jugos', 'Pasillo 7 - Bebidas', 'Jugos', 'Yukery', 'Nacional', 30, 8, 1.50, 120, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000127630/ImgThumb.jpg'], false, false, false, false, 'Pasteurizado. Sabor tropical venezolano.', true, 'Disponible'),
+('BEB-008', 'Red Bull 250ml', 'Bebida energética para mantener energía y concentración. Ideal para momentos activos.', 'Bebidas y Jugos', 'Pasillo 7 - Bebidas', 'Energizantes', 'Red Bull', 'Importado', 365, 25, 2.80, 80, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000012002/ImgThumb.jpg'], false, false, false, false, 'Importado. No recomendado para menores de 12 años.', true, 'Disponible')
+ON CONFLICT (codigo) DO NOTHING;
+
+-- BLOQUE 8: SNACKS Y DULCES (8 productos)
+INSERT INTO products (codigo, nombre, descripcion, categoria, seccion, subseccion, marca, condicion, anio_inicio, anio_fin, precio_usd, stock, imagen_urls, es_promo, es_nuevo, es_mas_vendido, delivery_gratis, detalle_adicional, activo, disponibilidad) VALUES
+('SNK-001', 'Cotufas Margarita 100g', 'Palomitas de maíz mantequilladas, crujientes y adictivas para ver películas o merendar.', 'Snacks y Dulces', 'Pasillo 8 - Snacks', 'Cotufas', 'Margarita', 'Nacional', 90, 25, 0.80, 200, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000004157/ImgThumb.jpg'], false, false, true, false, 'Envasadas al vacío. Sabor mantequilla clásico.', true, 'Disponible'),
+('SNK-002', 'Papitas Sabritas Original 45g', 'Papas fritas clásicas con sal, crujientes y deliciosas. Snack número uno de Venezuela.', 'Snacks y Dulces', 'Pasillo 8 - Snacks', 'Snacks', 'Sabritas', 'Nacional', 90, 25, 0.75, 250, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000127782/ImgThumb.jpg'], false, false, true, false, 'Envasadas. Sabor original clásico.', true, 'Disponible'),
+('SNK-003', 'Chocolate Savoy Trotta 100g', 'Chocolate con leche relleno de turrón crocante. Dulce placer para los amantes del chocolate.', 'Snacks y Dulces', 'Pasillo 8 - Snacks', 'Chocolates', 'Savoy', 'Nacional', 180, 25, 2.20, 90, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000013437/ImgThumb.jpg'], false, false, false, false, 'Chocolate premium venezolano. Relleno de turrón.', true, 'Disponible'),
+('SNK-004', 'Gomitas Mogul 180g', 'Gomitas de frutas con sabores ácidos y dulces. Formas divertidas para los más pequeños.', 'Snacks y Dulces', 'Pasillo 8 - Snacks', 'Golosinas', 'Arcor', 'Importado', 365, 25, 1.50, 150, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000015358/ImgThumb.jpg'], false, false, false, false, 'Importado. Sin gluten.', true, 'Disponible'),
+('SNK-005', 'Maní Japoneses 150g', 'Maní crocante con cáscara, sal y saborizantes. Snack tradicional para compartir.', 'Snacks y Dulces', 'Pasillo 8 - Snacks', 'Frutos Secos', 'La Abuela', 'Nacional', 180, 25, 1.20, 110, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000006884/ImgThumb.jpg'], false, false, false, false, 'Tostados. Producto artesanal.', true, 'Disponible'),
+('SNK-006', 'Tortrix Chile 45g', 'Tortillas de maíz con sabor chile picante, crujientes y adictivas.', 'Snacks y Dulces', 'Pasillo 8 - Snacks', 'Snacks', 'Barcel', 'Nacional', 90, 25, 0.85, 180, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000004157/ImgThumb.jpg'], false, false, false, false, 'Sabor chile. Envase práctica.', true, 'Disponible'),
+('SNK-007', 'Caramelo Frutilla 1kg', 'Caramelos duros de frutilla, sabor intenso y duradero. Clásico de la infancia.', 'Snacks y Dulces', 'Pasillo 8 - Snacks', 'Caramelos', 'Bonafina', 'Nacional', 365, 25, 3.50, 80, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000015358/ImgThumb.jpg'], false, false, false, false, 'Sabor frutilla. Paquete grande para compartir.', true, 'Disponible'),
+('SNK-008', 'Chupeta Chiky x12 unidades', 'Chupetas de fresa con palito, dulces y coloridas para los más pequeños de la casa.', 'Snacks y Dulces', 'Pasillo 8 - Snacks', 'Golosinas', 'Arcor', 'Importado', 365, 25, 2.00, 100, ARRAY['https://www.kromionline.com/DB-IMG-PRODUCT/0000015358/ImgThumb.jpg'], false, false, false, false, 'Importado. Productos para niños.', true, 'Disponible')
+ON CONFLICT (codigo) DO NOTHING;
+
 -- ==========================================================================
 -- CONFIGURACIÓN DE REALTIME (COMPATIBLE CON PLAN GRATUITO)
 -- ==========================================================================
@@ -702,16 +740,12 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
 CREATE OR REPLACE FUNCTION public.delete_old_notifications()
 RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER -- Se ejecuta con privilegios de creador para evitar problemas de RLS
+SECURITY DEFINER
 AS $$
 BEGIN
-  -- Eliminamos notificaciones de más de 15 días para ahorrar espacio en el plan gratuito
-  -- Puedes ajustar el intervalo a '30 days' si prefieres conservar más historial
   DELETE FROM public.notifications
   WHERE created_at < NOW() - INTERVAL '15 days';
 
-  -- Eliminamos pedidos cancelados de más de 3 meses
-  -- Esto ayuda a mantener la tabla de orders ligera y eficiente
   DELETE FROM public.orders
   WHERE status = 'Cancelado'
   AND created_at < NOW() - INTERVAL '3 months';
@@ -719,9 +753,8 @@ END;
 $$;
 
 -- 2. Programación de la tarea (Requiere extensión pg_cron)
--- Nota: Para que esto funcione, debes habilitar 'pg_cron' en el dashboard de Supabase:
+-- Para que esto funcione, debes habilitar 'pg_cron' en el dashboard de Supabase:
 -- Database -> Extensions -> Buscar 'pg_cron' y activarlo.
-
 -- Una vez activado, ejecuta manualmente esta línea en el SQL Editor:
 -- SELECT cron.schedule('limpiar-notificaciones-diario', '0 0 * * *', 'SELECT public.delete_old_notifications()');
 
@@ -732,10 +765,7 @@ $$;
 -- 1. Habilitar extensión para peticiones HTTP asíncronas
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
--- 2. Actualizar configuración en la tabla (En lugar de ALTER DATABASE que requiere superuser)
--- IMPORTANTE: Reemplaza 'TU_SECRETO_SEGURO_AQUI' con un token aleatorio generado con:
---   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
--- NO uses el secreto de ejemplo en producción.
+-- 2. Actualizar configuración en la tabla
 UPDATE public.store_config 
 SET 
   push_webhook_url = 'https://market-cbh.pages.dev/api/push-notify',

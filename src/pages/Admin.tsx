@@ -2351,6 +2351,15 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                         const compressed = await compressImage(file, { maxWidth: 400, format: 'image/png' });
                         const url = await uploadFileToStorage(compressed, 'settings', `logos/${Date.now()}.png`);
                         updateConfig({ logo_url: url });
+                        // Limpiar cache de imágenes para forzar recarga del logo
+                        if ('caches' in window) {
+                          const cacheNames = await caches.keys();
+                          for (const name of cacheNames) {
+                            if (name.includes('image') || name.includes('supabase')) {
+                              await caches.delete(name);
+                            }
+                          }
+                        }
                       } catch (err) {
                         alert('Error al subir el logo: ' + (err as any).message);
                       }
@@ -2375,6 +2384,15 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                         const compressed = await compressImage(file, { maxWidth: 64, format: 'image/png' });
                         const url = await uploadFileToStorage(compressed, 'settings', 'favicons');
                         updateConfig({ favicon_url: url });
+                        // Limpiar cache de imágenes para forzar recarga del favicon
+                        if ('caches' in window) {
+                          const cacheNames = await caches.keys();
+                          for (const name of cacheNames) {
+                            if (name.includes('image') || name.includes('supabase')) {
+                              await caches.delete(name);
+                            }
+                          }
+                        }
                       } catch (err) {
                         alert('Error al subir el favicon: ' + (err as any).message);
                       }

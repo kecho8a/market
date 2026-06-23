@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { AppProvider, useApp } from './store/AppContext';
 import { Home } from './pages/Home';
 import { Catalog } from './pages/Catalog';
@@ -19,6 +19,9 @@ import { SEOHead } from './components/SEOHead';
 
 function AppContent() {
   const { cart, config, addToCart, isAdminAuthenticated, authenticateAdmin, logoutAdmin, currentUser, notifications, displayCurrency, toggleCurrency, isGlobalLoading } = useApp();
+
+  // Cache-busting para el logo: fuerza recarga cuando cambia
+  const logoUrl = useMemo(() => config.logo_url ? `${config.logo_url}?v=${encodeURIComponent(config.logo_url)}` : '', [config.logo_url]);
 
   // PWA Install Prompt State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -133,12 +136,50 @@ function AppContent() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-white relative overflow-hidden" style={{ backgroundColor: config.theme_color || '#0f5d34' }}>
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-        <div className="z-10 flex flex-col items-center animate-pulse">
-          <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center mb-4 shadow-2xl" style={{ color: config.theme_color || '#0f5d34' }}>
-            <ShoppingBag size={40} />
-          </div>
-          <h1 className="text-3xl font-extrabold font-display tracking-tight">Marketo</h1>
-          <p className="text-violet-200 font-mono text-xs uppercase tracking-widest mt-2">Cargando pasillos...</p>
+        <div className="z-10 flex flex-col items-center">
+          <style>{`
+            @keyframes logoZoomIn {
+              0% { transform: scale(0.2); opacity: 0; }
+              60% { transform: scale(1.15); opacity: 1; }
+              80% { transform: scale(0.95); }
+              100% { transform: scale(1); opacity: 1; }
+            }
+            @keyframes nameSlideUp {
+              0% { transform: translateY(20px); opacity: 0; }
+              100% { transform: translateY(0); opacity: 1; }
+            }
+            @keyframes pulseGlow {
+              0%, 100% { box-shadow: 0 0 20px rgba(255,255,255,0.3); }
+              50% { box-shadow: 0 0 40px rgba(255,255,255,0.6); }
+            }
+          `}</style>
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={config.site_nombre || 'Tienda'}
+              className="w-28 h-28 object-contain rounded-3xl mb-5 shadow-2xl bg-white p-2"
+              style={{ animation: 'logoZoomIn 0.8s cubic-bezier(0.34,1.56,0.64,1) forwards, pulseGlow 2s ease-in-out infinite 0.8s' }}
+            />
+          ) : (
+            <div
+              className="w-28 h-28 bg-white rounded-3xl flex items-center justify-center mb-5 shadow-2xl"
+              style={{ color: config.theme_color || '#0f5d34', animation: 'logoZoomIn 0.8s cubic-bezier(0.34,1.56,0.64,1) forwards, pulseGlow 2s ease-in-out infinite 0.8s' }}
+            >
+              <ShoppingBag size={48} />
+            </div>
+          )}
+          <h1
+            className="text-3xl font-extrabold font-display tracking-tight"
+            style={{ animation: 'nameSlideUp 0.6s ease-out 0.4s both' }}
+          >
+            {config.site_nombre || 'Marketo'}
+          </h1>
+          <p
+            className="text-violet-200 font-mono text-xs uppercase tracking-widest mt-2"
+            style={{ animation: 'nameSlideUp 0.6s ease-out 0.6s both' }}
+          >
+            Cargando pasillos...
+          </p>
         </div>
       </div>
     );
@@ -161,8 +202,8 @@ function AppContent() {
                   onClick={() => { setTab('home'); resetAllFilters(); }}
                   className="flex items-center gap-2.5 cursor-pointer group flex-1 min-w-0"
                 >
-                  {config.logo_url ? (
-                    <img src={config.logo_url} alt={config.site_nombre} className="w-10 h-10 object-contain rounded" />
+                  {logoUrl ? (
+                    <img src={logoUrl} alt={config.site_nombre} className="w-10 h-10 object-contain rounded" />
                   ) : (
                     <div className="w-9 h-9 rounded-xl border flex items-center justify-center shadow-sm transition-all shrink-0 group-hover:text-white" style={{ backgroundColor: `${config.theme_color || '#0f5d34'}15`, borderColor: `${config.theme_color || '#0f5d34'}25`, color: config.theme_color || '#0f5d34' }}>
                       <ShoppingBag size={18} className="group-hover:rotate-12 transition-transform duration-300" />
@@ -353,8 +394,8 @@ function AppContent() {
                   onClick={() => { setTab('home'); resetAllFilters(); }}
                   className="flex items-center gap-2 cursor-pointer group select-none shrink-0"
                 >
-                  {config.logo_url ? (
-                    <img src={config.logo_url} alt={config.site_nombre} className="w-8 h-8 object-contain rounded" />
+                  {logoUrl ? (
+                    <img src={logoUrl} alt={config.site_nombre} className="w-8 h-8 object-contain rounded" />
                   ) : (
                     <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white transition-all">
                       <ShoppingBag size={18} />
