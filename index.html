@@ -55,7 +55,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   </head>
   <body class="bg-zinc-100 text-zinc-900 antialiased overflow-x-hidden">
-    <!-- Aplicar color de tienda antes de que React cargue para evitar flash blanco -->
+    <!-- Aplicar color y nombre de tienda antes de que React cargue para evitar flash -->
     <script>
       (function() {
         try {
@@ -66,6 +66,11 @@
               document.body.style.backgroundColor = cfg.theme_color;
               document.querySelector('meta[name="theme-color"]').setAttribute('content', cfg.theme_color);
               document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').setAttribute('content', 'black-translucent');
+            }
+            if (cfg.site_nombre) {
+              document.title = cfg.site_nombre + ' | Supermercado Online y Delivery Express';
+              document.querySelector('meta[name="apple-mobile-web-app-title"]').setAttribute('content', cfg.site_nombre);
+              document.querySelector('meta[name="og:site_name"]').setAttribute('content', cfg.site_nombre);
             }
           }
         } catch(e) {}

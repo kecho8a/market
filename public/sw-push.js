@@ -41,25 +41,103 @@ function setLogoUrl(url) {
   });
 }
 
-// ─── Intercept manifest.json para servir iconos dinámicos ───
+function getSiteName() {
+  return openDB().then(function(db) {
+    return new Promise(function(resolve) {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.get('site_name');
+      req.onsuccess = function() { resolve(req.result || null); };
+      req.onerror = function() { resolve(null); };
+    });
+  });
+}
+
+function setSiteName(name) {
+  return openDB().then(function(db) {
+    return new Promise(function(resolve) {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      store.put(name, 'site_name');
+      tx.oncomplete = function() { resolve(); };
+      tx.onerror = function() { resolve(); };
+    });
+  });
+}
+
+function getThemeColor() {
+  return openDB().then(function(db) {
+    return new Promise(function(resolve) {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.get('theme_color');
+      req.onsuccess = function() { resolve(req.result || null); };
+      req.onerror = function() { resolve(null); };
+    });
+  });
+}
+
+function setThemeColor(color) {
+  return openDB().then(function(db) {
+    return new Promise(function(resolve) {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      store.put(color, 'theme_color');
+      tx.oncomplete = function() { resolve(); };
+      tx.onerror = function() { resolve(); };
+    });
+  });
+}
+
+function clearManifestCache() {
+  return caches.keys().then(function(names) {
+    return Promise.all(names.map(function(n) {
+      if (n.includes('manifest')) return caches.delete(n);
+    }));
+  });
+}
+
+function notifyClients(type) {
+  return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clients) {
+    clients.forEach(function(c) { c.postMessage({ type: type }); });
+  });
+}
+
+// ─── Intercept manifest.json para servir iconos, nombre y color dinámicos ───
 self.addEventListener('fetch', function(event) {
   const url = new URL(event.request.url);
   // Solo interceptar manifest.json del mismo origen
   if (url.pathname === '/manifest.json' || url.pathname === '/manifest.webmanifest') {
     event.respondWith(
-      getLogoUrl().then(function(logoUrl) {
-        // Si no hay logo configurado, servir el manifest original
-        if (!logoUrl) {
+      Promise.all([getLogoUrl(), getSiteName(), getThemeColor()]).then(function(results) {
+        var logoUrl = results[0];
+        var siteName = results[1];
+        var themeColor = results[2];
+        // Si no hay nada configurado, servir el manifest original
+        if (!logoUrl && !siteName && !themeColor) {
           return fetch(event.request);
         }
-        // Fetch el manifest original y reemplazar iconos
+        // Fetch el manifest original y reemplazar campos
         return fetch(event.request).then(function(response) {
           return response.clone().json().then(function(manifest) {
-            manifest.icons = [
-              { src: logoUrl, sizes: '192x192', type: 'image/png', purpose: 'any' },
-              { src: logoUrl, sizes: '512x512', type: 'image/png', purpose: 'any' },
-              { src: logoUrl, sizes: '512x512', type: 'image/png', purpose: 'maskable' }
-            ];
+            if (logoUrl) {
+              manifest.icons = [
+                { src: logoUrl, sizes: '192x192', type: 'image/png', purpose: 'any' },
+                { src: logoUrl, sizes: '512x512', type: 'image/png', purpose: 'any' },
+                { src: logoUrl, sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+              ];
+            }
+            if (siteName) {
+              manifest.name = siteName + ' - Delivery Express';
+              manifest.short_name = siteName;
+              if (manifest.shortcuts && manifest.shortcuts.length > 0) {
+                manifest.shortcuts[0].name = 'Pasillos de ' + siteName;
+              }
+            }
+            if (themeColor) {
+              manifest.theme_color = themeColor;
+              manifest.background_color = themeColor;
+            }
             return new Response(JSON.stringify(manifest), {
               headers: { 'Content-Type': 'application/json' }
             });
@@ -181,16 +259,33 @@ self.addEventListener('message', function(event) {
     console.log('[SW Push] Actualizando logo_url en IndexedDB:', event.data.logoUrl);
     event.waitUntil(
       setLogoUrl(event.data.logoUrl).then(function() {
-        // Limpiar cache del manifest para que se regenere
-        return caches.keys().then(function(names) {
-          return Promise.all(names.map(function(n) {
-            if (n.includes('manifest')) return caches.delete(n);
-          }));
-        });
+        return clearManifestCache();
       }).then(function() {
-        return self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-      }).then(function(clients) {
-        clients.forEach(function(c) { c.postMessage({ type: 'LOGO_URL_UPDATED' }); });
+        return notifyClients('LOGO_URL_UPDATED');
+      })
+    );
+  }
+
+  // Guardar site_name en IndexedDB
+  if (event.data?.type === 'UPDATE_SITE_NAME') {
+    console.log('[SW Push] Actualizando site_name en IndexedDB:', event.data.siteName);
+    event.waitUntil(
+      setSiteName(event.data.siteName).then(function() {
+        return clearManifestCache();
+      }).then(function() {
+        return notifyClients('SITE_NAME_UPDATED');
+      })
+    );
+  }
+
+  // Guardar theme_color en IndexedDB
+  if (event.data?.type === 'UPDATE_THEME_COLOR') {
+    console.log('[SW Push] Actualizando theme_color en IndexedDB:', event.data.themeColor);
+    event.waitUntil(
+      setThemeColor(event.data.themeColor).then(function() {
+        return clearManifestCache();
+      }).then(function() {
+        return notifyClients('THEME_COLOR_UPDATED');
       })
     );
   }
@@ -209,11 +304,7 @@ self.addEventListener('message', function(event) {
           })
         );
       }).then(function() {
-        return self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-      }).then(function(clients) {
-        clients.forEach(function(client) {
-          client.postMessage({ type: 'ASSETS_CACHE_CLEARED' });
-        });
+        return notifyClients('ASSETS_CACHE_CLEARED');
       })
     );
   }

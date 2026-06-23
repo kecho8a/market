@@ -89,32 +89,52 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
       setMeta('og:image', 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=1200', 'property');
     }
 
-    // PWA: el manifest estático se mantiene en /manifest.json para que beforeinstallprompt funcione.
-    // Los iconos dinámicos se manejan vía Service Worker (intercept fetch de manifest.json).
-    // Guardar logo_url en IndexedDB y notificar al SW
-    if (config.logo_url) {
-      const DB_NAME = 'marketo-pwa';
-      const DB_VERSION = 1;
-      const STORE_NAME = 'config';
-      const openReq = indexedDB.open(DB_NAME, DB_VERSION);
-      openReq.onupgradeneeded = (e: any) => {
-        e.target.result.createObjectStore(STORE_NAME);
-      };
-      openReq.onsuccess = (e: any) => {
-        const db = e.target.result;
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        tx.objectStore(STORE_NAME).put(config.logo_url, 'logo_url');
-        tx.oncomplete = () => {
-          // Notificar al SW que el logo cambió
-          if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    // PWA: Guardar logo_url, site_name y theme_color en IndexedDB para manifest dinámico
+    const DB_NAME = 'marketo-pwa';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'config';
+    const openReq = indexedDB.open(DB_NAME, DB_VERSION);
+    openReq.onupgradeneeded = (e: any) => {
+      e.target.result.createObjectStore(STORE_NAME);
+    };
+    openReq.onsuccess = (e: any) => {
+      const db = e.target.result;
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      
+      if (config.logo_url) {
+        store.put(config.logo_url, 'logo_url');
+      }
+      if (config.site_nombre) {
+        store.put(config.site_nombre, 'site_name');
+      }
+      if (config.theme_color) {
+        store.put(config.theme_color, 'theme_color');
+      }
+      
+      tx.oncomplete = () => {
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+          if (config.logo_url) {
             navigator.serviceWorker.controller.postMessage({
               type: 'UPDATE_LOGO_URL',
               logoUrl: config.logo_url
             });
           }
-        };
+          if (config.site_nombre) {
+            navigator.serviceWorker.controller.postMessage({
+              type: 'UPDATE_SITE_NAME',
+              siteName: config.site_nombre
+            });
+          }
+          if (config.theme_color) {
+            navigator.serviceWorker.controller.postMessage({
+              type: 'UPDATE_THEME_COLOR',
+              themeColor: config.theme_color
+            });
+          }
+        }
       };
-    }
+    };
 
     // Apple Touch Icon dinámico para iOS
     const appleTouchUrl = config.logo_url || config.favicon_url || '/pwa-192x192.png';
@@ -145,6 +165,15 @@ export const SEOHead: React.FC<SEOHeadProps> = ({
       document.head.appendChild(themeMeta);
     }
     themeMeta.setAttribute('content', config.theme_color || '#10b981');
+
+    // Apple mobile web app title dinámico
+    let appleTitleMeta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+    if (!appleTitleMeta) {
+      appleTitleMeta = document.createElement('meta');
+      appleTitleMeta.setAttribute('name', 'apple-mobile-web-app-title');
+      document.head.appendChild(appleTitleMeta);
+    }
+    appleTitleMeta.setAttribute('content', config.site_nombre || 'Marketo');
 
     // 2. Generate and Inject JSON-LD Schema
     const existingScript = document.getElementById('trv-jsonld-schema');
