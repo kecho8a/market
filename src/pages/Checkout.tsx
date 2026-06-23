@@ -5,6 +5,12 @@ import { ListOrdered, Edit2, Trash2, MapPin, Phone, User, Landmark, Compass, Sma
 import { LeafletMap } from '../components/LeafletMap';
 import { SEOHead } from '../components/SEOHead';
 
+const CHECKOUT_ZONES = [
+  { name: 'Cercano (Trigaleña, Guaparo, Las Chimeneas, El Viñedo)', cost: 2.00 },
+  { name: 'Medio (Prebo, Mañongo, Prebo II, San Diego)', cost: 4.50 },
+  { name: 'Lejano (Guacara, Los Guayos, Tocuyito, Flor Amarillo)', cost: 7.00 },
+];
+
 interface CheckoutProps {
   setTab: (tab: 'home' | 'catalog' | 'cart' | 'admin') => void;
 }
@@ -43,6 +49,10 @@ export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
   const [shippingDistance, setShippingDistance] = useState<number>(0);
   const [shippingZone, setShippingZone] = useState<string>('Retiro en Tienda');
 
+  // Shipping method selection: 'mapa' | 'recogida' | 'zonas'
+  const [shippingMethod, setShippingMethod] = useState<'mapa' | 'recogida' | 'zonas'>('mapa');
+  const [selectedZoneIndex, setSelectedZoneIndex] = useState<number | null>(null);
+
   // Completed order log reference
   const [processedOrder, setProcessedOrder] = useState<any>(null);
 
@@ -65,6 +75,33 @@ export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
     setShippingDistance(distance);
     setShippingCost(cost);
     setShippingZone(zoneName);
+  };
+
+  const handleShippingMethodChange = (method: 'mapa' | 'recogida' | 'zonas') => {
+    setShippingMethod(method);
+    setSelectedZoneIndex(null);
+
+    if (method === 'recogida') {
+      setShippingLat(config.coordenadas_tienda.lat);
+      setShippingLng(config.coordenadas_tienda.lng);
+      setShippingCost(0);
+      setShippingDistance(0);
+      setShippingZone('Retiro en Tienda');
+    } else if (method === 'zonas') {
+      setShippingLat(config.coordenadas_tienda.lat);
+      setShippingLng(config.coordenadas_tienda.lng);
+      setShippingCost(0);
+      setShippingDistance(0);
+      setShippingZone('Selecciona una zona');
+    }
+  };
+
+  const handleZoneSelect = (index: number) => {
+    setSelectedZoneIndex(index);
+    const selected = CHECKOUT_ZONES[index];
+    setShippingCost(config.delivery_gratis ? 0 : selected.cost);
+    setShippingDistance(0);
+    setShippingZone(selected.name);
   };
 
   const handleApplyCoupon = () => {
@@ -168,9 +205,13 @@ export const Checkout: React.FC<CheckoutProps> = ({ setTab }) => {
       productosDetailText += `- ${ci.quantity}x ${ci.item.nombre} (SKU: ${ci.item.codigo}) - $${(ci.item.precio_usd * ci.quantity).toFixed(2)}\n`;
     });
 
-    const deliveryLabel = effectiveShippingCost === 0
-      ? 'Retiro en Tienda'
-      : `Delivery Express (${shippingDistance} KM)`;
+    const deliveryLabel = shippingMethod === 'recogida'
+      ? 'Recogida en Tienda'
+      : shippingMethod === 'zonas'
+        ? `Entrega por Zonas (${shippingZone})`
+        : effectiveShippingCost === 0
+          ? 'Retiro en Tienda'
+          : `Delivery por Mapa (${shippingDistance} KM)`;
 
     const finalTotalUsd = (subtotalUsd + effectiveShippingCost).toFixed(2);
     const finalTotalBs  = ((subtotalUsd + effectiveShippingCost) * config.tasa_cambio).toFixed(2);
@@ -555,27 +596,140 @@ ${productosDetailText}
                 className="text-white font-bold font-display text-[12px] py-3.5 rounded-lg tracking-wider transition-all uppercase cursor-pointer text-center hover:opacity-90"
                 style={{ backgroundColor: config.theme_color || '#0f5d34' }}
               >
-                Paso 2: Fijar Ubicacion delivery
+                Paso 2: Método de Envío
               </button>
             </>
           )}
         </div>
       )}
 
-      {/* STEP 2: LEAFLET OPENSTREETMAP COORDINATE PICKER */}
+      {/* STEP 2: SHIPPING METHOD SELECTION */}
       {step === 2 && (
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-2 border-b border-zinc-200 pb-2">
             <Compass size={16} className="text-zinc-800" />
-            <h3 className="text-sm font-bold font-display text-zinc-900">Dirección y Cadena de Frío Express</h3>
+            <h3 className="text-sm font-bold font-display text-zinc-900">Método de Envío</h3>
           </div>
 
-          {/* Leaflet Frame */}
-          <LeafletMap 
-            shopCoords={config.coordenadas_tienda} 
-            onLocationSelected={handleLocationPicked} 
-            config={config}
-          />
+          {/* Shipping Method Selector */}
+          <div className="grid grid-cols-1 gap-2">
+            {config.recogida_en_local && (
+              <button
+                type="button"
+                onClick={() => handleShippingMethodChange('recogida')}
+                className={`border p-4 rounded-lg text-left flex items-center gap-3 transition-all outline-none cursor-pointer ${shippingMethod === 'recogida' ? 'bg-zinc-950 text-white border-zinc-950 font-bold' : 'bg-zinc-50 border-zinc-200 text-zinc-700 hover:bg-zinc-100'}`}
+              >
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${shippingMethod === 'recogida' ? 'bg-white text-zinc-950' : 'bg-zinc-200 text-zinc-600'}`}>🏪</div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider">Recogida en el Local</p>
+                  <p className="text-[10px] opacity-70 mt-0.5">Retira tu pedido gratis en la tienda</p>
+                </div>
+                <span className="ml-auto font-mono text-sm font-bold">Gratis</span>
+              </button>
+            )}
+
+            {config.entrega_por_zonas && (
+              <button
+                type="button"
+                onClick={() => handleShippingMethodChange('zonas')}
+                className={`border p-4 rounded-lg text-left flex items-center gap-3 transition-all outline-none cursor-pointer ${shippingMethod === 'zonas' ? 'bg-zinc-950 text-white border-zinc-950 font-bold' : 'bg-zinc-50 border-zinc-200 text-zinc-700 hover:bg-zinc-100'}`}
+              >
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${shippingMethod === 'zonas' ? 'bg-white text-zinc-950' : 'bg-zinc-200 text-zinc-600'}`}>📍</div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider">Entrega por Zonas</p>
+                  <p className="text-[10px] opacity-70 mt-0.5">Selecciona tu zona de Valencia</p>
+                </div>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => handleShippingMethodChange('mapa')}
+              className={`border p-4 rounded-lg text-left flex items-center gap-3 transition-all outline-none cursor-pointer ${shippingMethod === 'mapa' ? 'bg-zinc-950 text-white border-zinc-950 font-bold' : 'bg-zinc-50 border-zinc-200 text-zinc-700 hover:bg-zinc-100'}`}
+            >
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${shippingMethod === 'mapa' ? 'bg-white text-zinc-950' : 'bg-zinc-200 text-zinc-600'}`}>🗺️</div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider">Delivery por Mapa</p>
+                <p className="text-[10px] opacity-70 mt-0.5">Selecciona tu ubicación exacta en el mapa</p>
+              </div>
+            </button>
+          </div>
+
+          {/* Conditional Content based on Shipping Method */}
+
+          {/* MAPA: Show Leaflet */}
+          {shippingMethod === 'mapa' && (
+            <>
+              <LeafletMap 
+                shopCoords={config.coordenadas_tienda} 
+                onLocationSelected={handleLocationPicked} 
+                config={config}
+              />
+            </>
+          )}
+
+          {/* RECOGIDA: Show pickup info */}
+          {shippingMethod === 'recogida' && (
+            <div className="p-4 border border-emerald-200 rounded-lg bg-emerald-50/50 flex flex-col gap-3 text-xs text-zinc-800 leading-relaxed">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🏪</span>
+                <span className="font-bold text-emerald-800">Retiro en Tienda</span>
+              </div>
+              <p className="text-emerald-700">
+                Recoge tu pedido directamente en nuestra tienda sin costo adicional. 
+                Te notificaremos cuando tu pedido esté listo para recoger.
+              </p>
+              <div className="bg-white border border-emerald-200 rounded-lg p-3">
+                <p className="font-mono text-zinc-900 font-bold">{config.direccion_fisica || 'Dirección de la tienda'}</p>
+              </div>
+              <div className="flex justify-between items-center pt-2 border-t border-emerald-200">
+                <span className="font-semibold text-emerald-800">Costo de envío:</span>
+                <span className="font-mono font-extrabold text-emerald-700">GRATIS</span>
+              </div>
+            </div>
+          )}
+
+          {/* ZONAS: Show zone selector */}
+          {shippingMethod === 'zonas' && (
+            <div className="flex flex-col gap-3">
+              <p className="text-xs text-zinc-500">Selecciona la zona donde te encuentras:</p>
+              {CHECKOUT_ZONES.map((z, i) => (
+                <button
+                  type="button"
+                  key={i}
+                  onClick={() => handleZoneSelect(i)}
+                  className={`border p-4 rounded-lg text-left flex items-center justify-between transition-all outline-none cursor-pointer ${selectedZoneIndex === i ? 'bg-zinc-950 text-white border-zinc-950 font-bold' : 'bg-zinc-50 border-zinc-200 text-zinc-700 hover:bg-zinc-100'}`}
+                >
+                  <div>
+                    <p className="text-xs font-bold">{z.name}</p>
+                  </div>
+                  <span className="font-mono text-sm font-bold shrink-0 ml-3">
+                    {config.delivery_gratis ? 'Gratis' : `$${z.cost.toFixed(2)}`}
+                  </span>
+                </button>
+              ))}
+              {config.envio_nacional && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedZoneIndex(3);
+                    setShippingCost(config.delivery_gratis ? 0 : (config.costo_envio_nacional || 0));
+                    setShippingDistance(100);
+                    setShippingZone('Envío Nacional Estándar');
+                  }}
+                  className={`border p-4 rounded-lg text-left flex items-center justify-between transition-all outline-none cursor-pointer ${selectedZoneIndex === 3 ? 'bg-zinc-950 text-white border-zinc-950 font-bold' : 'bg-zinc-50 border-zinc-200 text-zinc-700 hover:bg-zinc-100'}`}
+                >
+                  <div>
+                    <p className="text-xs font-bold">Envío Nacional (más de 18km)</p>
+                    <p className="text-[10px] opacity-70 mt-0.5">Envío por encomienda Zoom/Tealka</p>
+                  </div>
+                  <span className="font-mono text-sm font-bold shrink-0 ml-3">
+                    {config.delivery_gratis ? 'Gratis' : `$${(config.costo_envio_nacional || 0).toFixed(2)}`}
+                  </span>
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Location Delivery summary check */}
           <div className="p-4 border border-zinc-200 rounded-lg bg-zinc-50/50 flex flex-col gap-2.5 text-xs text-zinc-800 leading-relaxed">
@@ -603,6 +757,12 @@ ${productosDetailText}
             </div>
           </div>
 
+          {validationError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs font-semibold text-red-600 text-center animate-pulse">
+              {validationError}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2 mt-2">
             <button
               type="button"
@@ -613,7 +773,14 @@ ${productosDetailText}
             </button>
             <button
               type="button"
-              onClick={() => setStep(3)}
+              onClick={() => {
+                if (shippingMethod === 'zonas' && selectedZoneIndex === null) {
+                  setValidationError('Por favor, selecciona una zona de entrega.');
+                  return;
+                }
+                setValidationError('');
+                setStep(3);
+              }}
               className="text-white py-3.5 rounded-lg text-xs font-bold font-display uppercase tracking-wider transition-all cursor-pointer hover:opacity-90"
               style={{ backgroundColor: config.theme_color || '#0f5d34' }}
             >

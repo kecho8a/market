@@ -90,6 +90,8 @@ export interface StoreConfig {
   costo_delivery_km?: number;
   envio_nacional?: boolean;
   costo_envio_nacional?: number;
+  recogida_en_local?: boolean;
+  entrega_por_zonas?: boolean;
   favicon_url?: string;
   banner_texts?: string[];
   categories?: string[];

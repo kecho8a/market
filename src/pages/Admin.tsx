@@ -2526,6 +2526,32 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                   </div>
                 )}
               </div>
+
+              <div className="flex flex-col gap-2 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                <span className="font-bold text-slate-800">Recogida en el Local</span>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={config.recogida_en_local || false}
+                    onChange={(e) => updateConfig({ recogida_en_local: e.target.checked })}
+                    className="accent-violet-600 h-4 w-4 rounded"
+                  />
+                  <span>Ofrecer Recogida en Tienda</span>
+                </label>
+              </div>
+
+              <div className="flex flex-col gap-2 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                <span className="font-bold text-slate-800">Entrega por Zonas</span>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={config.entrega_por_zonas || false}
+                    onChange={(e) => updateConfig({ entrega_por_zonas: e.target.checked })}
+                    className="accent-violet-600 h-4 w-4 rounded"
+                  />
+                  <span>Ofrecer Entrega por Zonas (selección manual)</span>
+                </label>
+              </div>
             </div>
 
             <div className="col-span-2 border-t border-slate-100 pt-3 flex flex-col gap-3">

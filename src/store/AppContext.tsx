@@ -432,6 +432,8 @@ const DEFAULT_CONFIG: StoreConfig = {
   costo_delivery_km: 1.5,
   envio_nacional: true,
   costo_envio_nacional: 5.0,
+  recogida_en_local: true,
+  entrega_por_zonas: true,
   favicon_url: '',
   banner_texts: [
     'Frescura garantizada directo a tu hogar',
@@ -1015,7 +1017,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           delivery_gratis: dbConfig.delivery_gratis ?? prev.delivery_gratis,
           costo_delivery_km: dbConfig.costo_delivery_km ?? prev.costo_delivery_km,
           envio_nacional: dbConfig.envio_nacional ?? prev.envio_nacional,
-          costo_envio_nacional: dbConfig.costo_envio_nacional ?? prev.costo_envio_nacional
+          costo_envio_nacional: dbConfig.costo_envio_nacional ?? prev.costo_envio_nacional,
+          recogida_en_local: dbConfig.recogida_en_local ?? prev.recogida_en_local,
+          entrega_por_zonas: dbConfig.entrega_por_zonas ?? prev.entrega_por_zonas
         }));
       }
 
