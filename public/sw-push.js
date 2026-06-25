@@ -254,38 +254,47 @@ self.addEventListener('message', function(event) {
     console.error('[SW Push] Error reportado desde el cliente:', event.data.error);
   }
 
-  // Guardar logo_url en IndexedDB
+  // Guardar logo_url en IndexedDB (solo si cambió)
   if (event.data?.type === 'UPDATE_LOGO_URL') {
-    console.log('[SW Push] Actualizando logo_url en IndexedDB:', event.data.logoUrl);
     event.waitUntil(
-      setLogoUrl(event.data.logoUrl).then(function() {
-        return clearManifestCache();
-      }).then(function() {
-        return notifyClients('LOGO_URL_UPDATED');
+      getLogoUrl().then(function(current) {
+        if (current === event.data.logoUrl) return;
+        console.log('[SW Push] Actualizando logo_url en IndexedDB:', event.data.logoUrl);
+        return setLogoUrl(event.data.logoUrl).then(function() {
+          return clearManifestCache();
+        }).then(function() {
+          return notifyClients('LOGO_URL_UPDATED');
+        });
       })
     );
   }
 
-  // Guardar site_name en IndexedDB
+  // Guardar site_name en IndexedDB (solo si cambió)
   if (event.data?.type === 'UPDATE_SITE_NAME') {
-    console.log('[SW Push] Actualizando site_name en IndexedDB:', event.data.siteName);
     event.waitUntil(
-      setSiteName(event.data.siteName).then(function() {
-        return clearManifestCache();
-      }).then(function() {
-        return notifyClients('SITE_NAME_UPDATED');
+      getSiteName().then(function(current) {
+        if (current === event.data.siteName) return;
+        console.log('[SW Push] Actualizando site_name en IndexedDB:', event.data.siteName);
+        return setSiteName(event.data.siteName).then(function() {
+          return clearManifestCache();
+        }).then(function() {
+          return notifyClients('SITE_NAME_UPDATED');
+        });
       })
     );
   }
 
-  // Guardar theme_color en IndexedDB
+  // Guardar theme_color en IndexedDB (solo si cambió)
   if (event.data?.type === 'UPDATE_THEME_COLOR') {
-    console.log('[SW Push] Actualizando theme_color en IndexedDB:', event.data.themeColor);
     event.waitUntil(
-      setThemeColor(event.data.themeColor).then(function() {
-        return clearManifestCache();
-      }).then(function() {
-        return notifyClients('THEME_COLOR_UPDATED');
+      getThemeColor().then(function(current) {
+        if (current === event.data.themeColor) return;
+        console.log('[SW Push] Actualizando theme_color en IndexedDB:', event.data.themeColor);
+        return setThemeColor(event.data.themeColor).then(function() {
+          return clearManifestCache();
+        }).then(function() {
+          return notifyClients('THEME_COLOR_UPDATED');
+        });
       })
     );
   }

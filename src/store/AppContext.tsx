@@ -561,6 +561,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // --- MOTOR DE TIEMPO REAL (SUPABASE CHANNELS) ---
   const currentUserRef = useRef<AppUser | null>(currentUser);
   const isAdminAuthenticatedRef = useRef(isAdminAuthenticated);
+  const configSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     currentUserRef.current = currentUser;
@@ -1740,12 +1741,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const updated = { ...prev, ...newSettings };
       localStorage.setItem('trv_config', JSON.stringify(updated));
       
-      // Supabase Async Sync
-      (async () => {
+      // Supabase Async Sync con debounce
+      if (configSaveTimeoutRef.current) {
+        clearTimeout(configSaveTimeoutRef.current);
+      }
+      configSaveTimeoutRef.current = setTimeout(async () => {
         try {
-          const updatePayload: any = { id: 1 }; // Siempre actualizamos la fila con id=1
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) {
+            console.warn('[Config] No hay sesión activa, omitiendo sync a Supabase');
+            return;
+          }
 
-          // Mapeo dinámico de todas las llaves de newSettings a updatePayload
+          const updatePayload: any = { id: 1 };
+
           Object.keys(newSettings).forEach(key => {
             const value = (newSettings as any)[key];
             if (value !== undefined) {
@@ -1762,13 +1771,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
           });
           
-          if (Object.keys(updatePayload).length > 0) {
+          if (Object.keys(updatePayload).length > 1) {
             await supabase.from('store_config').upsert(updatePayload);
           }
         } catch (e) {
-          console.error('Failed to sync config', e);
+          console.error('[Config] Failed to sync config', e);
         }
-      })();
+      }, 500);
       
       return updated;
     });
@@ -1781,9 +1790,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     setConfig(prev => ({ ...prev, tasa_cambio: rate }));
     
-    // Sincronizar con Supabase para que todos los clientes la vean
-    supabase.from('store_config').update({ tasa_cambio: rate }).eq('id', 1)
-      .then(({ error }) => { if (error) console.error('Error syncing rate to DB:', error); });
+    // Sincronizar con Supabase (con auth check)
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          console.warn('[Config] No hay sesión activa, omitiendo sync de tasa a Supabase');
+          return;
+        }
+        const { error } = await supabase.from('store_config').update({ tasa_cambio: rate }).eq('id', 1);
+        if (error) console.error('[Config] Error syncing rate to DB:', error);
+      } catch (e) {
+        console.error('[Config] Error syncing rate:', e);
+      }
+    })();
   };
 
   // Log notifications
