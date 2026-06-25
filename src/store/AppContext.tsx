@@ -980,6 +980,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const { data: { session } } = await supabase.auth.getSession();
       const isAdmin = session?.user?.email === 'kecho8a@gmail.com' || session?.user?.app_metadata?.role === 'admin';
 
+      // Si localStorage dice admin pero no hay sesión real, limpiar el flag
+      if (!isAdmin && localStorage.getItem('trv_admin_auth') === 'true') {
+        localStorage.removeItem('trv_admin_auth');
+        setIsAdminAuthenticated(false);
+      }
+
       // Cargar productos de Supabase (si es admin, incluir inactivos)
       let productsQuery = supabase.from('products').select('*');
       if (!isAdmin) {
@@ -1078,6 +1084,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     return () => clearInterval(rateInterval);
   }, [currentUser, isAdminAuthenticated]); // Re-ejecutar al cambiar login o admin
+
+  // Listener de auth state para sincronizar sesión de Supabase con estado local
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (session) {
+          const isAdmin = session.user?.email === 'kecho8a@gmail.com' || session.user?.app_metadata?.role === 'admin';
+          if (isAdmin) {
+            setIsAdminAuthenticated(true);
+            localStorage.setItem('trv_admin_auth', 'true');
+          }
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setIsAdminAuthenticated(false);
+        localStorage.removeItem('trv_admin_auth');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const toggleFavorite = (partId: string) => {
     setFavorites(prev => 
