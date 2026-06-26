@@ -127,7 +127,11 @@ export const onRequestPost: any = async (context: any) => {
     }
 
     // Aplicar filtro por teléfono después de obtenerlas
-    if (tipo === 'personal' || tipo === 'admin') {
+    if (tipo === 'personal') {
+      subscriptionsRaw = subscriptionsRaw.filter((s: any) => 
+        s.destinatario_telefono === destinatarioTelefono?.trim()
+      );
+    } else if (tipo === 'admin' || tipo === 'request') {
       subscriptionsRaw = subscriptionsRaw.filter((s: any) => 
         s.destinatario_telefono === destinatarioTelefono?.trim()
       );

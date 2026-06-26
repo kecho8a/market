@@ -1137,7 +1137,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Catalog CRUD Functions
   const addProduct = (productData: Omit<Producto, 'id'>) => {
     // No generamos ID manual para productos para que Supabase use gen_random_uuid()
-    addNotification('Procesando...', `Agregando ${productData.nombre} al catálogo.`);
+    addNotification('Procesando...', `Agregando ${productData.nombre} al catálogo.`, 'admin');
     
     // Supabase Async Sync
     supabase.from('products').insert([{
@@ -1156,7 +1156,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }]).select().single().then(({ data, error }) => { 
       if (error) {
         console.error('Add part error:', error);
-        addNotification('Error al agregar producto', error.message || 'Error de base de datos');
+        addNotification('Error al agregar producto', error.message || 'Error de base de datos', 'admin');
       }
       if (data) setProducts(prev => [data as Producto, ...prev]);
     });
@@ -1173,7 +1173,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabase.from('products').update(updatePayload).eq('codigo', updatedPart.codigo)
           .then(({ error }) => { if (error) {
             console.error('Update part error:', error);
-            addNotification('Error al actualizar producto', error.message || 'Error de base de datos');
+            addNotification('Error al actualizar producto', error.message || 'Error de base de datos', 'admin');
           } });
           
         return updatedPart;
@@ -1188,7 +1188,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       supabase.from('products').delete().eq('codigo', targetPart.codigo)
         .then(({ error }) => { if (error) {
           console.error('Delete part error:', error);
-          addNotification('Error al eliminar producto', error.message || 'Error de base de datos');
+          addNotification('Error al eliminar producto', error.message || 'Error de base de datos', 'admin');
         } });
     }
     setProducts(prev => prev.filter(p => p.id !== id));
@@ -1390,9 +1390,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       payload: newOrder
     });
 
-    // Trigger Notification for the store and the client
-    addNotification('Nuevo Pedido Recibido', `Pedido ${newOrder.id} fue procesado correctamente para ${newOrder.cliente_nombre}.`);
-
     // Add notification specifically for the admin
     addNotification(
       'Nuevo Pedido Recibido',
@@ -1440,8 +1437,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (estimatedTime) {
       statusMsg += ` Tiempo estimado de entrega: ${estimatedTime}.`;
     }
-    
-    addNotification('Estado de Pedido Actualizado', statusMsg, 'todos');
     
     if (targetPhone) {
       addNotification('Estado de Pedido Actualizado', statusMsg, 'personal', targetPhone);
@@ -1849,10 +1844,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       leida: false
     };
 
-    // Actualización optimista local para que el mensaje aparezca inmediatamente en el emisor
+    // Actualización optimista local: solo agregar si es relevante para el usuario actual
     setNotifications(prev => {
       if (prev.some(n => n.id === notifId)) return prev;
-      return [newNotif, ...prev];
+      const cu = currentUserRef.current;
+      const isRelevantToLocalUser = 
+        newNotif.tipo === 'todos' ||
+        (newNotif.tipo === 'personal' && cu && newNotif.destinatario_telefono === cu.telefono) ||
+        (isAdminAuthenticatedRef.current && (newNotif.tipo === 'admin' || newNotif.tipo === 'request'));
+      
+      if (isRelevantToLocalUser) {
+        return [newNotif, ...prev];
+      }
+      return prev;
     });
 
     // Sincronización con Supabase

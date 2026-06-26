@@ -564,9 +564,15 @@ BEGIN
   CREATE POLICY "Lectura de notificaciones" ON notifications
     FOR SELECT TO anon, authenticated USING (
       tipo = 'todos'
-      OR tipo = 'admin'
+      OR (tipo = 'admin' AND (
+          auth.jwt() ->> 'email' = 'kecho8a@gmail.com'
+          OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin'
+      ))
       OR (tipo = 'personal' AND destinatario_telefono IS NOT NULL AND destinatario_telefono != '')
-      OR (tipo = 'request' AND destinatario_telefono IS NOT NULL AND destinatario_telefono != '')
+      OR (tipo = 'request' AND (
+          auth.jwt() ->> 'email' = 'kecho8a@gmail.com'
+          OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin'
+      ))
     );
 
   DROP POLICY IF EXISTS "notifications_update_allow_all" ON notifications;
