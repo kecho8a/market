@@ -1074,6 +1074,46 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                 <div className="flex gap-1">
                   <button 
                     type="button"
+                    onClick={() => {
+                      const newStock = part.stock > 0 ? 0 : 10;
+                      updatePart(part.id, { stock: newStock } as any);
+                      addNotification(
+                        newStock === 0 ? 'Producto Agotado' : 'Producto Repuesto',
+                        `${part.nombre} ${newStock === 0 ? 'marcado como agotado' : 'disponible nuevamente'}`,
+                        'admin'
+                      );
+                    }}
+                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                      part.stock === 0 
+                        ? 'text-amber-600 bg-amber-100 hover:bg-amber-200' 
+                        : 'text-slate-500 bg-slate-100 hover:bg-amber-100 hover:text-amber-600'
+                    }`}
+                    title={part.stock === 0 ? 'Restablecer stock' : 'Marcar como agotado'}
+                  >
+                    {part.stock === 0 ? <RefreshCcw size={13} /> : <AlertCircle size={13} />}
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      const newActivo = part.activo === false ? true : false;
+                      updatePart(part.id, { activo: newActivo } as any);
+                      addNotification(
+                        newActivo ? 'Producto Visible' : 'Producto Pausado',
+                        `${part.nombre} ${newActivo ? 'ahora visible en el catálogo' : 'oculto del catálogo'}`,
+                        'admin'
+                      );
+                    }}
+                    className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                      part.activo === false 
+                        ? 'text-slate-500 bg-slate-200 hover:bg-violet-100 hover:text-violet-600' 
+                        : 'text-emerald-600 bg-emerald-100 hover:bg-slate-200 hover:text-slate-500'
+                    }`}
+                    title={part.activo === false ? 'Mostrar en catálogo' : 'Pausar visibilidad'}
+                  >
+                    {part.activo === false ? <EyeOff size={13} /> : <Eye size={13} />}
+                  </button>
+                  <button 
+                    type="button"
                     onClick={() => openEditor(part)}
                     className="p-1.5 text-slate-500 hover:text-violet-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
                     title="Editar"
@@ -2446,11 +2486,14 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               </div>
             </div>
 
-            <div className="col-span-2 flex flex-col gap-3 border-t border-slate-100 pt-3">
+             <div className="col-span-2 flex flex-col gap-3 border-t border-slate-100 pt-3">
                <span className="font-bold text-slate-800">Banners Promocionales (Inicio)</span>
                {[0, 1, 2].map(index => (
                  <div key={index} className="flex flex-col gap-2 p-3 border border-slate-200 rounded-lg bg-slate-50">
                     <span className="font-mono text-[10px] text-slate-500 font-bold uppercase tracking-wider">Banner {index + 1}</span>
+                    {config.banners[index] && (
+                      <img src={config.banners[index]} alt={`Banner ${index + 1}`} className="w-full h-24 object-cover rounded border border-slate-200" />
+                    )}
                     <div className="flex flex-col gap-1">
                       <span>URL de Imagen:</span>
                       <input
@@ -2461,8 +2504,37 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                           newBanners[index] = e.target.value;
                           updateConfig({ banners: newBanners });
                         }}
+                        placeholder="https://ejemplo.com/imagen.jpg"
                         className="bg-white border border-slate-300 rounded px-2 py-1.5 outline-none focus:border-blue-500 text-xs"
                       />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span>O subir imagen (JPG, PNG, WebP):</span>
+                      <label className="flex items-center justify-center gap-2 px-3 py-2 bg-white border border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-violet-400 hover:bg-violet-50 transition-colors">
+                        <Upload size={14} className="text-slate-400" />
+                        <span className="text-xs text-slate-500 font-medium">Seleccionar archivo</span>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            try {
+                              addNotification('Subiendo...', `Subiendo imagen del Banner ${index + 1}`, 'admin');
+                              const compressed = await compressImage(file, { maxWidth: 1200, format: 'image/webp' });
+                              const url = await uploadFileToStorage(compressed, 'settings', `banners/banner_${index + 1}`);
+                              const newBanners = [...config.banners];
+                              newBanners[index] = url;
+                              updateConfig({ banners: newBanners });
+                              addNotification('Banner Actualizado', `Imagen del Banner ${index + 1} subida correctamente`, 'admin');
+                            } catch (err: any) {
+                              console.error('Banner upload error:', err);
+                              addNotification('Error al subir', err.message || 'No se pudo subir la imagen del banner', 'admin');
+                            }
+                          }}
+                        />
+                      </label>
                     </div>
                     <div className="flex flex-col gap-1">
                       <span>Texto del Banner:</span>
@@ -2479,7 +2551,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                     </div>
                  </div>
                ))}
-            </div>
+             </div>
 
             <div className="col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-slate-100 pt-3">
               <div className="flex flex-col gap-2 p-3 bg-slate-50 border border-slate-200 rounded-lg">

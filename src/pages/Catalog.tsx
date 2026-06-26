@@ -115,17 +115,63 @@ export const Catalog: React.FC<CatalogProps> = ({
 
   const activeParts = useMemo(() => parts.filter(p => p.activo !== false), [parts]);
 
+  // Mapeo predefinido de categorías → pasillos → estantes
+  const CATEGORY_AISLES: Record<string, Record<string, string[]>> = {
+    'Lácteos y Quesos': {
+      'Pasillo 1 - Lácteos': ['Leches', 'Cremas', 'Mantequillas', 'Yogures', 'Quesos Frescos', 'Quesos Madurados', 'Huevos'],
+      'Pasillo 2 - Derivados': ['Helados', 'Postres Lácteos', 'Bebidas Lácteas']
+    },
+    'Carnes y Aves': {
+      'Pasillo 3 - Carnes': ['Cortes Vacunos', 'Cortes Porcinos', 'Cordero', 'Embutidos Frescos'],
+      'Pasillo 4 - Aves': ['Pollo Entero', 'Pollo por Partes', 'Pavo', 'Huevos de Codorniz']
+    },
+    'Charcutería': {
+      'Pasillo 5 - Charcutería': ['Jamones', 'Salchichas', 'Mortadelas', 'Mojos', 'Salsas']
+    },
+    'Frutas y Verduras': {
+      'Pasillo 6 - Frutas': ['Frutas Frescas', 'Frutas Tropicales', 'Frutas Congeladas'],
+      'Pasillo 7 - Verduras': ['Verduras Frescas', 'Verduras Congeladas', 'Hierbas y Especias', 'Ensaladas']
+    },
+    'Víveres y Despensa': {
+      'Pasillo 8 - Granos': ['Arroz', 'Legumbres', 'Pastas', 'Harinas'],
+      'Pasillo 9 - Aceites': ['Aceites', 'Vinegas', 'Salsas', 'Condimentos'],
+      'Pasillo 10 - Enlatados': ['Enlatados', 'Conservas', 'Sopas Instantáneas'],
+      'Pasillo 11 - Café': ['Café', 'Té', 'Cereales', 'Azúcar', 'Sal']
+    },
+    'Panadería y Pastelería': {
+      'Pasillo 12 - Panadería': ['Pan Blanco', 'Pan Integral', 'Arepa', 'Cachapas'],
+      'Pasillo 13 - Pastelería': ['Tortas', 'Galletas', 'Bollería', 'Repostería']
+    },
+    'Bebidas y Jugos': {
+      'Pasillo 14 - Aguas': ['Aguas', 'Agua Mineral', 'Agua Saborizada'],
+      'Pasillo 15 - Jugos': ['Jugos Naturales', 'Jugos Envasados', 'Néctares'],
+      'Pasillo 16 - Gaseosas': ['Gaseosas', 'Refrescos', 'Energizantes'],
+      'Pasillo 17 - Cervezas': ['Cervezas', 'Vinos', 'Licores', 'Maltas']
+    },
+    'Snacks y Dulces': {
+      'Pasillo 18 - Snacks': ['Papitas', 'Snacks Salados', 'Frutos Secos', 'Popotes'],
+      'Pasillo 19 - Dulces': ['Chocolate', 'Caramelo', 'Gomitas', 'Golosinas'],
+      'Pasillo 20 - Infantil': ['Snacks Infantiles', 'Bebidas Infantiles']
+    }
+  };
+
   const brands = useMemo(() => {
+    if (selectedCategory && CATEGORY_AISLES[selectedCategory]) {
+      return Object.keys(CATEGORY_AISLES[selectedCategory]);
+    }
     const list = activeParts.filter(p => p.seccion).map(p => p.seccion);
     return Array.from(new Set(list));
-  }, [activeParts]);
+  }, [activeParts, selectedCategory]);
 
   const models = useMemo(() => {
+    if (selectedCategory && selectedBrand && CATEGORY_AISLES[selectedCategory]?.[selectedBrand]) {
+      return CATEGORY_AISLES[selectedCategory][selectedBrand];
+    }
     const list = activeParts
       .filter(p => (!selectedBrand || p.seccion === selectedBrand) && p.subseccion)
       .map(p => p.subseccion);
     return Array.from(new Set(list));
-  }, [activeParts, selectedBrand]);
+  }, [activeParts, selectedBrand, selectedCategory]);
 
   const yearsRange = useMemo(() => {
     const years: number[] = [];
@@ -134,29 +180,13 @@ export const Catalog: React.FC<CatalogProps> = ({
   }, []);
 
   const engineVersions = useMemo(() => {
-    if (!selectedBrand || !selectedModel) return [];
     const list = activeParts
-      .filter(p => p.seccion === selectedBrand && p.subseccion === selectedModel)
-      .flatMap(p => {
-        const matches: string[] = [];
-        const combined = `${p.nombre} ${p.detalle_adicional || ''} ${p.descripcion || ''}`.toLowerCase();
-        
-        // Extended keywords for Chevrolet models and specific versions requested
-        const keywords = [
-          '1.6', '1.8', '2.0', '1.4', '1.2', '2.4', '3.6', '4.3', '5.3', '6.0',
-          'design', 'limited', 'avance', 'advance', '2pt', '4pt', '2 puertas', '4 puertas',
-          'ls', 'lt', 'ltz', 'ss', 'z71', 'kavak', 'fortuner', '4x4', '4x2'
-        ];
-        keywords.forEach(kw => {
-          if (combined.includes(kw)) {
-             let display = kw.toUpperCase();
-             if (kw === '2pt' || kw === '2 puertas') display = '2 PUERTAS';
-             if (kw === '4pt' || kw === '4 puertas') display = '4 PUERTAS';
-             matches.push(display);
-          }
-        });
-        return matches;
-      });
+      .filter(p => {
+        if (selectedBrand && p.seccion !== selectedBrand) return false;
+        if (selectedModel && p.subseccion !== selectedModel) return false;
+        return p.marca;
+      })
+      .map(p => p.marca);
     return Array.from(new Set(list)).sort();
   }, [activeParts, selectedBrand, selectedModel]);
 
@@ -176,17 +206,11 @@ export const Catalog: React.FC<CatalogProps> = ({
     if (selectedModel) {
       list = list.filter(p => p.subseccion.toLowerCase() === selectedModel.toLowerCase());
     }
-    if (selectedYear) {
-      const numericYear = parseInt(selectedYear);
-      if (!isNaN(numericYear)) {
-        list = list.filter(p => p.anio_inicio <= numericYear && p.anio_fin >= numericYear);
-      }
-    }
     if (selectedEngine) {
-      list = list.filter(p => {
-        const searchText = `${p.nombre} ${p.detalle_adicional || ''} ${p.descripcion || ''}`.toLowerCase();
-        return searchText.includes(selectedEngine.toLowerCase());
-      });
+      list = list.filter(p => p.marca?.toLowerCase() === selectedEngine.toLowerCase());
+    }
+    if (selectedYear) {
+      list = list.filter(p => p.condicion === selectedYear);
     }
 
     return list;
@@ -276,7 +300,21 @@ export const Catalog: React.FC<CatalogProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 text-xs">
           <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-tight">1. Pasillo</span>
+            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-tight">1. Departamento</span>
+            <select
+              value={selectedCategory}
+              onChange={(e) => { setSelectedCategory(e.target.value); setSelectedBrand(''); setSelectedModel(''); setSelectedEngine(''); }}
+              className="bg-white text-zinc-900 border border-zinc-200 rounded-lg px-2.5 py-1.5 font-sans outline-none focus:border-violet-500 transition-all text-xs font-bold"
+            >
+              <option value="">Todos los Departamentos</option>
+              {(config.categories || []).map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-tight">2. Pasillo</span>
             <select
               value={selectedBrand}
               onChange={(e) => { setSelectedBrand(e.target.value); setSelectedModel(''); setSelectedEngine(''); }}
@@ -290,7 +328,7 @@ export const Catalog: React.FC<CatalogProps> = ({
           </div>
 
           <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-tight">2. Estante</span>
+            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-tight">3. Estante</span>
             <select
               value={selectedModel}
               onChange={(e) => { setSelectedModel(e.target.value); setSelectedEngine(''); }}
@@ -305,14 +343,13 @@ export const Catalog: React.FC<CatalogProps> = ({
           </div>
 
           <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-tight">3. Preferencia / Dieta</span>
+            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-tight">4. Marca</span>
             <select
               value={selectedEngine}
               onChange={(e) => setSelectedEngine(e.target.value)}
               className="bg-white text-zinc-900 border border-zinc-200 rounded-lg px-2.5 py-1.5 font-sans outline-none focus:border-violet-500 transition-all disabled:opacity-50 text-xs font-bold"
-              disabled={!selectedModel || engineVersions.length === 0}
             >
-              <option value="">Cualquier Preferencia</option>
+              <option value="">Cualquier Marca</option>
               {engineVersions.map(ver => (
                 <option key={ver} value={ver}>{ver}</option>
               ))}
@@ -320,30 +357,15 @@ export const Catalog: React.FC<CatalogProps> = ({
           </div>
 
           <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-tight">4. Vida Util</span>
+            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-tight">5. Origen</span>
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
               className="bg-white text-zinc-900 border border-zinc-200 rounded-lg px-2.5 py-1.5 font-sans outline-none focus:border-violet-500 transition-all text-xs font-bold"
             >
-              <option value="">Cualquier Duracion</option>
-              {yearsRange.map(yr => (
-                <option key={yr} value={yr}>{yr}</option>
-               ))}
-            </select>
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-tight">5. Departamento</span>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="bg-white text-zinc-900 border border-zinc-200 rounded-lg px-2.5 py-1.5 font-sans outline-none focus:border-violet-500 transition-all text-xs font-bold"
-            >
-              <option value="">Todos los Departamentos</option>
-              {(config.categories || []).map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
+              <option value="">Cualquier Origen</option>
+              <option value="Nacional">Nacional</option>
+              <option value="Importado">Importado</option>
             </select>
           </div>
         </div>

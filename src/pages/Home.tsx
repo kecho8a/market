@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../store/AppContext';
 import { Producto } from '../types/store';
-import { Carrot, Salad, Milk, Beef, Coffee, Apple, ShieldCheck, Zap, Filter, ArrowRight, Eye, ShoppingCart, Landmark, Check, Bell, Sparkles, Flame, MessageSquare, Search, RefreshCcw, Smartphone, AlertTriangle } from 'lucide-react';
+import { Carrot, Salad, Milk, Beef, Coffee, Apple, ShieldCheck, Zap, Filter, ArrowRight, Eye, ShoppingCart, Landmark, Check, Bell, Sparkles, Flame, MessageSquare, Search, RefreshCcw, Smartphone, AlertTriangle, Store } from 'lucide-react';
 import { motion } from 'motion/react';
 import { SEOHead } from '../components/SEOHead';
 import { BentoGrid } from '../components/BentoGrid';
@@ -42,6 +42,8 @@ export const Home: React.FC<HomeProps> = ({
   const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
   const [suggestions, setSuggestions] = useState<Producto[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedPasillosCategory, setSelectedPasillosCategory] = useState('');
+  const [selectedPasillo, setSelectedPasillo] = useState('');
 
   // Countdown Timer para la "Oferta del Día"
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
@@ -177,6 +179,58 @@ export const Home: React.FC<HomeProps> = ({
   const bestsellerParts = parts.filter(p => p.es_mas_vendido && p.stock > 0 && p.activo !== false);
 
   const dailyDeal = useMemo(() => promoParts[0], [promoParts]);
+
+  // Mapeo predefinido de categorías → pasillos → estantes
+  const CATEGORY_AISLES: Record<string, Record<string, string[]>> = {
+    'Lácteos y Quesos': {
+      'Pasillo 1 - Lácteos': ['Leches', 'Cremas', 'Mantequillas', 'Yogures', 'Quesos Frescos', 'Quesos Madurados', 'Huevos'],
+      'Pasillo 2 - Derivados': ['Helados', 'Postres Lácteos', 'Bebidas Lácteas']
+    },
+    'Carnes y Aves': {
+      'Pasillo 3 - Carnes': ['Cortes Vacunos', 'Cortes Porcinos', 'Cordero', 'Embutidos Frescos'],
+      'Pasillo 4 - Aves': ['Pollo Entero', 'Pollo por Partes', 'Pavo', 'Huevos de Codorniz']
+    },
+    'Charcutería': {
+      'Pasillo 5 - Charcutería': ['Jamones', 'Salchichas', 'Mortadelas', 'Mojos', 'Salsas']
+    },
+    'Frutas y Verduras': {
+      'Pasillo 6 - Frutas': ['Frutas Frescas', 'Frutas Tropicales', 'Frutas Congeladas'],
+      'Pasillo 7 - Verduras': ['Verduras Frescas', 'Verduras Congeladas', 'Hierbas y Especias', 'Ensaladas']
+    },
+    'Víveres y Despensa': {
+      'Pasillo 8 - Granos': ['Arroz', 'Legumbres', 'Pastas', 'Harinas'],
+      'Pasillo 9 - Aceites': ['Aceites', 'Vinegas', 'Salsas', 'Condimentos'],
+      'Pasillo 10 - Enlatados': ['Enlatados', 'Conservas', 'Sopas Instantáneas'],
+      'Pasillo 11 - Café': ['Café', 'Té', 'Cereales', 'Azúcar', 'Sal']
+    },
+    'Panadería y Pastelería': {
+      'Pasillo 12 - Panadería': ['Pan Blanco', 'Pan Integral', 'Arepa', 'Cachapas'],
+      'Pasillo 13 - Pastelería': ['Tortas', 'Galletas', 'Bollería', 'Repostería']
+    },
+    'Bebidas y Jugos': {
+      'Pasillo 14 - Aguas': ['Aguas', 'Agua Mineral', 'Agua Saborizada'],
+      'Pasillo 15 - Jugos': ['Jugos Naturales', 'Jugos Envasados', 'Néctares'],
+      'Pasillo 16 - Gaseosas': ['Gaseosas', 'Refrescos', 'Energizantes'],
+      'Pasillo 17 - Cervezas': ['Cervezas', 'Vinos', 'Licores', 'Maltas']
+    },
+    'Snacks y Dulces': {
+      'Pasillo 18 - Snacks': ['Papitas', 'Snacks Salados', 'Frutos Secos', 'Popotes'],
+      'Pasillo 19 - Dulces': ['Chocolate', 'Caramelo', 'Gomitas', 'Golosinas'],
+      'Pasillo 20 - Infantil': ['Snacks Infantiles', 'Bebidas Infantiles']
+    }
+  };
+
+  const pasillosCategories = useMemo(() => Object.keys(CATEGORY_AISLES), []);
+
+  const availablePasillos = useMemo(() => {
+    if (!selectedPasillosCategory) return [];
+    return Object.keys(CATEGORY_AISLES[selectedPasillosCategory] || {});
+  }, [selectedPasillosCategory]);
+
+  const pasilloProducts = useMemo(() => {
+    if (!selectedPasillo) return [];
+    return activeParts.filter(p => p.seccion === selectedPasillo).slice(0, 12);
+  }, [activeParts, selectedPasillo]);
 
   useEffect(() => {
     if (globalSearch.trim().length > 1) {
@@ -413,6 +467,163 @@ export const Home: React.FC<HomeProps> = ({
           </div>
         </div>
       )}
+
+      {/* EXPLORA POR PASILLOS */}
+      <div className="flex flex-col gap-4">
+        <div className="flex justify-between items-center">
+          <h3 className="text-[19px] font-bold text-slate-900 flex items-center gap-2">
+            <Store size={20} style={{ color: config.theme_color || '#0f5d34' }} /> Explora por Pasillos
+          </h3>
+        </div>
+
+        {/* Selector de Departamento */}
+        <div className="flex gap-2 overflow-x-auto pb-2 snap-x snap-mandatory scroll-smooth no-scrollbar">
+          {pasillosCategories.map(cat => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => { setSelectedPasillosCategory(cat); setSelectedPasillo(''); }}
+              className={`shrink-0 snap-start px-4 py-2 rounded-full text-xs font-bold transition-all cursor-pointer border ${
+                selectedPasillosCategory === cat
+                  ? 'text-white shadow-md'
+                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+              }`}
+              style={selectedPasillosCategory === cat ? { backgroundColor: config.theme_color || '#0f5d34', borderColor: config.theme_color || '#0f5d34' } : undefined}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {/* Selector de Pasillo */}
+        {selectedPasillosCategory && (
+          <div className="flex gap-2 overflow-x-auto pb-2 snap-x snap-mandatory scroll-smooth no-scrollbar">
+            {availablePasillos.map(pasillo => (
+              <button
+                key={pasillo}
+                type="button"
+                onClick={() => setSelectedPasillo(pasillo === selectedPasillo ? '' : pasillo)}
+                className={`shrink-0 snap-start px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer border ${
+                  selectedPasillo === pasillo
+                    ? 'bg-slate-900 text-white border-slate-900'
+                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                {pasillo}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Lista de Productos del Pasillo */}
+        {selectedPasillo && pasilloProducts.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {/* MÓVIL: Lista con imagen + texto */}
+            <div className="flex flex-col gap-2 md:hidden">
+              {pasilloProducts.map(part => (
+                <div
+                  key={part.id}
+                  onClick={() => onViewProductDetails(part)}
+                  className="flex items-center gap-3 p-2 bg-white border border-slate-200 rounded-xl hover:border-slate-300 transition-all cursor-pointer shadow-sm"
+                >
+                  <div className="w-16 h-16 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shrink-0">
+                    <img
+                      src={part.imagen_urls[0]}
+                      alt={part.nombre}
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-xs font-bold text-slate-900 truncate">{part.nombre}</h4>
+                    <p className="text-[10px] text-slate-500 truncate mt-0.5">{part.descripcion}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs font-black text-slate-900">${part.precio_usd.toFixed(2)}</span>
+                      {config.tasa_cambio > 0 && (
+                        <span className="text-[10px] text-slate-400 font-mono">{(part.precio_usd * config.tasa_cambio).toFixed(2)} Bs</span>
+                      )}
+                      {part.stock <= 3 && part.stock > 0 && (
+                        <span className="text-[9px] text-amber-600 font-bold">¡Últimas!</span>
+                      )}
+                      {part.stock === 0 && (
+                        <span className="text-[9px] text-red-500 font-bold">Agotado</span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); if (part.stock > 0) addToCart(part); }}
+                    disabled={part.stock === 0}
+                    className="p-2 rounded-lg shrink-0 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: part.stock > 0 ? `${config.theme_color || '#0f5d34'}15` : undefined, color: part.stock > 0 ? config.theme_color || '#0f5d34' : undefined }}
+                  >
+                    <ShoppingCart size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* PC: Grid de tarjetas */}
+            <div className="hidden md:grid md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {pasilloProducts.map(part => (
+                <div
+                  key={part.id}
+                  onClick={() => onViewProductDetails(part)}
+                  className="flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-md transition-all cursor-pointer group"
+                >
+                  <div className="relative aspect-square overflow-hidden bg-slate-50">
+                    <img
+                      src={part.imagen_urls[0]}
+                      alt={part.nombre}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      referrerPolicy="no-referrer"
+                    />
+                    {part.stock <= 3 && part.stock > 0 && (
+                      <span className="absolute top-2 right-2 bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">¡Últimas!</span>
+                    )}
+                    {part.stock === 0 && (
+                      <span className="absolute top-2 right-2 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">Agotado</span>
+                    )}
+                  </div>
+                  <div className="p-3 flex flex-col gap-1">
+                    <h4 className="text-xs font-bold text-slate-900 line-clamp-1">{part.nombre}</h4>
+                    <p className="text-[10px] text-slate-500 line-clamp-1">{part.subseccion || part.categoria}</p>
+                    <div className="flex items-center justify-between mt-1">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-black text-slate-900">${part.precio_usd.toFixed(2)}</span>
+                        {config.tasa_cambio > 0 && (
+                          <span className="text-[10px] text-slate-400 font-mono">{(part.precio_usd * config.tasa_cambio).toFixed(2)} Bs</span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); if (part.stock > 0) addToCart(part); }}
+                        disabled={part.stock === 0}
+                        className="p-2 rounded-lg transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                        style={{ backgroundColor: part.stock > 0 ? `${config.theme_color || '#0f5d34'}15` : undefined, color: part.stock > 0 ? config.theme_color || '#0f5d34' : undefined }}
+                      >
+                        <ShoppingCart size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {selectedPasillo && pasilloProducts.length === 0 && (
+          <div className="text-center py-8 text-slate-400 text-xs">
+            No hay productos disponibles en este pasillo aún.
+          </div>
+        )}
+
+        {!selectedPasillo && selectedPasillosCategory && (
+          <div className="text-center py-6 text-slate-400 text-xs">
+            Selecciona un pasillo para ver sus productos
+          </div>
+        )}
+      </div>
 
       <div className="flex flex-col gap-4 p-5 border border-violet-100 rounded-2xl bg-violet-50/30 shadow-sm relative overflow-hidden">
         <div className="absolute -top-10 -right-10 w-32 h-32 bg-violet-100 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
