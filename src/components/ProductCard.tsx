@@ -1,6 +1,7 @@
 import React from 'react';
 import { Producto, StoreConfig } from '../types/store';
-import { ShoppingCart, Eye } from 'lucide-react';
+import { ShoppingCart, Eye, Heart } from 'lucide-react';
+import { useApp } from '../store/AppContext';
 
 interface ProductCardProps {
   part: Producto;
@@ -17,6 +18,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   addToCart,
   isOffer 
 }) => {
+  const { toggleLike, currentUser } = useApp();
+  const likes = (part as any).likes || 0;
+
   // Extraemos la disponibilidad (con fallback a Disponible)
   const disponibilidad = (part as any).disponibilidad || 'Disponible';
   const isAgotado = disponibilidad === 'Agotado';
@@ -42,6 +46,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${isAgotado ? 'grayscale opacity-60' : ''}`}
           referrerPolicy="no-referrer"
         />
+        {/* Botón de Me Gusta */}
+        <button
+          onClick={(e) => { e.stopPropagation(); if (currentUser) toggleLike(part.id); }}
+          className="absolute top-2 right-2 z-10 p-1.5 bg-white/90 backdrop-blur-sm rounded-full shadow-md hover:scale-110 transition-transform cursor-pointer"
+          title={currentUser ? 'Me gusta' : 'Inicia sesión para dar like'}
+        >
+          <Heart size={13} className={`transition-colors ${likes > 0 ? 'fill-rose-500 text-rose-500' : 'text-slate-400'}`} />
+        </button>
+        {/* Contador de Likes */}
+        {likes > 0 && (
+          <span className="absolute top-2 left-2 z-10 bg-white/90 backdrop-blur-sm text-rose-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-md flex items-center gap-0.5">
+            <Heart size={8} className="fill-rose-500" /> {likes}
+          </span>
+        )}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
           <button 
             onClick={() => onViewProductDetails(part)}

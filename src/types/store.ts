@@ -28,6 +28,7 @@ export interface Producto {
   delivery_gratis?: boolean;
   detalle_adicional?: string;    // Info extra del producto (origen, peso, etc.)
   activo?: boolean;              // Si está visible/vendible en el catálogo
+  likes?: number;                // Contador de "me gusta" de los clientes
 }
 
 export interface OrderItem {

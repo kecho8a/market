@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS products (
     detalle_adicional TEXT DEFAULT '',
     activo BOOLEAN NOT NULL DEFAULT TRUE,
     disponibilidad TEXT DEFAULT 'Disponible',
+    likes INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

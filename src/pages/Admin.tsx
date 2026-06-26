@@ -11,6 +11,18 @@ import {
 import { SEOHead } from '../components/SEOHead';
 import { EditProductForm } from '../components/EditProductForm';
 
+// Mapeo de categorías a pasillos predefinidos
+const CATEGORY_TO_AISLE: Record<string, string> = {
+  'Lácteos y Quesos': 'Pasillo 1 - Lacteos',
+  'Carnes y Aves': 'Pasillo 2 - Carnes',
+  'Charcutería': 'Pasillo 3 - Charcuteria',
+  'Frutas y Verduras': 'Pasillo 4 - Frutas',
+  'Víveres y Despensa': 'Pasillo 5 - Despensa',
+  'Panadería y Pastelería': 'Pasillo 6 - Panaderia',
+  'Bebidas y Jugos': 'Pasillo 7 - Bebidas',
+  'Snacks y Dulces': 'Pasillo 8 - Snacks',
+};
+
 interface AdminProps {
   setTab: (tab: 'home' | 'catalog' | 'cart' | 'admin') => void;
 }
@@ -222,8 +234,9 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
       setFormCodigo('');
       setFormNombre('');
       setFormDescripcion('');
-      setFormCategoria(config.categories?.[0] || 'Lácteos y Quesos');
-      setFormMarca('Pasillo 1 - Lacteos');
+      const defaultCategoria = config.categories?.[0] || 'Lácteos y Quesos';
+      setFormCategoria(defaultCategoria);
+      setFormMarca(CATEGORY_TO_AISLE[defaultCategoria] || 'Pasillo 1 - Lacteos');
       setFormModelo('');
       setFormAnioInicio(15);
       setFormAnioFin(4);
@@ -2914,7 +2927,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               condicion: 'Nacional',
               descripcion: '',
               categoria: config.categories?.[0] || 'Lácteos y Quesos',
-              seccion: 'Pasillo 1 - Lacteos',
+              seccion: CATEGORY_TO_AISLE[config.categories?.[0] || 'Lácteos y Quesos'] || 'Pasillo 1 - Lacteos',
               subseccion: '',
               anio_inicio: 15,
               anio_fin: 4,

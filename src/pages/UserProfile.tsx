@@ -5,7 +5,8 @@ import { supabase } from '../store/supabaseClient';
 import {
   User, Lock, Phone, UserPlus, LogIn, LogOut, Bell, Package, Mail,
   CheckCircle, Clock, Truck, MapPin, Edit2, AlertCircle, Eye, EyeOff, Tag,
-  Copy, Check, X, Smartphone, MessageSquare, Send, ExternalLink, Trash2
+  Copy, Check, X, Smartphone, MessageSquare, Send, ExternalLink, Trash2,
+  Heart, ShoppingCart, Sparkles
 } from 'lucide-react';
 import { SEOHead } from '../components/SEOHead';
 
@@ -22,6 +23,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
     orders, 
     notifications, 
     config, 
+    parts,
     registerUser, 
     loginUser, 
     logoutUser, 
@@ -35,10 +37,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
     deleteNotification,
     clearAllNotifications,
     hapticEnabled,
-    toggleHaptic
+    toggleHaptic,
+    toggleLike,
+    addToCart
   } = useApp();
 
-  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'orders' | 'notifications'>('orders');
+  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'orders' | 'notifications' | 'recomendados'>('orders');
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot'>('login');
 
   // ── Lógica de Popup Automático de Instalación (PWA) ────────────────────────
@@ -891,6 +895,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
 
               <button
                 type="button"
+                onClick={() => { setActiveSubTab('recomendados'); setShowEditFields(false); }}
+                className={`flex-1 py-1 px-1.5 rounded-lg text-xs font-bold font-display uppercase tracking-wider text-center flex items-center justify-center gap-1 ${activeSubTab === 'recomendados' ? 'bg-zinc-950 text-white' : 'text-zinc-500 hover:text-zinc-900 bg-white border border-zinc-200'}`}
+              >
+                <Sparkles size={13} /> Top
+              </button>
+
+              <button
+                type="button"
                 onClick={() => { setActiveSubTab('profile'); setShowEditFields(true); }}
                 className={`flex-1 py-1 px-1.5 rounded-lg text-xs font-bold font-display uppercase tracking-wider text-center flex items-center justify-center gap-1 ${activeSubTab === 'profile' ? 'bg-zinc-950 text-white' : 'text-zinc-500 hover:text-zinc-900 bg-white border border-zinc-200'}`}
               >
@@ -1380,6 +1392,91 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* RECOMMENDED PRODUCTS SECTION */}
+      {activeSubTab === 'recomendados' && (
+        <div className="flex flex-col gap-4 text-xs">
+          <div className="flex justify-between items-center">
+            <h3 className="text-sm font-bold font-display text-zinc-900 flex items-center gap-2">
+              <Sparkles size={16} className="text-amber-500" /> Productos Más Gustados
+            </h3>
+            <span className="text-[10px] text-zinc-400 font-mono">Por la comunidad</span>
+          </div>
+
+          {(() => {
+            const recommended = [...(parts || [])]
+              .filter(p => p.activo !== false && p.stock > 0)
+              .sort((a, b) => ((b as any).likes || 0) - ((a as any).likes || 0))
+              .slice(0, 10);
+
+            if (recommended.length === 0 || recommended.every(p => !((p as any).likes > 0))) {
+              return (
+                <div className="text-center py-10 bg-zinc-50 border border-zinc-200 rounded-xl">
+                  <Heart size={28} className="mx-auto text-zinc-300 mb-2" />
+                  <h4 className="font-semibold text-zinc-600">Aún no hay likes</h4>
+                  <p className="text-[11px] text-zinc-400 max-w-xs mx-auto mt-1">
+                    Cuando los productos tengan "me gusta", aparecerán aquí como recomendados.
+                  </p>
+                  <button
+                    onClick={() => setTab('catalog')}
+                    className="mt-3 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg font-bold text-[11px] cursor-pointer"
+                  >
+                    Explorar Catálogo
+                  </button>
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
+                {recommended.map((part, idx) => (
+                  <div
+                    key={part.id}
+                    onClick={() => {
+                      const { onViewProductDetails } = {} as any;
+                    }}
+                    className="flex items-center gap-2.5 p-2.5 bg-white border border-zinc-200 rounded-xl hover:border-amber-300 hover:shadow-md transition-all cursor-pointer group"
+                  >
+                    {idx < 3 && (
+                      <span className="text-[10px] font-black bg-amber-400 text-white w-5 h-5 rounded-full flex items-center justify-center shrink-0 shadow-sm">
+                        {idx + 1}
+                      </span>
+                    )}
+                    <div className="w-12 h-12 rounded-lg overflow-hidden border border-zinc-200 bg-zinc-100 shrink-0">
+                      <img
+                        src={part.imagen_urls?.[0]}
+                        alt={part.nombre}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-[11px] font-bold text-zinc-900 truncate">{part.nombre}</h4>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[11px] font-black text-zinc-900">${part.precio_usd.toFixed(2)}</span>
+                        <span className="flex items-center gap-0.5 text-[9px] text-rose-500 font-bold">
+                          <Heart size={8} className="fill-rose-500" /> {(part as any).likes || 0}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (part.stock > 0) addToCart(part);
+                      }}
+                      disabled={part.stock === 0}
+                      className="p-1.5 rounded-lg shrink-0 bg-violet-50 text-violet-600 hover:bg-violet-100 transition-colors cursor-pointer disabled:opacity-30"
+                    >
+                      <ShoppingCart size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       )}
 

@@ -12,6 +12,7 @@ interface AppContextProps {
   isAdminAuthenticated: boolean;
   favorites: string[];
   toggleFavorite: (partId: string) => void;
+  toggleLike: (partId: string) => void;
   isFavorite: (partId: string) => boolean;
   
   // Haptic Feedback
@@ -1115,6 +1116,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return favorites.includes(partId);
   };
 
+  const toggleLike = async (partId: string) => {
+    const part = products.find(p => p.id === partId);
+    if (!part) return;
+    const currentLikes = (part as any).likes || 0;
+    const newLikes = currentLikes + 1;
+    
+    // Update local state immediately
+    setProducts(prev => prev.map(p => p.id === partId ? { ...p, likes: newLikes } as any : p));
+    
+    // Persist to Supabase
+    const { error } = await supabase.from('products').update({ likes: newLikes }).eq('id', partId);
+    if (error) {
+      console.error('Error updating likes:', error);
+      // Revert local state on error
+      setProducts(prev => prev.map(p => p.id === partId ? { ...p, likes: currentLikes } as any : p));
+    }
+  };
+
   const requestPart = async (nombre: string, telefono: string, descripcion: string, imagenUrl?: string): Promise<boolean> => {
     console.log('🛠️ AppContext: Procesando solicitud de producto:', descripcion);
     const adminRes = await addNotification(
@@ -2043,6 +2062,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isGlobalLoading,
       favorites,
       toggleFavorite,
+      toggleLike,
       isFavorite,
       users,
       currentUser,

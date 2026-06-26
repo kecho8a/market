@@ -1,8 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Producto } from '../types/store';
 import { X, Upload, Camera, Plus, Trash2 } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { uploadFileToStorage, compressImage } from '../store/supabaseClient';
+
+// Mapeo de categorías a pasillos predefinidos
+const CATEGORY_TO_AISLE: Record<string, string> = {
+  'Lácteos y Quesos': 'Pasillo 1 - Lacteos',
+  'Carnes y Aves': 'Pasillo 2 - Carnes',
+  'Charcutería': 'Pasillo 3 - Charcuteria',
+  'Frutas y Verduras': 'Pasillo 4 - Frutas',
+  'Víveres y Despensa': 'Pasillo 5 - Despensa',
+  'Panadería y Pastelería': 'Pasillo 6 - Panaderia',
+  'Bebidas y Jugos': 'Pasillo 7 - Bebidas',
+  'Snacks y Dulces': 'Pasillo 8 - Snacks',
+};
 
 interface EditProductFormProps {
   part: Producto;
@@ -35,6 +47,49 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({ part, onSubmit
 
   // Local validation error state
   const [validationErrors, setValidationErrors] = useState<{ [key: string]: string }>({});
+
+  // Derivar pasillos y estantes disponibles de los productos existentes
+  const availablePasillos = useMemo(() => {
+    const map: Record<string, Set<string>> = {};
+    parts.forEach(p => {
+      if (!p.categoria || !p.seccion) return;
+      if (!map[p.categoria]) map[p.categoria] = new Set();
+      map[p.categoria].add(p.seccion);
+    });
+    return map;
+  }, [parts]);
+
+  const availableEstantes = useMemo(() => {
+    const map: Record<string, Set<string>> = {};
+    parts.forEach(p => {
+      if (!p.seccion || !p.subseccion) return;
+      if (!map[p.seccion]) map[p.seccion] = new Set();
+      map[p.seccion].add(p.subseccion);
+    });
+    return map;
+  }, [parts]);
+
+  // Obtener pasillos para la categoría actual (predefinidos + existentes en BD)
+  const pasillosForCategoria = useMemo(() => {
+    const predefined = CATEGORY_TO_AISLE[formCategoria];
+    const existing = availablePasillos[formCategoria] ? Array.from(availablePasillos[formCategoria]) : [];
+    const all = new Set<string>([predefined, ...existing].filter((v): v is string => Boolean(v)));
+    return Array.from(all).sort();
+  }, [formCategoria, availablePasillos]);
+
+  // Obtener estantes para el pasillo actual
+  const estantesForPasillo = useMemo(() => {
+    return availableEstantes[formSeccion] ? Array.from(availableEstantes[formSeccion]).sort() : [];
+  }, [formSeccion, availableEstantes]);
+
+  // Auto-asignar pasillo cuando cambia la categoría
+  const handleCategoriaChange = (newCategoria: string) => {
+    setFormCategoria(newCategoria);
+    const autoAisle = CATEGORY_TO_AISLE[newCategoria];
+    if (autoAisle) {
+      setFormSeccion(autoAisle);
+    }
+  };
 
   useEffect(() => {
     if (part) {
@@ -177,7 +232,7 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({ part, onSubmit
             <span className="font-semibold text-zinc-355">Categoría / Departamento *</span>
             <select
               value={formCategoria}
-              onChange={(e) => setFormCategoria(e.target.value)}
+              onChange={(e) => handleCategoriaChange(e.target.value)}
               className={`bg-[#09090b] border ${validationErrors.categoria ? 'border-red-500/60 focus:border-red-500' : 'border-[#27272a] focus:border-emerald-500'} text-white rounded-lg px-2.5 py-1.5 outline-none transition-colors h-[34px]`}
             >
               {(config.categories || []).map((cat) => (
@@ -247,28 +302,49 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({ part, onSubmit
             </div>
           </div>
 
-          {/* Supermarket Section */}
+          {/* Supermarket Section - Pasillo */}
           <div className="flex flex-col gap-1">
-            <span className="font-semibold text-zinc-350">Pasillo de Ubicación (Opcional)</span>
-            <input
-              type="text"
+            <span className="font-semibold text-zinc-350">Pasillo de Ubicación *</span>
+            <select
               value={formSeccion}
               onChange={(e) => setFormSeccion(e.target.value)}
-              placeholder="Ej. Lácteos, Carnes, Bebidas..."
               className="bg-[#09090b] border border-[#27272a] text-white rounded-lg px-2.5 py-2 focus:border-emerald-500 outline-none transition-colors h-[34px]"
-            />
+            >
+              {pasillosForCategoria.map(p => (
+                <option key={p} value={p} className="bg-[#09090b] text-white">{p}</option>
+              ))}
+              {formSeccion && !pasillosForCategoria.includes(formSeccion) && (
+                <option value={formSeccion} className="bg-[#09090b] text-white">{formSeccion}</option>
+              )}
+            </select>
           </div>
 
-          {/* Supermarket Subsection */}
+          {/* Supermarket Subsection - Estante */}
           <div className="flex flex-col gap-1">
             <span className="font-semibold text-zinc-350">Estante / Ubicación (Opcional)</span>
-            <input
-              type="text"
-              value={formSubseccion}
-              onChange={(e) => setFormSubseccion(e.target.value)}
-              placeholder="Ej. Refrigerador 3, Estante B2..."
-              className="bg-[#09090b] border border-[#27272a] focus:border-emerald-500 rounded-lg px-2.5 py-2 outline-none transition-colors h-[34px]"
-            />
+            {estantesForPasillo.length > 0 ? (
+              <select
+                value={formSubseccion}
+                onChange={(e) => setFormSubseccion(e.target.value)}
+                className="bg-[#09090b] border border-[#27272a] focus:border-emerald-500 text-white rounded-lg px-2.5 py-2 outline-none transition-colors h-[34px]"
+              >
+                <option value="" className="bg-[#09090b] text-white">Seleccionar estante...</option>
+                {estantesForPasillo.map(e => (
+                  <option key={e} value={e} className="bg-[#09090b] text-white">{e}</option>
+                ))}
+                {formSubseccion && !estantesForPasillo.includes(formSubseccion) && (
+                  <option value={formSubseccion} className="bg-[#09090b] text-white">{formSubseccion}</option>
+                )}
+              </select>
+            ) : (
+              <input
+                type="text"
+                value={formSubseccion}
+                onChange={(e) => setFormSubseccion(e.target.value)}
+                placeholder="Ej. Leches, Quesos, Yogurt..."
+                className="bg-[#09090b] border border-[#27272a] focus:border-emerald-500 rounded-lg px-2.5 py-2 outline-none transition-colors h-[34px]"
+              />
+            )}
           </div>
 
           {/* Start and End Years compatibilities interval fields */}

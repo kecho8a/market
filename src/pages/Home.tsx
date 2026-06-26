@@ -180,57 +180,29 @@ export const Home: React.FC<HomeProps> = ({
 
   const dailyDeal = useMemo(() => promoParts[0], [promoParts]);
 
-  // Mapeo predefinido de categorías → pasillos → estantes
-  const CATEGORY_AISLES: Record<string, Record<string, string[]>> = {
-    'Lácteos y Quesos': {
-      'Pasillo 1 - Lácteos': ['Leches', 'Cremas', 'Mantequillas', 'Yogures', 'Quesos Frescos', 'Quesos Madurados', 'Huevos'],
-      'Pasillo 2 - Derivados': ['Helados', 'Postres Lácteos', 'Bebidas Lácteas']
-    },
-    'Carnes y Aves': {
-      'Pasillo 3 - Carnes': ['Cortes Vacunos', 'Cortes Porcinos', 'Cordero', 'Embutidos Frescos'],
-      'Pasillo 4 - Aves': ['Pollo Entero', 'Pollo por Partes', 'Pavo', 'Huevos de Codorniz']
-    },
-    'Charcutería': {
-      'Pasillo 5 - Charcutería': ['Jamones', 'Salchichas', 'Mortadelas', 'Mojos', 'Salsas']
-    },
-    'Frutas y Verduras': {
-      'Pasillo 6 - Frutas': ['Frutas Frescas', 'Frutas Tropicales', 'Frutas Congeladas'],
-      'Pasillo 7 - Verduras': ['Verduras Frescas', 'Verduras Congeladas', 'Hierbas y Especias', 'Ensaladas']
-    },
-    'Víveres y Despensa': {
-      'Pasillo 8 - Granos': ['Arroz', 'Legumbres', 'Pastas', 'Harinas'],
-      'Pasillo 9 - Aceites': ['Aceites', 'Vinegas', 'Salsas', 'Condimentos'],
-      'Pasillo 10 - Enlatados': ['Enlatados', 'Conservas', 'Sopas Instantáneas'],
-      'Pasillo 11 - Café': ['Café', 'Té', 'Cereales', 'Azúcar', 'Sal']
-    },
-    'Panadería y Pastelería': {
-      'Pasillo 12 - Panadería': ['Pan Blanco', 'Pan Integral', 'Arepa', 'Cachapas'],
-      'Pasillo 13 - Pastelería': ['Tortas', 'Galletas', 'Bollería', 'Repostería']
-    },
-    'Bebidas y Jugos': {
-      'Pasillo 14 - Aguas': ['Aguas', 'Agua Mineral', 'Agua Saborizada'],
-      'Pasillo 15 - Jugos': ['Jugos Naturales', 'Jugos Envasados', 'Néctares'],
-      'Pasillo 16 - Gaseosas': ['Gaseosas', 'Refrescos', 'Energizantes'],
-      'Pasillo 17 - Cervezas': ['Cervezas', 'Vinos', 'Licores', 'Maltas']
-    },
-    'Snacks y Dulces': {
-      'Pasillo 18 - Snacks': ['Papitas', 'Snacks Salados', 'Frutos Secos', 'Popotes'],
-      'Pasillo 19 - Dulces': ['Chocolate', 'Caramelo', 'Gomitas', 'Golosinas'],
-      'Pasillo 20 - Infantil': ['Snacks Infantiles', 'Bebidas Infantiles']
-    }
-  };
+  // Derivar pasillos dinámicamente de los productos reales, agrupados por categoría
+  const pasillosByCategory = useMemo(() => {
+    const map: Record<string, Record<string, Producto[]>> = {};
+    activeParts.forEach(p => {
+      if (!p.categoria || !p.seccion) return;
+      if (!map[p.categoria]) map[p.categoria] = {};
+      if (!map[p.categoria][p.seccion]) map[p.categoria][p.seccion] = [];
+      map[p.categoria][p.seccion].push(p);
+    });
+    return map;
+  }, [activeParts]);
 
-  const pasillosCategories = useMemo(() => Object.keys(CATEGORY_AISLES), []);
+  const pasillosCategories = useMemo(() => Object.keys(pasillosByCategory).sort(), [pasillosByCategory]);
 
   const availablePasillos = useMemo(() => {
     if (!selectedPasillosCategory) return [];
-    return Object.keys(CATEGORY_AISLES[selectedPasillosCategory] || {});
-  }, [selectedPasillosCategory]);
+    return Object.keys(pasillosByCategory[selectedPasillosCategory] || {}).sort();
+  }, [selectedPasillosCategory, pasillosByCategory]);
 
   const pasilloProducts = useMemo(() => {
-    if (!selectedPasillo) return [];
-    return activeParts.filter(p => p.seccion === selectedPasillo).slice(0, 12);
-  }, [activeParts, selectedPasillo]);
+    if (!selectedPasillosCategory || !selectedPasillo) return [];
+    return (pasillosByCategory[selectedPasillosCategory]?.[selectedPasillo] || []).slice(0, 12);
+  }, [pasillosByCategory, selectedPasillosCategory, selectedPasillo]);
 
   useEffect(() => {
     if (globalSearch.trim().length > 1) {
