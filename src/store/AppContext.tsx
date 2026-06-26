@@ -1776,19 +1776,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           const updatePayload: any = { id: 1 };
 
+          const DB_CONFIG_KEYS = [
+            'site_nombre', 'telefono_soporte', 'direccion_fisica', 'tienda_lat', 'tienda_lng',
+            'banner_url_1', 'banner_url_2', 'banner_url_3',
+            'zelle_enabled', 'zelle_data', 'zelle_discount_percent',
+            'pagomovil_enabled', 'pagomovil_data', 'pagomovil_discount_percent',
+            'efectivo_enabled', 'efectivo_data', 'efectivo_discount_percent',
+            'transferencia_enabled', 'transferencia_data', 'transferencia_discount_percent',
+            'tasa_cambio', 'logo_url', 'theme_color', 'favicon_url',
+            'categories', 'esta_abierta', 'mensaje_cierre', 'mensaje_bienvenida',
+            'push_webhook_url', 'push_webhook_secret',
+            'delivery_gratis', 'costo_delivery_km', 'envio_nacional', 'costo_envio_nacional',
+            'recogida_en_local', 'entrega_por_zonas', 'delivery_zonas', 'banner_texts'
+          ];
+
           Object.keys(newSettings).forEach(key => {
             const value = (newSettings as any)[key];
-            if (value !== undefined) {
-              if (key === 'coordenadas_tienda' && value) {
-                updatePayload.tienda_lat = value.lat;
-                updatePayload.tienda_lng = value.lng;
-              } else if (key === 'banners' && Array.isArray(value)) {
-                if (value[0] !== undefined) updatePayload.banner_url_1 = value[0];
-                if (value[1] !== undefined) updatePayload.banner_url_2 = value[1];
-                if (value[2] !== undefined) updatePayload.banner_url_3 = value[2];
-              } else {
-                updatePayload[key] = value;
-              }
+            if (value === undefined) return;
+
+            if (key === 'coordenadas_tienda' && value) {
+              updatePayload.tienda_lat = value.lat;
+              updatePayload.tienda_lng = value.lng;
+            } else if (key === 'banners' && Array.isArray(value)) {
+              if (value[0] !== undefined) updatePayload.banner_url_1 = value[0];
+              if (value[1] !== undefined) updatePayload.banner_url_2 = value[1];
+              if (value[2] !== undefined) updatePayload.banner_url_3 = value[2];
+            } else if (DB_CONFIG_KEYS.includes(key)) {
+              updatePayload[key] = value;
             }
           });
           
@@ -1874,7 +1888,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (error) {
       console.error('❌ Marketo Error (SQL):', error.message, '| Hint:', error.hint);
-      addNotification('Error de notificación', 'No se pudo guardar la notificación en el servidor.');
       return false;
     }
     

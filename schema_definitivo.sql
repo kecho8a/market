@@ -43,7 +43,15 @@ CREATE TABLE IF NOT EXISTS store_config (
     mensaje_cierre TEXT DEFAULT 'Hoy no trabajamos. Volveremos pronto.',
     mensaje_bienvenida TEXT DEFAULT 'Encuentra los mejores cortes de carne, quesos madurados y viveres frescos con delivery express en Valencia.',
     push_webhook_url TEXT DEFAULT 'https://market-cbh.pages.dev/api/push-notify',
-    push_webhook_secret TEXT DEFAULT '5fca5a4d8825d4de66811590f47af870b01d45e80f391920f4ea76a59ae3c8bf'
+    push_webhook_secret TEXT DEFAULT '5fca5a4d8825d4de66811590f47af870b01d45e80f391920f4ea76a59ae3c8bf',
+    delivery_gratis BOOLEAN DEFAULT FALSE,
+    costo_delivery_km NUMERIC(10,2) DEFAULT 1.5,
+    envio_nacional BOOLEAN DEFAULT TRUE,
+    costo_envio_nacional NUMERIC(10,2) DEFAULT 5.0,
+    recogida_en_local BOOLEAN DEFAULT TRUE,
+    entrega_por_zonas BOOLEAN DEFAULT TRUE,
+    delivery_zonas JSONB DEFAULT '[{"id":"z1","name":"Cercano (Trigaleña, Guaparo, Las Chimeneas, El Viñedo)","cost":2.00,"minKm":0,"maxKm":3},{"id":"z2","name":"Medio (Prebo, Mañongo, Prebo II, San Diego)","cost":4.50,"minKm":3,"maxKm":8},{"id":"z3","name":"Lejano (Guacara, Los Guayos, Tocuyito, Flor Amarillo)","cost":7.00,"minKm":8,"maxKm":18}]'::jsonb,
+    banner_texts JSONB DEFAULT '[]'::jsonb
 );
 
 INSERT INTO store_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;

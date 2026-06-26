@@ -242,7 +242,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({ onLocationSelected, shop
         mapInstanceRef.current = null;
       }
     };
-  }, [mapLoaded, shopCoords]);
+  }, [mapLoaded, shopCoords, config]);
 
   return (
     <div className="flex flex-col gap-4 font-sans text-zinc-900">
