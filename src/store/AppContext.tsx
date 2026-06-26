@@ -457,7 +457,13 @@ const DEFAULT_CONFIG: StoreConfig = {
     'Snacks y Dulces'
   ],
   push_webhook_url: 'https://market-cbh.pages.dev/api/push-notify',
-  push_webhook_secret: import.meta.env.VITE_WEBHOOK_SECRET || ''
+  push_webhook_secret: import.meta.env.VITE_WEBHOOK_SECRET || '',
+  rec_banner_image: 'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&q=80&w=800',
+  rec_banner_tag: 'Solo por hoy',
+  rec_banner_title: '15% de Descuento en Productos Seleccionados',
+  rec_banner_subtitle: '',
+  rec_banner_description: 'Aprovecha nuestras ofertas exclusivas en los productos más gustados por nuestra comunidad. ¡No te quedes sin el tuyo!',
+  rec_banner_button_text: 'Ver Ofertas'
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -1033,7 +1039,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           costo_envio_nacional: dbConfig.costo_envio_nacional ?? prev.costo_envio_nacional,
           recogida_en_local: dbConfig.recogida_en_local ?? prev.recogida_en_local,
           entrega_por_zonas: dbConfig.entrega_por_zonas ?? prev.entrega_por_zonas,
-          delivery_zonas: dbConfig.delivery_zonas ?? prev.delivery_zonas
+          delivery_zonas: dbConfig.delivery_zonas ?? prev.delivery_zonas,
+          rec_banner_image: dbConfig.rec_banner_image || prev.rec_banner_image,
+          rec_banner_tag: dbConfig.rec_banner_tag || prev.rec_banner_tag,
+          rec_banner_title: dbConfig.rec_banner_title || prev.rec_banner_title,
+          rec_banner_subtitle: dbConfig.rec_banner_subtitle || prev.rec_banner_subtitle,
+          rec_banner_description: dbConfig.rec_banner_description || prev.rec_banner_description,
+          rec_banner_button_text: dbConfig.rec_banner_button_text || prev.rec_banner_button_text
         }));
       }
 
@@ -1806,7 +1818,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             'categories', 'esta_abierta', 'mensaje_cierre', 'mensaje_bienvenida',
             'push_webhook_url', 'push_webhook_secret',
             'delivery_gratis', 'costo_delivery_km', 'envio_nacional', 'costo_envio_nacional',
-            'recogida_en_local', 'entrega_por_zonas', 'delivery_zonas', 'banner_texts'
+            'recogida_en_local', 'entrega_por_zonas', 'delivery_zonas', 'banner_texts',
+            'rec_banner_image', 'rec_banner_tag', 'rec_banner_title', 'rec_banner_subtitle',
+            'rec_banner_description', 'rec_banner_button_text'
           ];
 
           Object.keys(newSettings).forEach(key => {

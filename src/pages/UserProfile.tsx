@@ -1398,6 +1398,41 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
       {/* RECOMMENDED PRODUCTS SECTION */}
       {activeSubTab === 'recomendados' && (
         <div className="flex flex-col gap-4 text-xs">
+          {/* BANNER PROMOCIONAL */}
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 p-[1px]">
+            <div className="flex flex-col md:flex-row items-center gap-4 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 rounded-[15px] p-4 md:p-5">
+              <div className="w-full md:w-1/2 h-32 md:h-40 rounded-xl overflow-hidden shadow-lg shrink-0">
+                <img
+                  src={config.rec_banner_image || 'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&q=80&w=800'}
+                  alt="Promoción del día"
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+              <div className="flex flex-col gap-2 text-center md:text-left">
+                {config.rec_banner_tag && (
+                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-100 border border-amber-200 px-2.5 py-0.5 rounded-full w-fit mx-auto md:mx-0">
+                    {config.rec_banner_tag}
+                  </span>
+                )}
+                <h3 className="text-xl md:text-2xl font-black text-zinc-900 leading-tight">
+                  {config.rec_banner_title || '15% de Descuento en Productos Seleccionados'}
+                </h3>
+                {config.rec_banner_description && (
+                  <p className="text-[11px] text-zinc-500 leading-relaxed max-w-sm">
+                    {config.rec_banner_description}
+                  </p>
+                )}
+                <button
+                  onClick={() => setTab('catalog')}
+                  className="mt-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-5 rounded-xl text-[11px] uppercase tracking-wider cursor-pointer transition-all shadow-md active:scale-95 w-fit mx-auto md:mx-0"
+                >
+                  {config.rec_banner_button_text || 'Ver Ofertas'}
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div className="flex justify-between items-center">
             <h3 className="text-sm font-bold font-display text-zinc-900 flex items-center gap-2">
               <Sparkles size={16} className="text-amber-500" /> Productos Más Gustados
@@ -1409,7 +1444,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
             const recommended = [...(parts || [])]
               .filter(p => p.activo !== false && p.stock > 0)
               .sort((a, b) => ((b as any).likes || 0) - ((a as any).likes || 0))
-              .slice(0, 10);
+              .slice(0, 6);
 
             if (recommended.length === 0 || recommended.every(p => !((p as any).likes > 0))) {
               return (
@@ -1430,48 +1465,47 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
             }
 
             return (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
                 {recommended.map((part, idx) => (
                   <div
                     key={part.id}
-                    onClick={() => {
-                      const { onViewProductDetails } = {} as any;
-                    }}
-                    className="flex items-center gap-2.5 p-2.5 bg-white border border-zinc-200 rounded-xl hover:border-amber-300 hover:shadow-md transition-all cursor-pointer group"
+                    className="flex flex-col bg-white border border-zinc-200 rounded-xl hover:border-amber-300 hover:shadow-md transition-all cursor-pointer group overflow-hidden"
                   >
                     {idx < 3 && (
-                      <span className="text-[10px] font-black bg-amber-400 text-white w-5 h-5 rounded-full flex items-center justify-center shrink-0 shadow-sm">
-                        {idx + 1}
-                      </span>
+                      <div className="absolute top-2 left-2 z-10">
+                        <span className="text-[9px] font-black bg-amber-400 text-white w-5 h-5 rounded-full flex items-center justify-center shadow-sm">
+                          {idx + 1}
+                        </span>
+                      </div>
                     )}
-                    <div className="w-12 h-12 rounded-lg overflow-hidden border border-zinc-200 bg-zinc-100 shrink-0">
+                    <div className="relative aspect-square overflow-hidden bg-zinc-100">
                       <img
                         src={part.imagen_urls?.[0]}
                         alt={part.nombre}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform"
                         referrerPolicy="no-referrer"
                       />
+                      <span className="absolute bottom-1 right-1 flex items-center gap-0.5 bg-white/90 backdrop-blur-sm text-rose-500 text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-sm">
+                        <Heart size={8} className="fill-rose-500" /> {(part as any).likes || 0}
+                      </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-[11px] font-bold text-zinc-900 truncate">{part.nombre}</h4>
-                      <div className="flex items-center gap-2 mt-0.5">
+                    <div className="p-2 flex flex-col gap-1">
+                      <h4 className="text-[10px] font-bold text-zinc-900 line-clamp-2 leading-tight min-h-[28px]">{part.nombre}</h4>
+                      <div className="flex items-center justify-between mt-auto">
                         <span className="text-[11px] font-black text-zinc-900">${part.precio_usd.toFixed(2)}</span>
-                        <span className="flex items-center gap-0.5 text-[9px] text-rose-500 font-bold">
-                          <Heart size={8} className="fill-rose-500" /> {(part as any).likes || 0}
-                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (part.stock > 0) addToCart(part);
+                          }}
+                          disabled={part.stock === 0}
+                          className="p-1.5 rounded-lg bg-violet-50 text-violet-600 hover:bg-violet-100 transition-colors cursor-pointer disabled:opacity-30"
+                        >
+                          <ShoppingCart size={11} />
+                        </button>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (part.stock > 0) addToCart(part);
-                      }}
-                      disabled={part.stock === 0}
-                      className="p-1.5 rounded-lg shrink-0 bg-violet-50 text-violet-600 hover:bg-violet-100 transition-colors cursor-pointer disabled:opacity-30"
-                    >
-                      <ShoppingCart size={12} />
-                    </button>
                   </div>
                 ))}
               </div>

@@ -100,6 +100,13 @@ export interface StoreConfig {
   mensaje_bienvenida?: string;
   push_webhook_url?: string;
   push_webhook_secret?: string;
+  // Banner de Recomendados (panel cliente)
+  rec_banner_image?: string;
+  rec_banner_tag?: string;
+  rec_banner_title?: string;
+  rec_banner_subtitle?: string;
+  rec_banner_description?: string;
+  rec_banner_button_text?: string;
 }
 
 export interface DeliveryZone {

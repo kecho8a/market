@@ -2566,6 +2566,82 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                ))}
              </div>
 
+            {/* BANNER DE RECOMENDADOS - Edición */}
+            <div className="col-span-2 flex flex-col gap-3 border-t border-slate-100 pt-3">
+              <span className="font-bold text-slate-800">Banner de Recomendados (Panel Cliente)</span>
+              <div className="flex flex-col md:flex-row gap-4 p-3 border border-slate-200 rounded-lg bg-slate-50">
+                <div className="w-full md:w-1/3 shrink-0">
+                  {config.rec_banner_image && (
+                    <img src={config.rec_banner_image} alt="Preview" className="w-full h-32 object-cover rounded-lg border border-slate-200" />
+                  )}
+                  <label className="flex items-center justify-center gap-2 mt-2 px-3 py-2 bg-white border border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-violet-400 hover:bg-violet-50 transition-colors">
+                    <Upload size={14} className="text-slate-400" />
+                    <span className="text-xs text-slate-500 font-medium">Subir imagen</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          addNotification('Subiendo...', 'Subiendo imagen del banner de recomendados', 'admin');
+                          const compressed = await compressImage(file, { maxWidth: 1200, format: 'image/webp' });
+                          const url = await uploadFileToStorage(compressed, 'settings', 'rec-banner/banner.webp');
+                          updateConfig({ rec_banner_image: url });
+                          addNotification('Banner Actualizado', 'Imagen del banner de recomendados subida', 'admin');
+                        } catch (err: any) {
+                          addNotification('Error al subir', err.message || 'No se pudo subir la imagen', 'admin');
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+                <div className="flex flex-col gap-2 flex-1">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold text-slate-700">Badge / Etiqueta:</span>
+                    <input
+                      type="text"
+                      value={config.rec_banner_tag || ''}
+                      onChange={(e) => updateConfig({ rec_banner_tag: e.target.value })}
+                      placeholder="Ej: Solo por hoy"
+                      className="bg-white border border-slate-300 rounded px-2 py-1.5 outline-none focus:border-blue-500 text-xs"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold text-slate-700">Título Principal:</span>
+                    <input
+                      type="text"
+                      value={config.rec_banner_title || ''}
+                      onChange={(e) => updateConfig({ rec_banner_title: e.target.value })}
+                      placeholder="Ej: 15% de Descuento en Productos Seleccionados"
+                      className="bg-white border border-slate-300 rounded px-2 py-1.5 outline-none focus:border-blue-500 text-xs"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold text-slate-700">Descripción:</span>
+                    <textarea
+                      value={config.rec_banner_description || ''}
+                      onChange={(e) => updateConfig({ rec_banner_description: e.target.value })}
+                      placeholder="Texto descriptivo de la promoción..."
+                      rows={2}
+                      className="bg-white border border-slate-300 rounded px-2 py-1.5 outline-none focus:border-blue-500 text-xs resize-none"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold text-slate-700">Texto del Botón:</span>
+                    <input
+                      type="text"
+                      value={config.rec_banner_button_text || ''}
+                      onChange={(e) => updateConfig({ rec_banner_button_text: e.target.value })}
+                      placeholder="Ej: Ver Ofertas"
+                      className="bg-white border border-slate-300 rounded px-2 py-1.5 outline-none focus:border-blue-500 text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-slate-100 pt-3">
               <div className="flex flex-col gap-2 p-3 bg-slate-50 border border-slate-200 rounded-lg">
                 <span className="font-bold text-slate-800">Opciones de Delivery Local</span>
