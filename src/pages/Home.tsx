@@ -371,41 +371,6 @@ export const Home: React.FC<HomeProps> = ({
         </div>
       )}
 
-      {/* BANNER PROMOCIONAL - RECOMENDADOS */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 p-[1px]">
-        <div className="flex flex-col md:flex-row items-center gap-4 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 rounded-[15px] p-4 md:p-5">
-          <div className="w-full md:w-1/2 h-32 md:h-40 rounded-xl overflow-hidden shadow-lg shrink-0">
-            <img
-              src={config.rec_banner_image || 'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&q=80&w=800'}
-              alt="Promoción del día"
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
-          </div>
-          <div className="flex flex-col gap-2 text-center md:text-left">
-            {config.rec_banner_tag && (
-              <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-100 border border-amber-200 px-2.5 py-0.5 rounded-full w-fit mx-auto md:mx-0">
-                {config.rec_banner_tag}
-              </span>
-            )}
-            <h3 className="text-xl md:text-2xl font-black text-zinc-900 leading-tight">
-              {config.rec_banner_title || '15% de Descuento en Productos Seleccionados'}
-            </h3>
-            {config.rec_banner_description && (
-              <p className="text-[11px] text-zinc-500 leading-relaxed max-w-sm">
-                {config.rec_banner_description}
-              </p>
-            )}
-            <button
-              onClick={() => setTab('catalog')}
-              className="mt-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-5 rounded-xl text-[11px] uppercase tracking-wider cursor-pointer transition-all shadow-md active:scale-95 w-fit mx-auto md:mx-0"
-            >
-              {config.rec_banner_button_text || 'Ver Ofertas'}
-            </button>
-          </div>
-        </div>
-      </div>
-
       {promoParts.length > 0 && (
         <div className="flex flex-col gap-4">
           <div className="flex justify-between items-center">
@@ -630,6 +595,46 @@ export const Home: React.FC<HomeProps> = ({
             Selecciona un pasillo para ver sus productos
           </div>
         )}
+      </div>
+
+      {/* BANNER PROMOCIONAL - RECOMENDADOS */}
+      <div className="relative overflow-hidden rounded-3xl shadow-xl border border-amber-200/60">
+        <div className="absolute inset-0 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50"></div>
+        <div className="absolute -top-20 -right-20 w-60 h-60 bg-amber-300/20 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-orange-300/15 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="relative z-10 flex flex-col md:flex-row items-stretch gap-0">
+          <div className="w-full md:w-[45%] h-44 md:h-auto min-h-[180px] md:min-h-[220px] overflow-hidden md:rounded-l-3xl md:rounded-tr-none rounded-t-3xl">
+            <img
+              src={config.rec_banner_image || 'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&q=80&w=800'}
+              alt="Promoción del día"
+              className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+          <div className="flex-1 flex flex-col justify-center gap-3 p-5 md:p-6 md:rounded-r-3xl md:rounded-bl-none rounded-b-3xl">
+            {config.rec_banner_tag && (
+              <span className="self-start text-[9px] font-black uppercase tracking-[0.15em] text-amber-700 bg-amber-100/80 backdrop-blur-sm border border-amber-200/60 px-3 py-1 rounded-full shadow-sm">
+                {config.rec_banner_tag}
+              </span>
+            )}
+            <h3 className="text-lg md:text-xl font-extrabold text-zinc-900 leading-snug tracking-tight">
+              {config.rec_banner_title || '15% de Descuento en Productos Seleccionados'}
+            </h3>
+            {config.rec_banner_description && (
+              <p className="text-[12px] text-zinc-500 leading-relaxed max-w-sm font-medium">
+                {config.rec_banner_description}
+              </p>
+            )}
+            <button
+              onClick={() => setTab('catalog')}
+              className="mt-1 text-white font-extrabold py-3 px-6 rounded-2xl text-[11px] uppercase tracking-[0.12em] cursor-pointer transition-all shadow-lg hover:shadow-xl active:scale-[0.96] w-fit flex items-center gap-2"
+              style={{ background: `linear-gradient(135deg, ${config.theme_color || '#f59e0b'}, ${config.theme_color || '#ea580c'})` }}
+            >
+              {config.rec_banner_button_text || 'Ver Ofertas'}
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-col gap-4 p-5 border border-violet-100 rounded-2xl bg-violet-50/30 shadow-sm relative overflow-hidden">
