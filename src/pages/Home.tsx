@@ -602,8 +602,8 @@ export const Home: React.FC<HomeProps> = ({
         <div className="absolute inset-0 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50"></div>
         <div className="absolute -top-20 -right-20 w-60 h-60 bg-amber-300/20 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-orange-300/15 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="relative z-10 flex flex-col md:flex-row items-stretch gap-0">
-          <div className="w-full md:w-[45%] h-44 md:h-auto min-h-[180px] md:min-h-[220px] overflow-hidden md:rounded-l-3xl md:rounded-tr-none rounded-t-3xl">
+        <div className="relative z-10 flex flex-row items-stretch gap-0">
+          <div className="w-[40%] min-h-[140px] h-auto overflow-hidden rounded-l-3xl">
             <img
               src={config.rec_banner_image || 'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&q=80&w=800'}
               alt="Promoción del día"
@@ -611,7 +611,7 @@ export const Home: React.FC<HomeProps> = ({
               referrerPolicy="no-referrer"
             />
           </div>
-          <div className="flex-1 flex flex-col justify-center gap-3 p-5 md:p-6 md:rounded-r-3xl md:rounded-bl-none rounded-b-3xl">
+          <div className="flex-1 flex flex-col justify-center gap-2.5 p-3.5 md:p-6 rounded-r-3xl">
             {config.rec_banner_tag && (
               <span className="self-start text-[9px] font-black uppercase tracking-[0.15em] text-amber-700 bg-amber-100/80 backdrop-blur-sm border border-amber-200/60 px-3 py-1 rounded-full shadow-sm">
                 {config.rec_banner_tag}
