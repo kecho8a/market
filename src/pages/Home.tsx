@@ -371,6 +371,41 @@ export const Home: React.FC<HomeProps> = ({
         </div>
       )}
 
+      {/* BANNER PROMOCIONAL - RECOMENDADOS */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 p-[1px]">
+        <div className="flex flex-col md:flex-row items-center gap-4 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 rounded-[15px] p-4 md:p-5">
+          <div className="w-full md:w-1/2 h-32 md:h-40 rounded-xl overflow-hidden shadow-lg shrink-0">
+            <img
+              src={config.rec_banner_image || 'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&q=80&w=800'}
+              alt="Promoción del día"
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+          <div className="flex flex-col gap-2 text-center md:text-left">
+            {config.rec_banner_tag && (
+              <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-100 border border-amber-200 px-2.5 py-0.5 rounded-full w-fit mx-auto md:mx-0">
+                {config.rec_banner_tag}
+              </span>
+            )}
+            <h3 className="text-xl md:text-2xl font-black text-zinc-900 leading-tight">
+              {config.rec_banner_title || '15% de Descuento en Productos Seleccionados'}
+            </h3>
+            {config.rec_banner_description && (
+              <p className="text-[11px] text-zinc-500 leading-relaxed max-w-sm">
+                {config.rec_banner_description}
+              </p>
+            )}
+            <button
+              onClick={() => setTab('catalog')}
+              className="mt-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-5 rounded-xl text-[11px] uppercase tracking-wider cursor-pointer transition-all shadow-md active:scale-95 w-fit mx-auto md:mx-0"
+            >
+              {config.rec_banner_button_text || 'Ver Ofertas'}
+            </button>
+          </div>
+        </div>
+      </div>
+
       {promoParts.length > 0 && (
         <div className="flex flex-col gap-4">
           <div className="flex justify-between items-center">
@@ -536,7 +571,7 @@ export const Home: React.FC<HomeProps> = ({
             </div>
 
             {/* PC: Grid de tarjetas */}
-            <div className="hidden md:grid md:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div className="hidden md:grid md:grid-cols-3 lg:grid-cols-6 gap-3">
               {pasilloProducts.map(part => (
                 <div
                   key={part.id}
