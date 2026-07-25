@@ -1,0 +1,136 @@
+{
+  "timestamp": "2026-07-25T23:30:53.074Z",
+  "results": [
+    {
+      "test": "All products have required fields",
+      "category": "Catalog",
+      "status": "PASS",
+      "detail": "68 products complete"
+    },
+    {
+      "test": "No negative prices",
+      "category": "Catalog",
+      "status": "PASS",
+      "detail": "All prices are >= 0"
+    },
+    {
+      "test": "No negative stock",
+      "category": "Catalog",
+      "status": "PASS",
+      "detail": "All stock values are >= 0"
+    },
+    {
+      "test": "Unique SKUs",
+      "category": "Catalog",
+      "status": "PASS",
+      "detail": "68 unique product codes"
+    },
+    {
+      "test": "Categories present",
+      "category": "Catalog",
+      "status": "PASS",
+      "detail": "8 categories found"
+    },
+    {
+      "test": "Order created",
+      "category": "Order Flow",
+      "status": "PASS",
+      "detail": "Order QA-TEST-1785022247882 inserted successfully"
+    },
+    {
+      "test": "Stock decremented",
+      "category": "Order Flow",
+      "status": "PASS",
+      "detail": "Stock: 85 → 84"
+    },
+    {
+      "test": "Admin notification created",
+      "category": "Order Flow",
+      "status": "PASS",
+      "detail": "Notification for QA-TEST-1785022247882 found"
+    },
+    {
+      "test": "Test cleanup",
+      "category": "Order Flow",
+      "status": "PASS",
+      "detail": "Stock restored, test order removed"
+    },
+    {
+      "test": "Transition: Pendiente → Procesando",
+      "category": "Status",
+      "status": "PASS",
+      "detail": "Status updated successfully"
+    },
+    {
+      "test": "Status restored",
+      "category": "Status",
+      "status": "PASS",
+      "detail": "Back to Pendiente"
+    },
+    {
+      "test": "Test coupon created",
+      "category": "Coupon",
+      "status": "PASS",
+      "detail": "QA-TEST-1785022251864 (10% off, limit 3)"
+    },
+    {
+      "test": "Coupon visible to anon",
+      "category": "Coupon",
+      "status": "PASS",
+      "detail": "Active coupons are public"
+    },
+    {
+      "test": "Usage limit check",
+      "category": "Coupon",
+      "status": "PASS",
+      "detail": "Used: 0/3"
+    },
+    {
+      "test": "Test coupon cleaned up",
+      "category": "Coupon",
+      "status": "PASS",
+      "detail": "Deleted test coupon"
+    },
+    {
+      "test": "Rate configured",
+      "category": "Exchange Rate",
+      "status": "PASS",
+      "detail": "737.23 Bs/USD"
+    },
+    {
+      "test": "Rate in reasonable range",
+      "category": "Exchange Rate",
+      "status": "PASS",
+      "detail": "737.23 is within 100-5000"
+    },
+    {
+      "test": "All tables accessible",
+      "category": "Health",
+      "status": "PASS",
+      "detail": "7/7 tables OK"
+    },
+    {
+      "test": "Store config complete",
+      "category": "Health",
+      "status": "PASS",
+      "detail": "All critical fields present"
+    },
+    {
+      "test": "Admin notifications",
+      "category": "Health",
+      "status": "PASS",
+      "detail": "6 admin notifications"
+    },
+    {
+      "test": "Webhook URL configured",
+      "category": "Health",
+      "status": "PASS",
+      "detail": "https://market-cbh.pages.dev/api/push-notify"
+    }
+  ],
+  "summary": {
+    "passed": 21,
+    "warnings": 0,
+    "failed": 0
+  }
+}

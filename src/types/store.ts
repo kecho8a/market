@@ -4,6 +4,7 @@ export interface AppUser {
   telefono: string;
   contrasena: string;
   email?: string;
+  role?: 'superadmin' | 'admin' | 'cliente';
   createdAt: string;
 }
 

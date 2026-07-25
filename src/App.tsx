@@ -18,7 +18,7 @@ import {
 import { SEOHead } from './components/SEOHead';
 
 function AppContent() {
-  const { cart, config, addToCart, isAdminAuthenticated, authenticateAdmin, logoutAdmin, currentUser, notifications, displayCurrency, toggleCurrency, isGlobalLoading } = useApp();
+  const { cart, config, addToCart, isAdminAuthenticated, isSuperadmin, authenticateAdmin, logoutAdmin, currentUser, notifications, displayCurrency, toggleCurrency, isGlobalLoading } = useApp();
 
   // Cache-busting para el logo: fuerza recarga cuando cambia
   const logoUrl = useMemo(() => config.logo_url ? `${config.logo_url}?v=${encodeURIComponent(config.logo_url)}` : '', [config.logo_url]);
@@ -346,6 +346,7 @@ function AppContent() {
                     style={{ backgroundColor: config.theme_color || '#0f5d34' }}
                   >
                     Panel de Admin
+                    {isSuperadmin && <span className="bg-yellow-400 text-yellow-900 text-[8px] px-1.5 py-0.5 rounded-full font-black uppercase ml-1">Super</span>}
                   </button>
                   <button
                      type="button"

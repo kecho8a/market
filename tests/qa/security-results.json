@@ -1,0 +1,184 @@
+{
+  "timestamp": "2026-07-25T23:29:07.706Z",
+  "results": [
+    {
+      "test": "Payload stored: <script>alert(\"xss\")</script>",
+      "category": "XSS",
+      "status": "WARN",
+      "detail": "React escapes JSX, but innerHTML in SEOHead.tsx could be vulnerable"
+    },
+    {
+      "test": "Payload stored: \"><img src=x onerror=alert(1)>",
+      "category": "XSS",
+      "status": "WARN",
+      "detail": "React escapes JSX, but innerHTML in SEOHead.tsx could be vulnerable"
+    },
+    {
+      "test": "Payload stored: ';alert('xss');//",
+      "category": "XSS",
+      "status": "WARN",
+      "detail": "React escapes JSX, but innerHTML in SEOHead.tsx could be vulnerable"
+    },
+    {
+      "test": "Payload stored: <svg onload=alert(1)>",
+      "category": "XSS",
+      "status": "WARN",
+      "detail": "React escapes JSX, but innerHTML in SEOHead.tsx could be vulnerable"
+    },
+    {
+      "test": "Payload stored: javascript:alert(1)",
+      "category": "XSS",
+      "status": "WARN",
+      "detail": "React escapes JSX, but innerHTML in SEOHead.tsx could be vulnerable"
+    },
+    {
+      "test": "Payload stored: <iframe src=\"javascript:alert(",
+      "category": "XSS",
+      "status": "WARN",
+      "detail": "React escapes JSX, but innerHTML in SEOHead.tsx could be vulnerable"
+    },
+    {
+      "test": "SEOHead.tsx innerHTML",
+      "category": "XSS",
+      "status": "WARN",
+      "detail": "JSON-LD uses script.innerHTML with JSON.stringify - partial protection"
+    },
+    {
+      "test": "React JSX escaping",
+      "category": "XSS",
+      "status": "PASS",
+      "detail": "React escapes all JSX content by default - no dangerouslySetInnerHTML found"
+    },
+    {
+      "test": "store_config SELECT",
+      "category": "Admin Bypass",
+      "status": "PASS",
+      "detail": "Store config readable by anon (by design - public data)"
+    },
+    {
+      "test": "store_config UPDATE blocked",
+      "category": "Admin Bypass",
+      "status": "PASS",
+      "detail": "RLS prevents anon from updating store config"
+    },
+    {
+      "test": "orders SELECT restricted",
+      "category": "Admin Bypass",
+      "status": "PASS",
+      "detail": "RLS blocks anon from reading orders (no cliente_uid match)"
+    },
+    {
+      "test": "authenticateAdmin fix",
+      "category": "Admin Bypass",
+      "status": "PASS",
+      "detail": "authenticateAdmin() now verifies email against kecho8a@gmail.com/sugolo28@gmail.com"
+    },
+    {
+      "test": "onAuthStateChange fix",
+      "category": "Admin Bypass",
+      "status": "PASS",
+      "detail": "Auth state listener now detects superadmin by email"
+    },
+    {
+      "test": "Wildcard CORS",
+      "category": "CORS",
+      "status": "WARN",
+      "detail": "CORS allows all origins - consider restricting to market-cbh.pages.dev"
+    },
+    {
+      "test": "register-subscription wildcard",
+      "category": "CORS",
+      "status": "WARN",
+      "detail": "Open CORS on subscription endpoint"
+    },
+    {
+      "test": "Supabase SDK parameterization",
+      "category": "SQL Injection",
+      "status": "PASS",
+      "detail": "All queries use Supabase SDK which auto-parameterizes - no raw SQL found"
+    },
+    {
+      "test": "No string concatenation",
+      "category": "SQL Injection",
+      "status": "PASS",
+      "detail": "Codebase uses .eq(), .insert(), .update() - no SQL string concat"
+    },
+    {
+      "test": "No rate limiting",
+      "category": "Rate Limiting",
+      "status": "FAIL",
+      "detail": "All 20 requests succeeded - endpoint has NO rate limiting"
+    },
+    {
+      "test": "No application-level throttling",
+      "category": "Rate Limiting",
+      "status": "WARN",
+      "detail": "Neither push-notify nor register-subscription have rate limits"
+    },
+    {
+      "test": ".env exposure",
+      "category": "Webhook Secret",
+      "status": "WARN",
+      "detail": "VITE_WEBHOOK_SECRET is in .env - ensure .env is in .gitignore"
+    },
+    {
+      "test": "DB secret cleared",
+      "category": "Webhook Secret",
+      "status": "PASS",
+      "detail": "push_webhook_secret is empty in store_config"
+    },
+    {
+      "test": "Client-side exposure",
+      "category": "Webhook Secret",
+      "status": "WARN",
+      "detail": "push_webhook_secret is loaded into client state via import.meta.env.VITE_WEBHOOK_SECRET"
+    },
+    {
+      "test": "Orders INSERT allowed",
+      "category": "RLS",
+      "status": "PASS",
+      "detail": "Anonymous can create orders (checkout flow)"
+    },
+    {
+      "test": "Orders SELECT blocked for anon",
+      "category": "RLS",
+      "status": "PASS",
+      "detail": "RLS properly restricts order visibility"
+    },
+    {
+      "test": "Products UPDATE blocked for anon",
+      "category": "RLS",
+      "status": "PASS",
+      "detail": "RLS prevents anonymous product modification"
+    },
+    {
+      "test": "Store config SELECT public",
+      "category": "RLS",
+      "status": "PASS",
+      "detail": "Store config readable by everyone (by design)"
+    },
+    {
+      "test": "SignUp works",
+      "category": "Auth",
+      "status": "PASS",
+      "detail": "User registration functional"
+    },
+    {
+      "test": "SHA-256 password hash",
+      "category": "Auth",
+      "status": "WARN",
+      "detail": "crypto.ts uses SHA-256 without salt (inactive but dangerous if used)"
+    },
+    {
+      "test": "Supabase Auth password storage",
+      "category": "Auth",
+      "status": "PASS",
+      "detail": "Actual auth uses Supabase Auth (bcrypt server-side)"
+    }
+  ],
+  "summary": {
+    "passed": 15,
+    "warnings": 13,
+    "failed": 1
+  }
+}

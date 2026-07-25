@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS store_config (
     mensaje_cierre TEXT DEFAULT 'Hoy no trabajamos. Volveremos pronto.',
     mensaje_bienvenida TEXT DEFAULT 'Encuentra los mejores cortes de carne, quesos madurados y viveres frescos con delivery express en Valencia.',
     push_webhook_url TEXT DEFAULT 'https://market-cbh.pages.dev/api/push-notify',
-    push_webhook_secret TEXT DEFAULT '5fca5a4d8825d4de66811590f47af870b01d45e80f391920f4ea76a59ae3c8bf',
+    push_webhook_secret TEXT DEFAULT '',
     rec_banner_image TEXT DEFAULT 'https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&q=80&w=800',
     rec_banner_tag TEXT DEFAULT 'Solo por hoy',
     rec_banner_title TEXT DEFAULT '15% de Descuento en Productos Seleccionados',
@@ -71,8 +71,15 @@ CREATE TABLE IF NOT EXISTS usuarios_clientes (
     email TEXT UNIQUE,
     telefono VARCHAR(20) UNIQUE NOT NULL,
     contrasena TEXT NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'cliente',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Agregar columna role si la tabla ya existe (migración segura)
+DO $$ BEGIN
+  ALTER TABLE usuarios_clientes ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'cliente';
+EXCEPTION WHEN duplicate_column THEN NULL;
+END $$;
 
 -- ----------------------------------------------------------------------------
 -- 3. products
@@ -470,7 +477,29 @@ FOR EACH ROW
 EXECUTE FUNCTION public.handle_new_notification_push();
 
 -- ----------------------------------------------------------------------------
--- 6. POLÍTICAS RLS Y SEGURIDAD
+-- 6. FUNCIONES DE AUTORIZACIÓN (SUPERADMIN / ADMIN)
+-- ----------------------------------------------------------------------------
+-- Verifica si el usuario actual es superadmin
+CREATE OR REPLACE FUNCTION public.is_superadmin()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN (auth.jwt()->'app_metadata'->>'role' = 'superadmin')
+      OR (auth.jwt()->>'email' = 'sugolo28@gmail.com');
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+-- Verifica si el usuario actual es admin o superadmin
+CREATE OR REPLACE FUNCTION public.is_admin_or_superadmin()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN public.is_superadmin()
+      OR (auth.jwt()->'app_metadata'->>'role' = 'admin')
+      OR (auth.jwt()->>'email' = 'kecho8a@gmail.com');
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+-- ----------------------------------------------------------------------------
+-- 7. POLÍTICAS RLS Y SEGURIDAD
 -- ----------------------------------------------------------------------------
 ALTER TABLE store_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE usuarios_clientes ENABLE ROW LEVEL SECURITY;
@@ -480,7 +509,7 @@ ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
 
 -- Permisos base
-GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 GRANT SELECT, INSERT ON store_config, products, notifications, coupons, usuarios_clientes TO anon;
 GRANT SELECT, INSERT, UPDATE ON orders TO anon;
 GRANT SELECT, INSERT, UPDATE ON push_subscriptions TO anon;
@@ -488,6 +517,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authentic
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO authenticated;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO authenticated;
+
+-- Permisos para service_role (bypass RLS)
+GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO service_role;
 
 DO $$
 DECLARE
@@ -502,7 +535,7 @@ BEGIN
   DROP POLICY IF EXISTS "Allow all updates only to admin" ON store_config;
   CREATE POLICY "Allow all updates only to admin" ON store_config 
     FOR ALL TO authenticated 
-    USING (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
+    USING (public.is_admin_or_superadmin());
 
   -- products
   DROP POLICY IF EXISTS "Lectura productos activos" ON products;
@@ -510,16 +543,15 @@ BEGIN
     FOR SELECT
     USING (
       activo = true
-      OR (auth.jwt() ->> 'email' = 'kecho8a@gmail.com')
-      OR (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
+      OR public.is_admin_or_superadmin()
     );
 
   DROP POLICY IF EXISTS "Gestion productos admin" ON products;
   DROP POLICY IF EXISTS "Allow admin changes to catalog" ON products;
   CREATE POLICY "Allow admin changes to catalog" ON products 
     FOR ALL TO authenticated 
-    USING (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
-    WITH CHECK (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
+    USING (public.is_admin_or_superadmin())
+    WITH CHECK (public.is_admin_or_superadmin());
 
   -- orders
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='orders' AND policyname='orders_insert_allow_anon') THEN
@@ -532,24 +564,21 @@ BEGIN
     FOR SELECT 
     USING (
       auth.uid()::text = cliente_uid 
-      OR 
-      (auth.jwt() ->> 'email' = 'kecho8a@gmail.com')
-      OR
-      (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
+      OR public.is_admin_or_superadmin()
     );
 
   DROP POLICY IF EXISTS "orders_update_admin" ON orders;
   CREATE POLICY "orders_update_admin" ON orders 
     FOR ALL TO authenticated 
-    USING (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
-    WITH CHECK (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
+    USING (public.is_admin_or_superadmin())
+    WITH CHECK (public.is_admin_or_superadmin());
 
   -- usuarios_clientes
   DROP POLICY IF EXISTS "Lectura propia" ON usuarios_clientes;
   DROP POLICY IF EXISTS "Admin lee todos los clientes" ON usuarios_clientes;
   CREATE POLICY "Admin lee todos los clientes" ON usuarios_clientes 
     FOR SELECT TO authenticated 
-    USING (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
+    USING (public.is_admin_or_superadmin());
 
   DROP POLICY IF EXISTS "Cliente lee su propio perfil" ON usuarios_clientes;
   CREATE POLICY "Cliente lee su propio perfil" ON usuarios_clientes 
@@ -563,8 +592,8 @@ BEGIN
   DROP POLICY IF EXISTS "Admin gestiona todos los clientes" ON usuarios_clientes;
   CREATE POLICY "Admin gestiona todos los clientes" ON usuarios_clientes
     FOR ALL TO authenticated
-    USING (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
-    WITH CHECK (auth.jwt() ->> 'email' = 'kecho8a@gmail.com' OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin');
+    USING (public.is_admin_or_superadmin())
+    WITH CHECK (public.is_admin_or_superadmin());
 
   -- notifications
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='notifications' AND policyname='notifications_insert_allow_anon') THEN
@@ -579,15 +608,9 @@ BEGIN
   CREATE POLICY "Lectura de notificaciones" ON notifications
     FOR SELECT TO anon, authenticated USING (
       tipo = 'todos'
-      OR (tipo = 'admin' AND (
-          auth.jwt() ->> 'email' = 'kecho8a@gmail.com'
-          OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin'
-      ))
+      OR (tipo = 'admin' AND public.is_admin_or_superadmin())
       OR (tipo = 'personal' AND destinatario_telefono IS NOT NULL AND destinatario_telefono != '')
-      OR (tipo = 'request' AND (
-          auth.jwt() ->> 'email' = 'kecho8a@gmail.com'
-          OR auth.jwt() -> 'app_metadata' ->> 'role' = 'admin'
-      ))
+      OR (tipo = 'request' AND public.is_admin_or_superadmin())
     );
 
   DROP POLICY IF EXISTS "notifications_update_allow_all" ON notifications;
@@ -602,14 +625,8 @@ BEGIN
   DROP POLICY IF EXISTS "Gestion cupones admin" ON coupons;
   CREATE POLICY "Gestion cupones admin" ON coupons 
     FOR ALL TO authenticated 
-    USING (
-      (auth.jwt() ->> 'email' = 'kecho8a@gmail.com')
-      OR (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
-    )
-    WITH CHECK (
-      (auth.jwt() ->> 'email' = 'kecho8a@gmail.com')
-      OR (auth.jwt() -> 'app_metadata' ->> 'role' = 'admin')
-    );
+    USING (public.is_admin_or_superadmin())
+    WITH CHECK (public.is_admin_or_superadmin());
 
   -- push_subscriptions
   ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
@@ -631,7 +648,7 @@ BEGIN
 END $$;
 
 -- ----------------------------------------------------------------------------
--- 7. PRODUCTOS (60 productos de supermercado venezolano)
+-- 8. PRODUCTOS (60 productos de supermercado venezolano)
 -- Ejecutar cada bloque por separado si da error de tamaño
 -- ----------------------------------------------------------------------------
 

@@ -10,6 +10,7 @@ interface AppContextProps {
   notifications: InAppNotification[];
   cart: { item: Producto; quantity: number }[];
   isAdminAuthenticated: boolean;
+  isSuperadmin: boolean;
   favorites: string[];
   toggleFavorite: (partId: string) => void;
   toggleLike: (partId: string) => void;
@@ -521,6 +522,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return localStorage.getItem('trv_admin_auth') === 'true';
   });
 
+  const [isSuperadmin, setIsSuperadmin] = useState<boolean>(() => {
+    return localStorage.getItem('trv_superadmin') === 'true';
+  });
+
   const [adminUser] = useState<string>(import.meta.env.VITE_ADMIN_USER || '');
   const [adminPass] = useState<string>(import.meta.env.VITE_ADMIN_PASS || '');
 
@@ -568,6 +573,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // --- MOTOR DE TIEMPO REAL (SUPABASE CHANNELS) ---
   const currentUserRef = useRef<AppUser | null>(currentUser);
   const isAdminAuthenticatedRef = useRef(isAdminAuthenticated);
+  const isSuperadminRef = useRef(isSuperadmin);
   const configSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -577,6 +583,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     isAdminAuthenticatedRef.current = isAdminAuthenticated;
   }, [isAdminAuthenticated]);
+
+  useEffect(() => {
+    isSuperadminRef.current = isSuperadmin;
+  }, [isSuperadmin]);
 
   // --- SISTEMA DE LIMPIEZA AUTOMÁTICA DE NOTIFICACIONES ---
   // Limpia del estado local las notificaciones ya leídas que tengan más de 7 días de antigüedad.
@@ -983,14 +993,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const initData = async () => {
       setIsGlobalLoading(true);
 
-      // BUG FIX: Si es admin, cargar TODO. Obtener sesión primero.
+      // BUG FIX: Si es admin o superadmin, cargar TODO. Obtener sesión primero.
       const { data: { session } } = await supabase.auth.getSession();
-      const isAdmin = session?.user?.email === 'kecho8a@gmail.com' || session?.user?.app_metadata?.role === 'admin';
+      const isAdmin = session?.user?.email === 'kecho8a@gmail.com'
+                   || session?.user?.app_metadata?.role === 'admin'
+                   || session?.user?.email === SUPERADMIN_EMAIL;
+      const isSuper = session?.user?.email === SUPERADMIN_EMAIL
+                   || session?.user?.app_metadata?.role === 'superadmin';
 
       // Si localStorage dice admin pero no hay sesión real, limpiar el flag
       if (!isAdmin && localStorage.getItem('trv_admin_auth') === 'true') {
         localStorage.removeItem('trv_admin_auth');
+        localStorage.removeItem('trv_superadmin');
         setIsAdminAuthenticated(false);
+        setIsSuperadmin(false);
+      }
+
+      // Sincronizar superadmin desde sesión
+      if (isSuper) {
+        setIsSuperadmin(true);
+        localStorage.setItem('trv_superadmin', 'true');
       }
 
       // Cargar productos de Supabase (si es admin, incluir inactivos)
@@ -1103,15 +1125,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         if (session) {
-          const isAdmin = session.user?.email === 'kecho8a@gmail.com' || session.user?.app_metadata?.role === 'admin';
-          if (isAdmin) {
+          const isAdmin = session.user?.email === 'kecho8a@gmail.com'
+                       || session.user?.app_metadata?.role === 'admin'
+                       || session.user?.email === SUPERADMIN_EMAIL;
+          const isSuper = session.user?.email === SUPERADMIN_EMAIL
+                       || session.user?.app_metadata?.role === 'superadmin';
+
+          if (isAdmin || isSuper) {
             setIsAdminAuthenticated(true);
             localStorage.setItem('trv_admin_auth', 'true');
+            setIsSuperadmin(isSuper);
+            localStorage.setItem('trv_superadmin', String(isSuper));
           }
         }
       } else if (event === 'SIGNED_OUT') {
         setIsAdminAuthenticated(false);
+        setIsSuperadmin(false);
         localStorage.removeItem('trv_admin_auth');
+        localStorage.removeItem('trv_superadmin');
       }
     });
 
@@ -2023,6 +2054,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Admin Auth functions
+  const SUPERADMIN_EMAIL = 'sugolo28@gmail.com';
+  const SUPERADMIN_PASSWORD = 'susa.280';
+
   const authenticateAdmin = async (email: string, pass: string): Promise<boolean> => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -2034,8 +2068,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return false;
       }
       if (data.session) {
+        const isAdmin = data.session.user?.email === 'kecho8a@gmail.com'
+                     || data.session.user?.app_metadata?.role === 'admin'
+                     || data.session.user?.email === SUPERADMIN_EMAIL;
+        const isSuper = data.session.user?.email === SUPERADMIN_EMAIL
+                     || data.session.user?.app_metadata?.role === 'superadmin';
+
+        if (!isAdmin && !isSuper) {
+          console.error('Usuario no autorizado como admin');
+          await supabase.auth.signOut();
+          return false;
+        }
+
         setIsAdminAuthenticated(true);
         localStorage.setItem('trv_admin_auth', 'true');
+
+        setIsSuperadmin(isSuper);
+        localStorage.setItem('trv_superadmin', String(isSuper));
+
         return true;
       }
       return false;
@@ -2047,7 +2097,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logoutAdmin = async () => {
     await supabase.auth.signOut();
     setIsAdminAuthenticated(false);
+    setIsSuperadmin(false);
     localStorage.removeItem('trv_admin_auth');
+    localStorage.removeItem('trv_superadmin');
   };
 
   const updateAdminCredentials = async (email: string, pass: string) => {
@@ -2073,6 +2125,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       notifications,
       cart,
       isAdminAuthenticated,
+      isSuperadmin,
       isGlobalLoading,
       favorites,
       toggleFavorite,

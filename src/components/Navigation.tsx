@@ -19,7 +19,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   drawerOpen,
   setDrawerOpen
 }) => {
-  const { cart, config, isAdminAuthenticated, logoutAdmin, currentUser, notifications } = useApp();
+  const { cart, config, isAdminAuthenticated, isSuperadmin, logoutAdmin, currentUser, notifications } = useApp();
 
   const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
@@ -64,6 +64,7 @@ export const Navigation: React.FC<NavigationProps> = ({
           >
             <ShieldAlert size={20} />
             <span className="text-[10px] mt-0.5 font-display font-medium">Admin</span>
+            {isSuperadmin && <span className="absolute -top-1 -right-1 bg-yellow-400 text-yellow-900 text-[7px] px-1 py-0 rounded-full font-black">S</span>}
           </button>
         )}
 

@@ -1,0 +1,188 @@
+{
+  "timestamp": "2026-07-25T22:47:01.390Z",
+  "supabaseUrl": "https://gqhanfjhqfeqsgpscmet.supabase.co",
+  "results": [
+    {
+      "check": "RLS store_config",
+      "status": "✅",
+      "detail": "RLS activo - 1 registros visibles con anon key"
+    },
+    {
+      "check": "RLS usuarios_clientes",
+      "status": "✅",
+      "detail": "RLS activo - 0 registros visibles con anon key"
+    },
+    {
+      "check": "RLS products",
+      "status": "✅",
+      "detail": "RLS activo - 68 registros visibles con anon key"
+    },
+    {
+      "check": "RLS orders",
+      "status": "✅",
+      "detail": "RLS activo - 0 registros visibles con anon key"
+    },
+    {
+      "check": "RLS push_subscriptions",
+      "status": "✅",
+      "detail": "RLS activo - 0 registros visibles con anon key"
+    },
+    {
+      "check": "RLS coupons",
+      "status": "✅",
+      "detail": "RLS activo - 0 registros visibles con anon key"
+    },
+    {
+      "check": "RLS notifications",
+      "status": "✅",
+      "detail": "RLS activo - 5 registros visibles con anon key"
+    },
+    {
+      "check": "Función handle_auth_user_created",
+      "status": "✅",
+      "detail": "Presente en schema"
+    },
+    {
+      "check": "Función handle_new_order_actions",
+      "status": "✅",
+      "detail": "Presente en schema"
+    },
+    {
+      "check": "Función handle_order_status_push_update",
+      "status": "✅",
+      "detail": "Presente en schema"
+    },
+    {
+      "check": "Función handle_new_notification_push",
+      "status": "✅",
+      "detail": "Presente en schema"
+    },
+    {
+      "check": "Función increment_notification_click",
+      "status": "✅",
+      "detail": "Presente en schema (no testear - incrementa counter)"
+    },
+    {
+      "check": "Función get_all_push_subscriptions",
+      "status": "⚠️",
+      "detail": "Existe pero error: permission denied for schema public"
+    },
+    {
+      "check": "Función delete_old_notifications",
+      "status": "✅",
+      "detail": "Presente en schema"
+    },
+    {
+      "check": "Trigger on_auth_user_created",
+      "status": "✅",
+      "detail": "Definido en schema (verificar en Supabase Dashboard)"
+    },
+    {
+      "check": "Trigger trigger_order_completion",
+      "status": "✅",
+      "detail": "Definido en schema (verificar en Supabase Dashboard)"
+    },
+    {
+      "check": "Trigger trigger_order_status_update_push",
+      "status": "✅",
+      "detail": "Definido en schema (verificar en Supabase Dashboard)"
+    },
+    {
+      "check": "Trigger trigger_notify_push",
+      "status": "✅",
+      "detail": "Definido en schema (verificar en Supabase Dashboard)"
+    },
+    {
+      "check": "Products Breakdown",
+      "status": "✅",
+      "detail": "Activos: null | Inactivos: null"
+    },
+    {
+      "check": "Orders",
+      "status": "✅",
+      "detail": "null órdenes totales"
+    },
+    {
+      "check": "Usuarios",
+      "status": "✅",
+      "detail": "null usuarios registrados"
+    },
+    {
+      "check": "Notifications",
+      "status": "✅",
+      "detail": "null notificaciones totales"
+    },
+    {
+      "check": "Notificaciones no leídas",
+      "status": "✅",
+      "detail": "null sin leer"
+    },
+    {
+      "check": "Coupons",
+      "status": "✅",
+      "detail": "null cupones totales"
+    },
+    {
+      "check": "Cupones activos",
+      "status": "✅",
+      "detail": "null cupones activos"
+    },
+    {
+      "check": "Extensión uuid-ossp",
+      "status": "✅",
+      "detail": "Requerida por schema (verificar en Dashboard → Database → Extensions)"
+    },
+    {
+      "check": "Extensión pg_net",
+      "status": "✅",
+      "detail": "Requerida por schema (verificar en Dashboard → Database → Extensions)"
+    }
+  ],
+  "errors": [
+    {
+      "check": "Tabla store_config",
+      "error": ""
+    },
+    {
+      "check": "Tabla usuarios_clientes",
+      "error": ""
+    },
+    {
+      "check": "Tabla products",
+      "error": ""
+    },
+    {
+      "check": "Tabla orders",
+      "error": ""
+    },
+    {
+      "check": "Tabla push_subscriptions",
+      "error": ""
+    },
+    {
+      "check": "Tabla coupons",
+      "error": ""
+    },
+    {
+      "check": "Tabla notifications",
+      "error": ""
+    },
+    {
+      "check": "Store Config",
+      "error": "permission denied for schema public"
+    },
+    {
+      "check": "Products",
+      "error": ""
+    },
+    {
+      "check": "Push Subscriptions",
+      "error": "permission denied for schema public"
+    }
+  ],
+  "summary": {
+    "passed": 26,
+    "warnings": 1,
+    "failed": 10
+  }
+}

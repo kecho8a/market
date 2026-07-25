@@ -1,0 +1,125 @@
+{
+  "timestamp": "2026-07-25T23:30:28.469Z",
+  "results": [
+    {
+      "test": "10 concurrent queries",
+      "category": "Load",
+      "status": "PASS",
+      "detail": "All succeeded in 341ms (avg 317ms)",
+      "duration": 341
+    },
+    {
+      "test": "25 concurrent queries",
+      "category": "Load",
+      "status": "PASS",
+      "detail": "All succeeded in 304ms (avg 196ms)",
+      "duration": 304
+    },
+    {
+      "test": "50 concurrent queries",
+      "category": "Load",
+      "status": "PASS",
+      "detail": "All succeeded in 318ms (avg 199ms)",
+      "duration": 318
+    },
+    {
+      "test": "100 concurrent queries",
+      "category": "Load",
+      "status": "PASS",
+      "detail": "All succeeded in 583ms (avg 337ms)",
+      "duration": 583
+    },
+    {
+      "test": "Multiple concurrent updates",
+      "category": "Race Condition",
+      "status": "WARN",
+      "detail": "5 updates succeeded - no DB-level stock guard"
+    },
+    {
+      "test": "DB trigger handles stock",
+      "category": "Race Condition",
+      "status": "PASS",
+      "detail": "Stock decrement happens in PostgreSQL trigger (SECURITY DEFINER)"
+    },
+    {
+      "test": "20 notifications inserted",
+      "category": "Concurrent Notif",
+      "status": "PASS",
+      "detail": "All in 173ms",
+      "duration": 173
+    },
+    {
+      "test": "System handles burst",
+      "category": "Concurrent Notif",
+      "status": "PASS",
+      "detail": "No errors with 20 simultaneous inserts"
+    },
+    {
+      "test": "Products (all active)",
+      "category": "Performance",
+      "status": "PASS",
+      "detail": "68 rows in 204ms",
+      "duration": 204
+    },
+    {
+      "test": "Products (with stock)",
+      "category": "Performance",
+      "status": "PASS",
+      "detail": "68 rows in 96ms",
+      "duration": 96
+    },
+    {
+      "test": "Orders (recent)",
+      "category": "Performance",
+      "status": "PASS",
+      "detail": "5 rows in 88ms",
+      "duration": 88
+    },
+    {
+      "test": "Users (all)",
+      "category": "Performance",
+      "status": "PASS",
+      "detail": "4 rows in 91ms",
+      "duration": 91
+    },
+    {
+      "test": "Notifications (unread)",
+      "category": "Performance",
+      "status": "PASS",
+      "detail": "17 rows in 88ms",
+      "duration": 88
+    },
+    {
+      "test": "Store config",
+      "category": "Performance",
+      "status": "PASS",
+      "detail": "1 rows in 97ms",
+      "duration": 97
+    },
+    {
+      "test": "Push subscriptions",
+      "category": "Performance",
+      "status": "PASS",
+      "detail": "24 rows in 104ms",
+      "duration": 104
+    },
+    {
+      "test": "10 users served simultaneously",
+      "category": "Concurrent Users",
+      "status": "PASS",
+      "detail": "All successful in 353ms",
+      "duration": 353
+    },
+    {
+      "test": "Data consistency",
+      "category": "Concurrent Users",
+      "status": "PASS",
+      "detail": "Avg 5.0 products per user query"
+    }
+  ],
+  "summary": {
+    "passed": 16,
+    "warnings": 1,
+    "failed": 0
+  }
+}

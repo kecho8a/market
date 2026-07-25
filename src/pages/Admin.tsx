@@ -34,7 +34,8 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
     updateOrderStatus, updateOrderItems, addNotification, toggleNotificationReadStatus, deleteNotification,
     updateAdminCredentials, adminUser, adminPass, users, updateUserByAdmin,
     addCategory, deleteCategory, updateCategory, 
-    coupons, addCoupon, updateCoupon, deleteCoupon, clearAllNotifications
+    coupons, addCoupon, updateCoupon, deleteCoupon, clearAllNotifications,
+    isSuperadmin
   } = useApp();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -2114,7 +2115,8 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
       {/* ----------------- SUBSECTION 5: SITE SYSTEM CONFIGS ----------------- */}
       {adminSection === 'settings' && (
         <div className="flex flex-col gap-6 animate-fade-in">
-          {/* MÓDULO DE RESPALDO DE SEGURIDAD */}
+          {/* MÓDULO DE RESPALDO DE SEGURIDAD - Solo Superadmin */}
+          {isSuperadmin && (
           <div className="flex flex-col gap-4 p-5 border border-amber-200 rounded-2xl bg-amber-50 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-amber-100 text-amber-600 rounded-xl">
@@ -2139,8 +2141,10 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               Restaurar Copia de Seguridad
             </button>
           </div>
+          )}
 
-          {/* PRUEBA DE NOTIFICACIONES PUSH */}
+          {/* PRUEBA DE NOTIFICACIONES PUSH - Solo Superadmin */}
+          {isSuperadmin && (
           <div className="flex flex-col gap-4 p-5 border border-violet-200 rounded-2xl bg-violet-50 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-violet-100 text-violet-600 rounded-xl">
@@ -2179,8 +2183,10 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               Ejecutar Test de Notificación Push
             </button>
           </div>
+          )}
 
-          {/* MANTENIMIENTO TÉCNICO DE LA APP */}
+          {/* MANTENIMIENTO TÉCNICO DE LA APP - Solo Superadmin */}
+          {isSuperadmin && (
           <div className="flex flex-col gap-4 p-5 border border-slate-200 rounded-2xl bg-white shadow-sm">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-slate-100 text-slate-600 rounded-xl">
@@ -2198,6 +2204,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               Forzar Actualización Global
             </button>
           </div>
+          )}
 
           {/* GESTIÓN DE CATEGORÍAS (DEPARTAMENTOS) */}
           <div className="flex flex-col gap-4 p-4 border border-slate-200 rounded-xl bg-white shadow-sm">
@@ -2862,6 +2869,8 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               </div>
             </div>
 
+            {/* Configuración Push Webhook - Solo Superadmin */}
+            {isSuperadmin && (
             <div className="col-span-2 border-t border-slate-100 pt-3 flex flex-col gap-3">
               <span className="text-[10px] uppercase font-mono text-slate-500 block pb-1">Configuración del Motor Push (VAPID / Webhook)</span>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
@@ -2890,7 +2899,10 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                 Esta configuración conecta Supabase con el Worker de Cloudflare para procesar los envíos reales a los navegadores.
               </p>
             </div>
+            )}
 
+            {/* Credenciales Admin - Solo Superadmin */}
+            {isSuperadmin && (
             <div className="col-span-2 border-t border-slate-100 pt-3 flex flex-col gap-2">
               <span className="text-[10px] uppercase font-mono text-slate-500 block pb-1">Credenciales de Acceso (Admin)</span>
               <div className="grid grid-cols-2 gap-2 text-xs">
@@ -2929,6 +2941,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                 </button>
               </div>
             </div>
+            )}
 
             {/* Change Payment switches toggles */}
             <div className="col-span-2 border-t border-slate-100 pt-3 flex flex-col gap-2">

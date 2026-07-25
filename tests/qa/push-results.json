@@ -1,0 +1,138 @@
+{
+  "timestamp": "2026-07-25T23:30:01.721Z",
+  "results": [
+    {
+      "test": "First insert OK",
+      "category": "Push Dedup",
+      "status": "PASS",
+      "detail": "Notification 1 created"
+    },
+    {
+      "test": "DB rejects duplicate ID",
+      "category": "Push Dedup",
+      "status": "PASS",
+      "detail": "Primary key constraint prevents duplicate notifications"
+    },
+    {
+      "test": "SW dedup cache",
+      "category": "Push Dedup",
+      "status": "PASS",
+      "detail": "sw-push.js has 30s TTL dedup cache (recentlyShown Map)"
+    },
+    {
+      "test": "SW cache pruning",
+      "category": "Push Dedup",
+      "status": "PASS",
+      "detail": "Cache prunes at 100 entries with TTL check"
+    },
+    {
+      "test": "App state dedup",
+      "category": "Push Dedup",
+      "status": "PASS",
+      "detail": "AppContext.tsx checks prev.some(n => n.id === notifId) before insert"
+    },
+    {
+      "test": "10 notifications sent",
+      "category": "Batch Push",
+      "status": "PASS",
+      "detail": "All 10 notifications created in 415ms",
+      "duration": 415
+    },
+    {
+      "test": "All persisted in DB",
+      "category": "Batch Push",
+      "status": "PASS",
+      "detail": "10 notifications verified in database"
+    },
+    {
+      "test": "Webhook response mix",
+      "category": "Batch Push",
+      "status": "WARN",
+      "detail": "Statuses: 200, 200, 200, 200, 200"
+    },
+    {
+      "test": "All subs have valid keys",
+      "category": "Subscriptions",
+      "status": "PASS",
+      "detail": "24 subscriptions with endpoint + p256dh + auth"
+    },
+    {
+      "test": "No duplicate endpoints",
+      "category": "Subscriptions",
+      "status": "PASS",
+      "detail": "24 unique endpoints"
+    },
+    {
+      "test": "20 subs without phone",
+      "category": "Subscriptions",
+      "status": "WARN",
+      "detail": "These won't receive targeted notifications"
+    },
+    {
+      "test": "register-subscription works",
+      "category": "Subscriptions",
+      "status": "PASS",
+      "detail": "Endpoint accepts and saves subscriptions"
+    },
+    {
+      "test": "todos notification created",
+      "category": "Targeting",
+      "status": "PASS",
+      "detail": "Insert successful"
+    },
+    {
+      "test": "personal notification created",
+      "category": "Targeting",
+      "status": "PASS",
+      "detail": "Insert successful"
+    },
+    {
+      "test": "admin notification created",
+      "category": "Targeting",
+      "status": "PASS",
+      "detail": "Insert successful"
+    },
+    {
+      "test": "request notification created",
+      "category": "Targeting",
+      "status": "PASS",
+      "detail": "Insert successful"
+    },
+    {
+      "test": "Anon can read todos",
+      "category": "Targeting",
+      "status": "PASS",
+      "detail": "5 public notifications visible"
+    },
+    {
+      "test": "Anon blocked from admin notifs",
+      "category": "Targeting",
+      "status": "PASS",
+      "detail": "RLS properly restricts admin notifications"
+    },
+    {
+      "test": "5 notifications inserted",
+      "category": "Concurrent Push",
+      "status": "PASS",
+      "detail": "All in 98ms",
+      "duration": 98
+    },
+    {
+      "test": "All notifications persisted",
+      "category": "Concurrent Push",
+      "status": "PASS",
+      "detail": "5 verified in DB"
+    },
+    {
+      "test": "Mixed webhook responses",
+      "category": "Concurrent Push",
+      "status": "WARN",
+      "detail": "Statuses: 200,200,200,200,200,200,200,200,200,200"
+    }
+  ],
+  "summary": {
+    "passed": 18,
+    "warnings": 3,
+    "failed": 0
+  }
+}
