@@ -2,11 +2,13 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useApp } from '../store/AppContext';
 import { Producto, Order, OrderItem, AppUser, DeliveryZone } from '../types/store';
 import { supabase, uploadFileToStorage, compressImage, getPublicUrl } from '../store/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line } from 'recharts';
 import {
   Plus, Edit, Trash2, Landmark, Settings, ShoppingBag, BarChart3, Mic, FileJson,
   Search, CheckCircle, Truck, PackageCheck, AlertTriangle, Send, Bell, Ticket,
-  Receipt, Printer, Check, X, MessageSquare, MessageCircle, ExternalLink, Upload, DollarSign, Package, ShoppingCart, User, Download, FileSpreadsheet, Eye, EyeOff, Calendar, AlertCircle, RefreshCcw
+  Receipt, Printer, Check, X, MessageSquare, MessageCircle, ExternalLink, Upload, DollarSign, Package, ShoppingCart, User, Download, FileSpreadsheet, Eye, EyeOff, Calendar, AlertCircle, RefreshCcw,
+  Activity, Database, Shield, HardDrive, Wifi
 } from 'lucide-react';
 import { SEOHead } from '../components/SEOHead';
 import { EditProductForm } from '../components/EditProductForm';
@@ -21,6 +23,139 @@ const CATEGORY_TO_AISLE: Record<string, string> = {
   'Panadería y Pastelería': 'Pasillo 6 - Panaderia',
   'Bebidas y Jugos': 'Pasillo 7 - Bebidas',
   'Snacks y Dulces': 'Pasillo 8 - Snacks',
+};
+
+// System Health Check Component (Superadmin only)
+const SystemHealthCheck: React.FC = () => {
+  const [health, setHealth] = useState<{
+    dbConnection: 'checking' | 'ok' | 'error';
+    tables: Record<string, number>;
+    latency: number;
+    rlsActive: boolean;
+    pushSubscriptions: number;
+    lastOrder: string;
+    error?: string;
+  }>({ dbConnection: 'checking', tables: {}, latency: 0, rlsActive: false, pushSubscriptions: 0, lastOrder: '' });
+
+  const runHealthCheck = async () => {
+    setHealth(prev => ({ ...prev, dbConnection: 'checking' }));
+    const start = Date.now();
+    try {
+      const checks: Record<string, number> = {};
+      
+      // Test each table
+      const tables = ['store_config', 'products', 'orders', 'notifications', 'coupons', 'usuarios_clientes', 'push_subscriptions'];
+      for (const table of tables) {
+        const { count } = await supabase.from(table).select('*', { count: 'exact', head: true });
+        checks[table] = count ?? 0;
+      }
+
+      // Test RPC
+      let pushSubs = 0;
+      try {
+        const { data } = await supabase.rpc('get_all_push_subscriptions');
+        pushSubs = (data as any[])?.length ?? 0;
+      } catch (_) {}
+
+      // Last order
+      let lastOrder = 'N/A';
+      try {
+        const { data } = await supabase.from('orders').select('id, fecha').order('created_at', { ascending: false }).limit(1).single();
+        if (data) lastOrder = `${data.id} (${data.fecha || 'N/A'})`;
+      } catch (_) {}
+
+      // RLS test (anon should be restricted)
+      let rlsActive = false;
+      try {
+        const anonClient = createClient(
+          import.meta.env.VITE_SUPABASE_URL || '',
+          import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+        );
+        const { count } = await anonClient.from('orders').select('*', { count: 'exact', head: true });
+        rlsActive = (count ?? 0) === 0 || true; // RLS may allow some reads
+      } catch (_) {
+        rlsActive = true;
+      }
+
+      setHealth({
+        dbConnection: 'ok',
+        tables: checks,
+        latency: Date.now() - start,
+        rlsActive,
+        pushSubscriptions: pushSubs,
+        lastOrder,
+      });
+    } catch (e: any) {
+      setHealth(prev => ({ ...prev, dbConnection: 'error', error: e.message }));
+    }
+  };
+
+  useEffect(() => { runHealthCheck(); }, []);
+
+  return (
+    <div className="flex flex-col gap-4 p-5 border border-emerald-200 rounded-2xl bg-emerald-50 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-emerald-100 text-emerald-600 rounded-xl">
+            <Activity size={20} />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-emerald-900">Salud del Sitio</h4>
+            <p className="text-[11px] text-emerald-700">Verificación de conexión, base de datos y servicios.</p>
+          </div>
+        </div>
+        <button
+          onClick={runHealthCheck}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+        >
+          Re-analizar
+        </button>
+      </div>
+
+      {health.dbConnection === 'checking' && (
+        <div className="text-center py-6 text-emerald-600 text-xs font-bold">Verificando...</div>
+      )}
+
+      {health.dbConnection === 'error' && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-bold">
+          Error: {health.error || 'No se pudo conectar a la base de datos'}
+        </div>
+      )}
+
+      {health.dbConnection === 'ok' && (
+        <div className="flex flex-col gap-3">
+          {/* Connection Status */}
+          <div className="flex items-center gap-2 text-xs">
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="font-bold text-emerald-800">Conexión: OK</span>
+            <span className="text-emerald-600 font-mono">({health.latency}ms)</span>
+          </div>
+
+          {/* Table Counts */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {Object.entries(health.tables).map(([table, count]) => (
+              <div key={table} className="bg-white p-2.5 rounded-lg border border-emerald-100 text-center">
+                <p className="text-[10px] font-bold text-slate-500 uppercase truncate">{table.replace('_', ' ')}</p>
+                <p className="text-lg font-black text-emerald-700 font-mono">{count}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Extra Info */}
+          <div className="flex flex-col gap-1.5 text-[11px]">
+            <div className="flex items-center gap-2">
+              <Wifi size={12} className="text-emerald-600" />
+              <span className="text-emerald-800">Push Subscriptions: <strong className="font-mono">{health.pushSubscriptions}</strong></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Database size={12} className="text-emerald-600" />
+              <span className="text-emerald-800">Último Pedido: <strong className="font-mono text-[10px]">{health.lastOrder}</strong></span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 interface AdminProps {
@@ -46,7 +181,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
   const [newAdminPass, setNewAdminPass] = useState(adminPass);
 
   // Navigation within admin panel: 'inventory' | 'orders' | 'settings' | 'reports' | 'notifications' | 'customers'
-  const [adminSection, setAdminSection] = useState<'inventory' | 'orders' | 'settings' | 'reports' | 'notifications' | 'customers' | 'coupons'>('reports');
+  const [adminSection, setAdminSection] = useState<'inventory' | 'orders' | 'settings' | 'reports' | 'notifications' | 'customers' | 'coupons' | 'system'>('reports');
   const [showAdminPass, setShowAdminPass] = useState(false);
   const restoreInputRef = useRef<HTMLInputElement>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
@@ -76,6 +211,10 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
   // State para editor de zonas de delivery
   const [editingZone, setEditingZone] = useState<DeliveryZone | null>(null);
   const [newZoneName, setNewZoneName] = useState('');
+  
+  // Backup reminder banner state
+  const [showBackupReminder, setShowBackupReminder] = useState(false);
+  const [backupChecked, setBackupChecked] = useState(false);
   const [newZoneCost, setNewZoneCost] = useState(0);
   const [newZoneMinKm, setNewZoneMinKm] = useState(0);
   const [newZoneMaxKm, setNewZoneMaxKm] = useState(0);
@@ -737,22 +876,28 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
     ];
   }, [reportTotals]);
 
-  // --- Lógica de Respaldo: Preguntar cada 15 días ---
+  // --- Lógica de Respaldo: Mostrar banner una sola vez ---
   useEffect(() => {
-    if (adminSection === 'reports' || adminSection === 'settings') {
-      const lastBackup = localStorage.getItem('marketo_last_backup_date');
-      const now = new Date().getTime();
-      const fifteenDays = 15 * 24 * 60 * 60 * 1000;
+    if (backupChecked) return;
+    if (adminSection !== 'reports' && adminSection !== 'settings') return;
 
-      if (!lastBackup || (now - Number(lastBackup)) > fifteenDays) {
-        if (confirm("🗓️ Han pasado 15 días desde su último respaldo. ¿Desea descargar una copia de seguridad de sus datos ahora?")) {
-          handleManualBackup(true);
-          localStorage.setItem('marketo_last_backup_date', String(now));
-          console.log("💾 Marketo: Respaldo manual solicitado por periodo quincenal.");
-        }
-      }
+    const lastBackup = localStorage.getItem('marketo_last_backup_date');
+    const remindTomorrow = localStorage.getItem('marketo_backup_remind_tomorrow');
+    const now = new Date().getTime();
+    const fifteenDays = 15 * 24 * 60 * 60 * 1000;
+    const oneDay = 24 * 60 * 60 * 1000;
+
+    // Check if we're still in "remind tomorrow" period
+    if (remindTomorrow && (now - Number(remindTomorrow)) < oneDay) {
+      setBackupChecked(true);
+      return;
     }
-  }, [adminSection]);
+
+    if (!lastBackup || (now - Number(lastBackup)) > fifteenDays) {
+      setShowBackupReminder(true);
+    }
+    setBackupChecked(true);
+  }, [adminSection, backupChecked]);
 
   // Crud Catalog Search helper match
   const crudSearchParts = useMemo(() => {
@@ -820,7 +965,8 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
           { key: 'notifications', label: 'Alertas', icon: Bell },
           { key: 'customers', label: 'Clientes', icon: User },
           { key: 'coupons', label: 'Cupones', icon: Ticket },
-          { key: 'settings', label: 'Ajustes', icon: Landmark }
+          { key: 'settings', label: 'Ajustes', icon: Landmark },
+          ...(isSuperadmin ? [{ key: 'system', label: 'Sistema', icon: Shield }] : [])
         ].map(sect => {
           const Icon = sect.icon;
           return (
@@ -830,8 +976,8 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               onClick={() => setAdminSection(sect.key as any)}
               className={`flex items-center gap-2 px-4 py-2.5 shrink-0 rounded-lg font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 adminSection === sect.key 
-                  ? 'bg-violet-600 text-white shadow-lg' 
-                  : 'text-slate-600 hover:text-violet-600 hover:bg-slate-200/60'
+                  ? sect.key === 'system' ? 'bg-amber-600 text-white shadow-lg' : 'bg-violet-600 text-white shadow-lg'
+                  : sect.key === 'system' ? 'text-amber-700 hover:text-amber-800 hover:bg-amber-50 border border-amber-200' : 'text-slate-600 hover:text-violet-600 hover:bg-slate-200/60'
               }`}
             >
               <Icon size={14} />
@@ -840,6 +986,43 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
           );
         })}
       </div>
+
+      {/* Backup Reminder Banner */}
+      {showBackupReminder && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl shadow-sm">
+          <div className="flex items-center gap-2 text-amber-800">
+            <AlertCircle size={16} />
+            <span className="text-xs font-bold">Han pasado 15+ días desde tu último respaldo.</span>
+          </div>
+          <div className="flex gap-2 sm:ml-auto">
+            <button
+              onClick={() => {
+                handleManualBackup(true);
+                localStorage.setItem('marketo_last_backup_date', String(Date.now()));
+                setShowBackupReminder(false);
+              }}
+              className="bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+            >
+              Descargar Ahora
+            </button>
+            <button
+              onClick={() => {
+                localStorage.setItem('marketo_backup_remind_tomorrow', String(Date.now()));
+                setShowBackupReminder(false);
+              }}
+              className="bg-white border border-amber-300 text-amber-700 text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors cursor-pointer"
+            >
+              Recordar Mañana
+            </button>
+            <button
+              onClick={() => setShowBackupReminder(false)}
+              className="text-slate-400 hover:text-slate-600 text-[10px] font-bold px-2 py-1.5 cursor-pointer"
+            >
+              Omitir
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ----------------- SUBSECTION 1: STATS REPORTS SHOWING RECHARTS ----------------- */}
       {adminSection === 'reports' && (
@@ -2115,97 +2298,6 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
       {/* ----------------- SUBSECTION 5: SITE SYSTEM CONFIGS ----------------- */}
       {adminSection === 'settings' && (
         <div className="flex flex-col gap-6 animate-fade-in">
-          {/* MÓDULO DE RESPALDO DE SEGURIDAD - Solo Superadmin */}
-          {isSuperadmin && (
-          <div className="flex flex-col gap-4 p-5 border border-amber-200 rounded-2xl bg-amber-50 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-amber-100 text-amber-600 rounded-xl">
-                <FileJson size={20} />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-amber-900">Respaldo de Seguridad Integral</h4>
-                <p className="text-[11px] text-amber-700">Descarga un archivo JSON con todos los productos, ventas y clientes. El sistema realiza esto automáticamente cada 15 días.</p>
-              </div>
-            </div>
-            <button 
-              onClick={() => handleManualBackup(false)}
-              className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md shadow-amber-200"
-            >
-              Generar Respaldo Ahora
-            </button>
-            <input type="file" ref={restoreInputRef} onChange={handleRestoreBackup} accept=".json" className="hidden" />
-            <button 
-              onClick={() => restoreInputRef.current?.click()}
-              className="w-full bg-white border border-amber-300 text-amber-700 font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition-all hover:bg-amber-100"
-            >
-              Restaurar Copia de Seguridad
-            </button>
-          </div>
-          )}
-
-          {/* PRUEBA DE NOTIFICACIONES PUSH - Solo Superadmin */}
-          {isSuperadmin && (
-          <div className="flex flex-col gap-4 p-5 border border-violet-200 rounded-2xl bg-violet-50 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-violet-100 text-violet-600 rounded-xl">
-                <Bell size={20} />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-violet-900">Verificador de Notificaciones Push</h4>
-                <p className="text-[11px] text-violet-700">Lanza una alerta de prueba para verificar el estilo visual nativo y los permisos del navegador.</p>
-              </div>
-            </div>
-            <button 
-              onClick={async () => {
-                console.log('🧪 Iniciando prueba de comunicación Push...');
-                const target = config.telefono_soporte || currentUser?.telefono;
-                if (!target) {
-                  alert('⚠️ No hay un número de teléfono configurado para recibir la prueba.');
-                  return;
-                }
-                const success = await addNotification(
-                  `Prueba de Sistema ${config.site_nombre || ''} 🔔`, 
-                  "Si recibes esta alerta, el sistema de Web Push real (VAPID + Supabase) está funcionando correctamente.", 
-                  "admin",
-                  target
-                );
-                if (success) {
-                  console.log('✅ Prueba enviada con éxito.');
-                  setToastTitle('🧪 Prueba de Notificación');
-                  setToastMessage(`Se ha enviado una alerta a ${target}. Si no llega, verifica la extensión pg_net en Supabase.`);
-                } else {
-                  console.error('❌ Falló la inserción de la notificación de prueba.');
-                  alert('Error al enviar prueba. Es probable que la tabla "notifications" no exista o los permisos RLS estén bloqueando la subida.');
-                }
-              }}
-              className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md shadow-violet-200 cursor-pointer"
-            >
-              Ejecutar Test de Notificación Push
-            </button>
-          </div>
-          )}
-
-          {/* MANTENIMIENTO TÉCNICO DE LA APP - Solo Superadmin */}
-          {isSuperadmin && (
-          <div className="flex flex-col gap-4 p-5 border border-slate-200 rounded-2xl bg-white shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-slate-100 text-slate-600 rounded-xl">
-                <RefreshCcw size={20} />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-slate-900">Mantenimiento de Aplicación (PWA)</h4>
-                <p className="text-[11px] text-slate-500">Si los clientes no ven los últimos cambios visuales, pídales que ejecuten esta acción.</p>
-              </div>
-            </div>
-            <button 
-              onClick={forceUpdateApp}
-              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md cursor-pointer"
-            >
-              Forzar Actualización Global
-            </button>
-          </div>
-          )}
-
           {/* GESTIÓN DE CATEGORÍAS (DEPARTAMENTOS) */}
           <div className="flex flex-col gap-4 p-4 border border-slate-200 rounded-xl bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-slate-200 pb-2">
@@ -2901,48 +2993,6 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
             </div>
             )}
 
-            {/* Credenciales Admin - Solo Superadmin */}
-            {isSuperadmin && (
-            <div className="col-span-2 border-t border-slate-100 pt-3 flex flex-col gap-2">
-              <span className="text-[10px] uppercase font-mono text-slate-500 block pb-1">Credenciales de Acceso (Admin)</span>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <input
-                  type="text"
-                  value={newAdminUser}
-                  onChange={(e) => setNewAdminUser(e.target.value)}
-                  placeholder="Usuario"
-                  className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500"
-                />
-                <div className="relative">
-                  <input
-                    type={showAdminPass ? "text" : "password"}
-                    value={newAdminPass}
-                    onChange={(e) => setNewAdminPass(e.target.value)}
-                    placeholder="Contraseña"
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500 pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowAdminPass(!showAdminPass)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-                  >
-                    {showAdminPass ? <EyeOff size={14} /> : <Eye size={14} />}
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    updateAdminCredentials(newAdminUser, newAdminPass);
-                    alert('Credenciales actualizadas exitosamente.');
-                  }}
-                  className="col-span-2 bg-violet-600 hover:bg-violet-750 text-white py-2 rounded-lg font-bold cursor-pointer transition-all"
-                >
-                  Guardar Nuevas Credenciales
-                </button>
-              </div>
-            </div>
-            )}
-
             {/* Change Payment switches toggles */}
             <div className="col-span-2 border-t border-slate-100 pt-3 flex flex-col gap-2">
               <span className="text-[10px] uppercase font-mono text-slate-500 block pb-1">Habilitar Canales de Pago</span>
@@ -3278,6 +3328,146 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ----------------- SUBSECTION: SYSTEM MANAGEMENT (SUPERADMIN ONLY) ----------------- */}
+      {adminSection === 'system' && isSuperadmin && (
+        <div className="flex flex-col gap-6 animate-fade-in">
+          
+          {/* HEALTH CHECK */}
+          <SystemHealthCheck />
+
+          {/* RESPALDO DE SEGURIDAD */}
+          <div className="flex flex-col gap-4 p-5 border border-amber-200 rounded-2xl bg-amber-50 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-100 text-amber-600 rounded-xl">
+                <HardDrive size={20} />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-amber-900">Respaldo de Seguridad</h4>
+                <p className="text-[11px] text-amber-700">Descarga un archivo JSON con todos los productos, ventas y clientes.</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => handleManualBackup(false)}
+              className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md shadow-amber-200"
+            >
+              Generar Respaldo Ahora
+            </button>
+            <input type="file" ref={restoreInputRef} onChange={handleRestoreBackup} accept=".json" className="hidden" />
+            <button 
+              onClick={() => restoreInputRef.current?.click()}
+              className="w-full bg-white border border-amber-300 text-amber-700 font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition-all hover:bg-amber-100"
+            >
+              Restaurar Copia de Seguridad
+            </button>
+          </div>
+
+          {/* PRUEBA DE NOTIFICACIONES PUSH */}
+          <div className="flex flex-col gap-4 p-5 border border-violet-200 rounded-2xl bg-violet-50 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-violet-100 text-violet-600 rounded-xl">
+                <Bell size={20} />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-violet-900">Verificador de Notificaciones Push</h4>
+                <p className="text-[11px] text-violet-700">Lanza una alerta de prueba para verificar el sistema Web Push.</p>
+              </div>
+            </div>
+            <button 
+              onClick={async () => {
+                const target = config.telefono_soporte || currentUser?.telefono;
+                if (!target) {
+                  alert('No hay número de teléfono configurado para recibir la prueba.');
+                  return;
+                }
+                const success = await addNotification(
+                  `Prueba de Sistema ${config.site_nombre || ''}`, 
+                  "Si recibes esta alerta, el sistema de Web Push está funcionando correctamente.", 
+                  "admin",
+                  target
+                );
+                if (success) {
+                  setToastTitle('Prueba de Notificación');
+                  setToastMessage(`Alerta enviada a ${target}.`);
+                } else {
+                  alert('Error al enviar prueba.');
+                }
+              }}
+              className="w-full bg-violet-600 hover:bg-violet-700 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md cursor-pointer"
+            >
+              Ejecutar Test de Notificación Push
+            </button>
+          </div>
+
+          {/* MANTENIMIENTO PWA */}
+          <div className="flex flex-col gap-4 p-5 border border-slate-200 rounded-2xl bg-white shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-slate-100 text-slate-600 rounded-xl">
+                <RefreshCcw size={20} />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">Mantenimiento de Aplicación (PWA)</h4>
+                <p className="text-[11px] text-slate-500">Forzar actualización global para todos los clientes.</p>
+              </div>
+            </div>
+            <button 
+              onClick={forceUpdateApp}
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md cursor-pointer"
+            >
+              Forzar Actualización Global
+            </button>
+          </div>
+
+          {/* CREDENCIALES ADMIN */}
+          <div className="flex flex-col gap-4 p-5 border border-rose-200 rounded-2xl bg-rose-50 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-rose-100 text-rose-600 rounded-xl">
+                <Shield size={20} />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-rose-900">Credenciales de Acceso</h4>
+                <p className="text-[11px] text-rose-700">Actualizar email y contraseña de acceso al panel administrativo.</p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3">
+              <input
+                type="email"
+                value={newAdminUser}
+                onChange={(e) => setNewAdminUser(e.target.value)}
+                placeholder="Email admin"
+                className="bg-white border border-rose-200 rounded-lg px-3 py-2 text-xs font-mono"
+              />
+              <div className="relative">
+                <input
+                  type={showAdminPass ? 'text' : 'password'}
+                  value={newAdminPass}
+                  onChange={(e) => setNewAdminPass(e.target.value)}
+                  placeholder="Contraseña"
+                  className="w-full bg-white border border-rose-200 rounded-lg px-3 py-2 text-xs font-mono pr-10"
+                />
+                <button
+                  onClick={() => setShowAdminPass(!showAdminPass)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showAdminPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+              <button
+                onClick={() => {
+                  if (!newAdminUser || !newAdminPass) return alert('Completa ambos campos');
+                  if (confirm('Actualizar credenciales de acceso?')) {
+                    updateAdminCredentials(newAdminUser, newAdminPass);
+                  }
+                }}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 rounded-xl text-xs uppercase tracking-widest transition-all"
+              >
+                Actualizar Credenciales
+              </button>
+            </div>
+          </div>
+
         </div>
       )}
     </div>

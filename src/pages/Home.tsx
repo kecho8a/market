@@ -254,7 +254,7 @@ export const Home: React.FC<HomeProps> = ({
             </div>
             <div>
               <h4 className="font-bold text-sm uppercase">Hoy no trabajamos</h4>
-              <p className="text-xs text-white/90">Estamos tomando un descanso. Puedes ver el catálogo, pero el procesamiento de pedidos está pausado.</p>
+              <p className="text-xs text-white/90">{config.mensaje_cierre || 'Estamos tomando un descanso. Puedes ver el catálogo, pero el procesamiento de pedidos está pausado.'}</p>
             </div>
           </div>
         </div>

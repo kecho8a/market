@@ -99,6 +99,8 @@ export interface StoreConfig {
   banner_texts?: string[];
   categories?: string[];
   mensaje_bienvenida?: string;
+  mensaje_cierre?: string;
+  esta_abierta?: boolean;
   push_webhook_url?: string;
   push_webhook_secret?: string;
   // Banner de Recomendados (panel cliente)

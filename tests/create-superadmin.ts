@@ -23,14 +23,14 @@ async function main() {
     return;
   }
 
-  console.log(`   Encontrados ${existing.users.length} usuarios en Auth:\n`);
-  for (const user of existing.users) {
+  console.log(`   Encontrados ${(existing.users as any[]).length} usuarios en Auth:\n`);
+  for (const user of (existing.users as any[])) {
     console.log(`   - ${user.email} | role: ${user.app_metadata?.role || 'none'} | confirmed: ${user.email_confirmed_at ? 'yes' : 'no'}`);
   }
 
   // 2. Buscar superadmin
-  const foundSuper = existing.users.find(u => u.email === SUPERADMIN_EMAIL);
-  const foundAdmin = existing.users.find(u => u.email === ADMIN_EMAIL);
+  const foundSuper = (existing.users as any[]).find(u => u.email === SUPERADMIN_EMAIL);
+  const foundAdmin = (existing.users as any[]).find(u => u.email === ADMIN_EMAIL);
 
   // 3. Crear o actualizar superadmin
   console.log('\n═══ SUPERADMIN ═══');
@@ -124,7 +124,7 @@ async function main() {
   // 5. Verificar final
   console.log('\n═══ VERIFICACIÓN FINAL ═══');
   const { data: finalList } = await supabase.auth.admin.listUsers();
-  for (const user of finalList?.users || []) {
+  for (const user of (finalList?.users || []) as any[]) {
     if (user.email === SUPERADMIN_EMAIL || user.email === ADMIN_EMAIL) {
       const role = user.app_metadata?.role || 'none';
       const confirmed = user.email_confirmed_at ? 'confirmed' : 'UNCONFIRMED';
