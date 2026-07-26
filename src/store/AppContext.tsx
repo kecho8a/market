@@ -982,49 +982,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const initData = async () => {
       setIsGlobalLoading(true);
 
-      // Force refresh JWT to get latest app_metadata claims
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      // If no session at all, clear admin state
-      if (!session) {
-        if (localStorage.getItem('trv_admin_auth') === 'true') {
-          localStorage.removeItem('trv_admin_auth');
-          localStorage.removeItem('trv_superadmin');
-          setIsAdminAuthenticated(false);
-          setIsSuperadmin(false);
-        }
-      }
+      // Determine admin status from localStorage (already set by onAuthStateChange or previous session)
+      const isAdminLocal = localStorage.getItem('trv_admin_auth') === 'true';
+      const isSuperLocal = localStorage.getItem('trv_superadmin') === 'true';
 
-      // Force getUser to refresh claims from server; fall back to session.user on network error
-      let user = session?.user;
-      if (user) {
-        try {
-          const { data: userData, error: getUserErr } = await supabase.auth.getUser();
-          if (userData?.user) {
-            user = userData.user;
-          } else if (getUserErr) {
-            console.warn('getUser() failed, using cached session user:', getUserErr.message);
-          }
-        } catch (_) {
-          console.warn('getUser() network error, using cached session user');
+      // Try to get fresh session data for user info and to include inactive products
+      let user = null;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        user = session?.user || null;
+        // Force getUser to refresh claims
+        if (user) {
+          try {
+            const { data: userData } = await supabase.auth.getUser();
+            if (userData?.user) user = userData.user;
+          } catch (_) {}
         }
-      }
+      } catch (_) {}
 
-      const isAdmin = user?.email === 'kecho8a@gmail.com'
+      const isAdmin = isAdminLocal
+                   || user?.email === 'kecho8a@gmail.com'
                    || user?.app_metadata?.role === 'admin'
                    || user?.email === SUPERADMIN_EMAIL;
-      const isSuper = user?.email === SUPERADMIN_EMAIL
+      const isSuper = isSuperLocal
+                   || user?.email === SUPERADMIN_EMAIL
                    || user?.app_metadata?.role === 'superadmin';
 
-      // Only clear admin state if session exists but user is definitely not admin
-      if (session && !isAdmin && localStorage.getItem('trv_admin_auth') === 'true') {
-        localStorage.removeItem('trv_admin_auth');
-        localStorage.removeItem('trv_superadmin');
-        setIsAdminAuthenticated(false);
-        setIsSuperadmin(false);
-      }
-
-      // Sincronizar admin/superadmin desde sesión validada
+      // Sync from fresh session if available (but never clear from here - onAuthStateChange handles that)
       if (isAdmin) {
         setIsAdminAuthenticated(true);
         localStorage.setItem('trv_admin_auth', 'true');
@@ -1034,7 +1018,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         localStorage.setItem('trv_superadmin', 'true');
       }
 
-      // Marcar sesión como validada para evitar flash de UI
       setSessionValidated(true);
 
       // Cargar productos de Supabase (si es admin, incluir inactivos)
@@ -1144,9 +1127,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [currentUser]); // Only re-run when user changes, NOT on admin state change
 
   // Listener de auth state para sincronizar sesión de Supabase con estado local
+  // Handles SIGNED_IN, TOKEN_REFRESHED, and INITIAL_SESSION (fired on page reload with valid session)
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
         if (session) {
           const isAdmin = session.user?.email === 'kecho8a@gmail.com'
                        || session.user?.app_metadata?.role === 'admin'
@@ -1172,34 +1156,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => subscription.unsubscribe();
   }, []);
 
-  // Periodic session validation (every 5 minutes)
-  // Uses getUser() to force server check; only clears state after 3 consecutive failures
-  const sessionFailCountRef = useRef(0);
-  useEffect(() => {
-    if (!isAdminAuthenticated) return;
-    sessionFailCountRef.current = 0;
-    const interval = setInterval(async () => {
-      try {
-        const { data, error } = await supabase.auth.getUser();
-        if (error || !data?.user) {
-          sessionFailCountRef.current += 1;
-          if (sessionFailCountRef.current >= 3) {
-            console.error('Session validation failed 3 times, logging out admin');
-            setIsAdminAuthenticated(false);
-            setIsSuperadmin(false);
-            localStorage.removeItem('trv_admin_auth');
-            localStorage.removeItem('trv_superadmin');
-          }
-        } else {
-          sessionFailCountRef.current = 0;
-        }
-      } catch (_) {
-        // Network error - increment but don't clear state
-        sessionFailCountRef.current += 1;
-      }
-    }, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [isAdminAuthenticated]);
+  // Session validation is handled entirely by onAuthStateChange above.
+  // No periodic polling needed - it would cause false logouts on network errors.
 
   const toggleFavorite = (partId: string) => {
     setFavorites(prev => 

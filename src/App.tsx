@@ -18,7 +18,7 @@ import {
 import { SEOHead } from './components/SEOHead';
 
 function AppContent() {
-  const { cart, config, addToCart, isAdminAuthenticated, isSuperadmin, authenticateAdmin, logoutAdmin, currentUser, notifications, displayCurrency, toggleCurrency, isGlobalLoading, products } = useApp();
+  const { cart, config, addToCart, isAdminAuthenticated, isSuperadmin, authenticateAdmin, logoutAdmin, currentUser, notifications, displayCurrency, toggleCurrency, isGlobalLoading, parts } = useApp();
 
   // Cache-busting para el logo: fuerza recarga cuando cambia
   const logoUrl = useMemo(() => config.logo_url ? `${config.logo_url}?v=${encodeURIComponent(config.logo_url)}` : '', [config.logo_url]);
@@ -70,8 +70,8 @@ function AppContent() {
     const params = new URLSearchParams(window.location.search);
     const productId = params.get('id');
     const addToCartFromNotif = params.get('add_to_cart');
-    if (productId && products && products.length > 0) {
-      const product = products.find(p => p.id === productId);
+    if (productId && parts && parts.length > 0) {
+      const product = parts.find(p => p.id === productId);
       if (product) {
         if (addToCartFromNotif === '1' && product.stock > 0) {
           addToCart(product, 1);
@@ -83,7 +83,7 @@ function AppContent() {
         }
       }
     }
-  }, [products]);
+  }, [parts]);
 
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
