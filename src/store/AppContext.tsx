@@ -990,14 +990,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       let user = null;
       let hasSession = false;
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
         if (session) {
           user = session.user;
           hasSession = true;
-          // Force getUser to refresh claims
+          // Force getUser to refresh claims — if this fails, the session is truly invalid
           try {
-            const { data: userData } = await supabase.auth.getUser();
-            if (userData?.user) user = userData.user;
+            const { data: userData, error: userErr } = await supabase.auth.getUser();
+            if (userData?.user && !userErr) {
+              user = userData.user;
+            } else if (userErr) {
+              // getUser failed — session tokens are invalid/expired, force clean logout
+              console.warn('[Auth] Session tokens invalid, forcing clean state:', userErr.message);
+              await supabase.auth.signOut();
+              hasSession = false;
+              user = null;
+              // Clear admin state since session is invalid
+              if (isAdminLocal || isSuperLocal) {
+                localStorage.removeItem('trv_admin_auth');
+                localStorage.removeItem('trv_superadmin');
+                setIsAdminAuthenticated(false);
+                setIsSuperadmin(false);
+              }
+            }
           } catch (_) {}
         } else if (isAdminLocal || isSuperLocal) {
           // localStorage says we're admin but no session — try getUser() which can trigger token refresh
@@ -1006,20 +1021,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (userData?.user && !error) {
               user = userData.user;
               hasSession = true;
+            } else if (error) {
+              // Token invalid — force clean logout
+              console.warn('[Auth] No valid session, forcing clean state:', error.message);
+              await supabase.auth.signOut();
+              localStorage.removeItem('trv_admin_auth');
+              localStorage.removeItem('trv_superadmin');
+              setIsAdminAuthenticated(false);
+              setIsSuperadmin(false);
             }
           } catch (_) {}
         }
       } catch (_) {}
 
-      const isAdmin = isAdminLocal
-                   || user?.email === 'kecho8a@gmail.com'
+      const isAdmin = hasSession && (user?.email === 'kecho8a@gmail.com'
                    || user?.app_metadata?.role === 'admin'
-                   || user?.email === SUPERADMIN_EMAIL;
-      const isSuper = isSuperLocal
-                   || user?.email === SUPERADMIN_EMAIL
-                   || user?.app_metadata?.role === 'superadmin';
+                   || user?.email === SUPERADMIN_EMAIL);
+      const isSuper = hasSession && (user?.email === SUPERADMIN_EMAIL
+                   || user?.app_metadata?.role === 'superadmin');
 
-      // Sync from fresh session if available (but never clear from here - onAuthStateChange handles that)
+      // Only set admin state from a VALID session — never from stale localStorage alone
       if (isAdmin) {
         setIsAdminAuthenticated(true);
         localStorage.setItem('trv_admin_auth', 'true');
