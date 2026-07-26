@@ -171,10 +171,11 @@ self.addEventListener('push', function(event) {
     const payload = event.data.json();
     console.log('[SW Push] Notificación recibida:', payload);
 
-    const title     = payload.titulo  || payload.title  || 'Marketo Supermercado';
+    const storeName = payload.store_name || 'Marketo';
+    const title     = payload.titulo  || payload.title  || storeName;
     const body      = payload.mensaje || payload.body   || '';
     const icon      = payload.icon   || payload.badge || '/icon-192.png';
-    const badge     = '/badge.png';
+    const badge     = payload.badge  || icon;
     const image     = payload.imagen_url || payload.image || undefined;
     const urlToOpen = payload.link_url || payload.url || '/';
     const tag       = payload.tag || String(payload.id || Date.now());
@@ -191,19 +192,22 @@ self.addEventListener('push', function(event) {
     recentlyShown.set(tagKey, Date.now());
     pruneDedupCache();
 
+    // Build branded title: "🛒 Marketo — Título original"
+    const brandedTitle = title.includes(storeName) ? title : storeName + ' — ' + title;
+
     const options = {
       body: body,
       icon: icon,
       badge: badge,
       image: image,
-      vibrate: [200, 100, 200],
+      vibrate: [300, 100, 300, 100, 300],
       tag: tag,
       renotify: true,
       requireInteraction: true,
       silent: false,
       data: { url: urlToOpen, tag: tag, soundUrl: soundUrl },
       actions: [
-        { action: 'open',  title: 'Ver Detalles' },
+        { action: 'open',  title: '🛒 Ver Detalles' },
         { action: 'close', title: 'Cerrar' }
       ]
     };

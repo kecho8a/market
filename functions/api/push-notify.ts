@@ -113,6 +113,17 @@ export const onRequestPost: any = async (context: any) => {
     const { createClient } = await import('@supabase/supabase-js');
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // 4.1 Obtener config de la tienda (logo + nombre)
+    let storeName = 'Marketo';
+    let storeLogo = '/icon.png';
+    try {
+      const { data: cfg } = await supabase.from('store_config').select('site_nombre, logo_url').limit(1).single();
+      if (cfg) {
+        storeName = cfg.site_nombre || storeName;
+        storeLogo = cfg.logo_url || storeLogo;
+      }
+    } catch (_) {}
+
     // Filtrar destinatarios según tipo
     const tipo = record.tipo;
     const destinatarioTelefono = record.destinatario_telefono;
@@ -161,13 +172,17 @@ export const onRequestPost: any = async (context: any) => {
       });
     }
 
-    // 5. Payload Web Push
+    // 5. Payload Web Push - branded with store logo + name
     const payloadForSW = {
       title: titulo,
       body: mensaje,
       link_url: linkUrl,
       tag: String(record.id),
       id: String(record.id),
+      icon: storeLogo,
+      badge: storeLogo,
+      image: record.imagen_url || undefined,
+      store_name: storeName,
       requireInteraction: false,
       silent: false,
     };

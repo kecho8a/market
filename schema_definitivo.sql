@@ -419,9 +419,16 @@ RETURNS TRIGGER AS $$
 DECLARE
   v_webhook_url TEXT;
   v_webhook_secret TEXT;
+  v_site_nombre TEXT;
+  v_logo_url TEXT;
 BEGIN
   SELECT push_webhook_url, push_webhook_secret 
   INTO v_webhook_url, v_webhook_secret 
+  FROM public.store_config 
+  WHERE id = 1;
+
+  SELECT COALESCE(site_nombre, 'Marketo'), COALESCE(logo_url, '/icon.png')
+  INTO v_site_nombre, v_logo_url
   FROM public.store_config 
   WHERE id = 1;
 
@@ -431,22 +438,24 @@ BEGIN
       body := jsonb_build_object(
         'title', NEW.titulo,
         'body', NEW.mensaje,
-        'icon', COALESCE(NEW.imagen_url, '/icon.png'),
-        'badge', '/icon.png',
+        'icon', COALESCE(NEW.imagen_url, v_logo_url, '/icon.png'),
+        'badge', v_logo_url,
+        'store_name', v_site_nombre,
         'sound', 'default',
-        'vibrate', ARRAY[200, 100, 200],
+        'vibrate', ARRAY[300, 100, 300, 100, 300],
         'tag', 'marketo-' || NEW.id,
         'url', COALESCE(NEW.link_url, '/'),
         'record', jsonb_build_object(
           'id', NEW.id,
           'title', NEW.titulo,
           'body', NEW.mensaje,
-          'icon', COALESCE(NEW.imagen_url, '/icon.png'),
+          'icon', COALESCE(NEW.imagen_url, v_logo_url, '/icon.png'),
+          'badge', v_logo_url,
+          'store_name', v_site_nombre,
           'tag', 'marketo-' || NEW.id,
           'renotify', true,
-          'vibrate', ARRAY[200, 100, 200],
+          'vibrate', ARRAY[300, 100, 300, 100, 300],
           'sound', 'default',
-          'badge', '/icon.png',
           'titulo', NEW.titulo,
           'mensaje', NEW.mensaje,
           'imagen_url', COALESCE(NEW.imagen_url, ''),

@@ -786,23 +786,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               if (prev.some(n => n.id === newNotif.id)) return prev;
               return [newNotif, ...prev];
             });
-            playNotificationSound('update'); // Activar sonido para nuevos mensajes
-            if ('serviceWorker' in navigator && Notification.permission === 'granted') {
-              navigator.serviceWorker.ready.then(registration => {
-                registration.showNotification(`${config.site_nombre}: ${newNotif.titulo}`, {
-                  body: newNotif.mensaje,
-                  icon: config.logo_url || '/icon.png',
-                  image: newNotif.imagen_url,
-                  badge: '/icon.png',
-                  tag: `notif-${newNotif.id}`,
-                  renotify: true,
-                  requireInteraction: true,
-                  vibrate: [200, 100, 200],
-                  silent: false,
-                  data: { url: newNotif.link_url || '/' }
-                } as any);
-              });
-            }
+            playNotificationSound('update');
           }
         })
         // Escuchar cambios en Productos (CDC)
@@ -1452,14 +1436,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       payload: newOrder
     });
 
-    // Add notification specifically for the admin
-    addNotification(
-      'Nuevo Pedido Recibido',
-      `Se ha recibido un nuevo pedido con el ID: ${newOrder.id} del cliente "${newOrder.cliente_nombre}".`,
-      'admin'
-    );
-
-    // If the order has a targeted user or phone, notify them
+    // Notificación al admin: ya la maneja el DB trigger handle_new_order_actions
+    // Solo notificar al cliente
     if (newOrder.cliente_telefono) {
       addNotification(
         'Pedido Recibido con Éxito 📦',
@@ -1500,7 +1478,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       statusMsg += ` Tiempo estimado de entrega: ${estimatedTime}.`;
     }
     
-    if (targetPhone) {
+    if (targetPhone && status !== 'En camino') {
       addNotification('Estado de Pedido Actualizado', statusMsg, 'personal', targetPhone);
     }
     
