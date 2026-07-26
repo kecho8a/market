@@ -205,9 +205,10 @@ self.addEventListener('push', function(event) {
       renotify: true,
       requireInteraction: true,
       silent: false,
-      data: { url: urlToOpen, tag: tag, soundUrl: soundUrl },
+      data: { url: urlToOpen, tag: tag, soundUrl: soundUrl, add_to_cart: payload.add_to_cart || false },
       actions: [
-        { action: 'open',  title: '🛒 Ver Detalles' },
+        { action: 'open',  title: '🛒 Ver Producto' },
+        { action: 'add_cart', title: '🛒 Agregar al Carrito' },
         { action: 'close', title: 'Cerrar' }
       ]
     };
@@ -233,7 +234,14 @@ self.addEventListener('notificationclick', function(event) {
     event.notification.close();
     if (event.action === 'close') return;
 
-    const targetUrl = event.notification.data?.url || '/';
+    var targetUrl = event.notification.data?.url || '/';
+    
+    // Handle "Add to Cart" action - append add_to_cart param
+    if (event.action === 'add_cart') {
+      var separator = targetUrl.includes('?') ? '&' : '?';
+      targetUrl = targetUrl + separator + 'add_to_cart=1';
+    }
+
     event.waitUntil(
       self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
         for (const client of clientList) {

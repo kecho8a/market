@@ -173,6 +173,7 @@ export const onRequestPost: any = async (context: any) => {
     }
 
     // 5. Payload Web Push - branded with store logo + name
+    const hasProductLink = linkUrl && linkUrl.includes('id=');
     const payloadForSW = {
       title: titulo,
       body: mensaje,
@@ -183,6 +184,7 @@ export const onRequestPost: any = async (context: any) => {
       badge: storeLogo,
       image: record.imagen_url || undefined,
       store_name: storeName,
+      add_to_cart: hasProductLink,
       requireInteraction: false,
       silent: false,
     };

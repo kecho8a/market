@@ -18,7 +18,7 @@ import {
 import { SEOHead } from './components/SEOHead';
 
 function AppContent() {
-  const { cart, config, addToCart, isAdminAuthenticated, isSuperadmin, authenticateAdmin, logoutAdmin, currentUser, notifications, displayCurrency, toggleCurrency, isGlobalLoading } = useApp();
+  const { cart, config, addToCart, isAdminAuthenticated, isSuperadmin, authenticateAdmin, logoutAdmin, currentUser, notifications, displayCurrency, toggleCurrency, isGlobalLoading, products } = useApp();
 
   // Cache-busting para el logo: fuerza recarga cuando cambia
   const logoUrl = useMemo(() => config.logo_url ? `${config.logo_url}?v=${encodeURIComponent(config.logo_url)}` : '', [config.logo_url]);
@@ -64,6 +64,26 @@ function AppContent() {
   useEffect(() => {
     setHeaderSearchInput(globalSearch);
   }, [globalSearch]);
+
+  // Deep linking: parse ?id=PRODUCT_ID from URL and open product detail
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const productId = params.get('id');
+    const addToCartFromNotif = params.get('add_to_cart');
+    if (productId && products && products.length > 0) {
+      const product = products.find(p => p.id === productId);
+      if (product) {
+        if (addToCartFromNotif === '1' && product.stock > 0) {
+          addToCart(product, 1);
+          window.history.replaceState({}, '', window.location.pathname);
+        } else {
+          setSelectedProductDetails(product);
+          setTab('catalog');
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+      }
+    }
+  }, [products]);
 
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
