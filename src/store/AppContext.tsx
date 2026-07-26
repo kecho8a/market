@@ -988,14 +988,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // Try to get fresh session data for user info and to include inactive products
       let user = null;
+      let hasSession = false;
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        user = session?.user || null;
-        // Force getUser to refresh claims
-        if (user) {
+        if (session) {
+          user = session.user;
+          hasSession = true;
+          // Force getUser to refresh claims
           try {
             const { data: userData } = await supabase.auth.getUser();
             if (userData?.user) user = userData.user;
+          } catch (_) {}
+        } else if (isAdminLocal || isSuperLocal) {
+          // localStorage says we're admin but no session — try getUser() which can trigger token refresh
+          try {
+            const { data: userData, error } = await supabase.auth.getUser();
+            if (userData?.user && !error) {
+              user = userData.user;
+              hasSession = true;
+            }
           } catch (_) {}
         }
       } catch (_) {}
@@ -1128,6 +1139,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Listener de auth state para sincronizar sesión de Supabase con estado local
   // Handles SIGNED_IN, TOKEN_REFRESHED, and INITIAL_SESSION (fired on page reload with valid session)
+  // IMPORTANT: We do NOT auto-clear admin state on SIGNED_OUT here.
+  // Admin state is only cleared by explicit logoutAdmin() call.
+  // This prevents false logouts when Supabase can't restore the session (expired refresh token, etc.)
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
@@ -1145,12 +1159,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             localStorage.setItem('trv_superadmin', String(isSuper));
           }
         }
-      } else if (event === 'SIGNED_OUT') {
-        setIsAdminAuthenticated(false);
-        setIsSuperadmin(false);
-        localStorage.removeItem('trv_admin_auth');
-        localStorage.removeItem('trv_superadmin');
       }
+      // SIGNED_OUT is intentionally NOT handled here.
+      // Only logoutAdmin() should clear admin state.
     });
 
     return () => subscription.unsubscribe();
@@ -1836,7 +1847,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
           const { data: { session } } = await supabase.auth.getSession();
           if (!session) {
-            console.warn('[Config] No hay sesión activa, omitiendo sync a Supabase');
+            // No session — skip DB sync (expected for non-admin visitors)
             return;
           }
 
@@ -1898,7 +1909,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
-          console.warn('[Config] No hay sesión activa, omitiendo sync de tasa a Supabase');
+          // No session — skip DB sync (expected for non-admin visitors)
           return;
         }
         const { error } = await supabase.from('store_config').update({ tasa_cambio: rate }).eq('id', 1);
