@@ -211,8 +211,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
   const [newZoneName, setNewZoneName] = useState('');
   
   // Backup reminder banner state
-  const [showBackupReminder, setShowBackupReminder] = useState(false);
-  const [backupChecked, setBackupChecked] = useState(false);
+
   const [newZoneCost, setNewZoneCost] = useState(0);
   const [newZoneMinKm, setNewZoneMinKm] = useState(0);
   const [newZoneMaxKm, setNewZoneMaxKm] = useState(0);
@@ -874,29 +873,6 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
     ];
   }, [reportTotals]);
 
-  // --- Lógica de Respaldo: Mostrar banner una sola vez ---
-  useEffect(() => {
-    if (backupChecked) return;
-    if (adminSection !== 'reports' && adminSection !== 'settings') return;
-
-    const lastBackup = localStorage.getItem('marketo_last_backup_date');
-    const remindTomorrow = localStorage.getItem('marketo_backup_remind_tomorrow');
-    const now = new Date().getTime();
-    const fifteenDays = 15 * 24 * 60 * 60 * 1000;
-    const oneDay = 24 * 60 * 60 * 1000;
-
-    // Check if we're still in "remind tomorrow" period
-    if (remindTomorrow && (now - Number(remindTomorrow)) < oneDay) {
-      setBackupChecked(true);
-      return;
-    }
-
-    if (!lastBackup || (now - Number(lastBackup)) > fifteenDays) {
-      setShowBackupReminder(true);
-    }
-    setBackupChecked(true);
-  }, [adminSection, backupChecked]);
-
   // Crud Catalog Search helper match
   const crudSearchParts = useMemo(() => {
     return searchPartsSemantically(crudSearch, true);
@@ -984,43 +960,6 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
           );
         })}
       </div>
-
-      {/* Backup Reminder Banner */}
-      {showBackupReminder && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl shadow-sm">
-          <div className="flex items-center gap-2 text-amber-800">
-            <AlertCircle size={16} />
-            <span className="text-xs font-bold">Han pasado 15+ días desde tu último respaldo.</span>
-          </div>
-          <div className="flex gap-2 sm:ml-auto">
-            <button
-              onClick={() => {
-                handleManualBackup(true);
-                localStorage.setItem('marketo_last_backup_date', String(Date.now()));
-                setShowBackupReminder(false);
-              }}
-              className="bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-            >
-              Descargar Ahora
-            </button>
-            <button
-              onClick={() => {
-                localStorage.setItem('marketo_backup_remind_tomorrow', String(Date.now()));
-                setShowBackupReminder(false);
-              }}
-              className="bg-white border border-amber-300 text-amber-700 text-[10px] font-bold px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors cursor-pointer"
-            >
-              Recordar Mañana
-            </button>
-            <button
-              onClick={() => setShowBackupReminder(false)}
-              className="text-slate-400 hover:text-slate-600 text-[10px] font-bold px-2 py-1.5 cursor-pointer"
-            >
-              Omitir
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ----------------- SUBSECTION 1: STATS REPORTS SHOWING RECHARTS ----------------- */}
       {adminSection === 'reports' && (
