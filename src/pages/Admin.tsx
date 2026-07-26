@@ -34,36 +34,52 @@ const SystemHealthCheck: React.FC = () => {
     pushSubscriptions: number;
     lastOrder: string;
     error?: string;
-  }>({ dbConnection: 'checking', tables: {}, latency: 0, rlsActive: false, pushSubscriptions: 0, lastOrder: '' });
+    authStatus: string;
+    swStatus: string;
+    sessionInfo: string;
+    consoleErrors: string[];
+  }>({ dbConnection: 'checking', tables: {}, latency: 0, rlsActive: false, pushSubscriptions: 0, lastOrder: '', authStatus: 'checking', swStatus: 'checking', sessionInfo: '', consoleErrors: [] });
+
+  const capturedErrors = useRef<string[]>([]);
+
+  useEffect(() => {
+    const handler = (msg: string) => {
+      if (capturedErrors.current.length < 20) {
+        capturedErrors.current.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
+      }
+    };
+    const origError = console.error;
+    console.error = (...args: any[]) => {
+      handler(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '));
+      origError.apply(console, args);
+    };
+    return () => { console.error = origError; };
+  }, []);
 
   const runHealthCheck = async () => {
-    setHealth(prev => ({ ...prev, dbConnection: 'checking' }));
+    setHealth(prev => ({ ...prev, dbConnection: 'checking', authStatus: 'checking', swStatus: 'checking' }));
     const start = Date.now();
     try {
       const checks: Record<string, number> = {};
       
-      // Test each table
       const tables = ['store_config', 'products', 'orders', 'notifications', 'coupons', 'usuarios_clientes', 'push_subscriptions'];
       for (const table of tables) {
         const { count } = await supabase.from(table).select('*', { count: 'exact', head: true });
         checks[table] = count ?? 0;
       }
 
-      // Test RPC
       let pushSubs = 0;
       try {
         const { data } = await supabase.rpc('get_all_push_subscriptions');
         pushSubs = (data as any[])?.length ?? 0;
       } catch (_) {}
 
-      // Last order
       let lastOrder = 'N/A';
       try {
         const { data } = await supabase.from('orders').select('id, fecha').order('created_at', { ascending: false }).limit(1).single();
         if (data) lastOrder = `${data.id} (${data.fecha || 'N/A'})`;
       } catch (_) {}
 
-      // RLS test: fetch orders as anonymous (no auth) to verify RLS blocks
       let rlsActive = false;
       try {
         const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -71,9 +87,25 @@ const SystemHealthCheck: React.FC = () => {
         const res = await fetch(url, { headers: { 'apikey': anonKey } });
         const rows = await res.json();
         rlsActive = !Array.isArray(rows) || rows.length === 0;
-      } catch (_) {
-        rlsActive = true;
+      } catch (_) { rlsActive = true; }
+
+      let authStatus = 'No autenticado';
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const { data: userData } = await supabase.auth.getUser();
+          const u = userData?.user;
+          authStatus = u ? `${u.email} (role: ${u.app_metadata?.role || 'none'})` : 'Sesión inválida';
+        }
+      } catch (e: any) { authStatus = `Error: ${e.message}`; }
+
+      let swStatus = 'No disponible';
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        swStatus = regs.length > 0 ? `Activo (${regs.length} worker(s))` : 'Sin registros';
       }
+
+      const sessionInfo = `Token expira: ${new Date().toLocaleString()} | localStorage keys: ${Object.keys(localStorage).filter(k => k.startsWith('trv_')).join(', ') || 'ninguno'}`;
 
       setHealth({
         dbConnection: 'ok',
@@ -82,6 +114,10 @@ const SystemHealthCheck: React.FC = () => {
         rlsActive,
         pushSubscriptions: pushSubs,
         lastOrder,
+        authStatus,
+        swStatus,
+        sessionInfo,
+        consoleErrors: [...capturedErrors.current],
       });
     } catch (e: any) {
       setHealth(prev => ({ ...prev, dbConnection: 'error', error: e.message }));
@@ -89,6 +125,61 @@ const SystemHealthCheck: React.FC = () => {
   };
 
   useEffect(() => { runHealthCheck(); }, []);
+
+  const clearCaches = async () => {
+    try {
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+      localStorage.removeItem('trv_config');
+      localStorage.removeItem('trv_last_rate_fetch');
+      alert('Cachés limpiados. Recarga la página.');
+    } catch (e: any) { alert('Error: ' + e.message); }
+  };
+
+  const unregisterSW = async () => {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+      alert(`${regs.length} Service Worker(s) desregistrados. Recarga la página.`);
+    }
+  };
+
+  const testRLS = async () => {
+    const results: string[] = [];
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+    const url = import.meta.env.VITE_SUPABASE_URL || '';
+    const tables = ['products', 'orders', 'notifications', 'store_config', 'coupons'];
+    for (const table of tables) {
+      try {
+        const res = await fetch(`${url}/rest/v1/${table}?select=id&limit=1`, { headers: { 'apikey': anonKey } });
+        const rows = await res.json();
+        const blocked = !Array.isArray(rows) || rows.length === 0;
+        results.push(`${table}: ${blocked ? 'RLS activo (bloqueado)' : 'RLS desactivado (abierto)'}`);
+      } catch (e: any) {
+        results.push(`${table}: Error - ${e.message}`);
+      }
+    }
+    alert('Test RLS (anon key):\n\n' + results.join('\n'));
+  };
+
+  const testInsertNotification = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { alert('No hay sesión activa. Haz login primero.'); return; }
+      const { error } = await supabase.from('notifications').insert({
+        id: `diag-${Date.now()}`,
+        titulo: 'Test de Diagnóstico',
+        mensaje: `Insertado por superadmin ${session.user.email} a las ${new Date().toLocaleTimeString()}`,
+        fecha: new Date().toLocaleString(),
+        tipo: 'admin',
+        leida: false
+      });
+      if (error) alert(`Error RLS: ${error.message}\n\nLa política RLS bloquea inserts en notifications desde el cliente. Necesitas crear una política PERMIT para admins autenticados.`);
+      else alert('Insert exitoso en notifications.');
+    } catch (e: any) { alert('Error: ' + e.message); }
+  };
 
   return (
     <div className="flex flex-col gap-4 p-5 border border-emerald-200 rounded-2xl bg-emerald-50 shadow-sm">
@@ -98,20 +189,17 @@ const SystemHealthCheck: React.FC = () => {
             <Activity size={20} />
           </div>
           <div>
-            <h4 className="text-sm font-bold text-emerald-900">Salud del Sitio</h4>
-            <p className="text-[11px] text-emerald-700">Verificación de conexión, base de datos y servicios.</p>
+            <h4 className="text-sm font-bold text-emerald-900">Centro de Diagnóstico</h4>
+            <p className="text-[11px] text-emerald-700">Verificación completa: DB, auth, RLS, logs, cachés y servicios.</p>
           </div>
         </div>
-        <button
-          onClick={runHealthCheck}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-        >
+        <button onClick={runHealthCheck} className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer">
           Re-analizar
         </button>
       </div>
 
       {health.dbConnection === 'checking' && (
-        <div className="text-center py-6 text-emerald-600 text-xs font-bold">Verificando...</div>
+        <div className="text-center py-6 text-emerald-600 text-xs font-bold">Verificando sistema...</div>
       )}
 
       {health.dbConnection === 'error' && (
@@ -121,33 +209,95 @@ const SystemHealthCheck: React.FC = () => {
       )}
 
       {health.dbConnection === 'ok' && (
-        <div className="flex flex-col gap-3">
-          {/* Connection Status */}
-          <div className="flex items-center gap-2 text-xs">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-bold text-emerald-800">Conexión: OK</span>
-            <span className="text-emerald-600 font-mono">({health.latency}ms)</span>
+        <div className="flex flex-col gap-4">
+          {/* Status Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="bg-white p-2.5 rounded-lg border border-emerald-100 text-center">
+              <p className="text-[10px] font-bold text-slate-500 uppercase">Conexión</p>
+              <p className="text-sm font-black text-emerald-700">{health.latency}ms</p>
+            </div>
+            <div className="bg-white p-2.5 rounded-lg border border-emerald-100 text-center">
+              <p className="text-[10px] font-bold text-slate-500 uppercase">RLS</p>
+              <p className={`text-sm font-black ${health.rlsActive ? 'text-emerald-700' : 'text-red-600'}`}>{health.rlsActive ? 'Activo' : 'Desactivado'}</p>
+            </div>
+            <div className="bg-white p-2.5 rounded-lg border border-emerald-100 text-center">
+              <p className="text-[10px] font-bold text-slate-500 uppercase">Push</p>
+              <p className="text-sm font-black text-emerald-700">{health.pushSubscriptions}</p>
+            </div>
+            <div className="bg-white p-2.5 rounded-lg border border-emerald-100 text-center">
+              <p className="text-[10px] font-bold text-slate-500 uppercase">Último Pedido</p>
+              <p className="text-[10px] font-black text-emerald-700 font-mono truncate">{health.lastOrder}</p>
+            </div>
+          </div>
+
+          {/* Auth & SW Status */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="bg-white p-3 rounded-lg border border-emerald-100">
+              <div className="flex items-center gap-2 mb-1">
+                <Shield size={12} className="text-emerald-600" />
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Auth Status</span>
+              </div>
+              <p className="text-xs font-mono text-emerald-800">{health.authStatus}</p>
+            </div>
+            <div className="bg-white p-3 rounded-lg border border-emerald-100">
+              <div className="flex items-center gap-2 mb-1">
+                <Wifi size={12} className="text-emerald-600" />
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Service Worker</span>
+              </div>
+              <p className="text-xs font-mono text-emerald-800">{health.swStatus}</p>
+            </div>
           </div>
 
           {/* Table Counts */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {Object.entries(health.tables).map(([table, count]) => (
-              <div key={table} className="bg-white p-2.5 rounded-lg border border-emerald-100 text-center">
-                <p className="text-[10px] font-bold text-slate-500 uppercase truncate">{table.replaceAll('_', ' ')}</p>
-                <p className="text-lg font-black text-emerald-700 font-mono">{count}</p>
-              </div>
-            ))}
+          <div>
+            <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">Tablas de Base de Datos</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {Object.entries(health.tables).map(([table, count]) => (
+                <div key={table} className="bg-white p-2.5 rounded-lg border border-emerald-100 text-center">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase truncate">{table.replaceAll('_', ' ')}</p>
+                  <p className="text-lg font-black text-emerald-700 font-mono">{count}</p>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Extra Info */}
-          <div className="flex flex-col gap-1.5 text-[11px]">
-            <div className="flex items-center gap-2">
-              <Wifi size={12} className="text-emerald-600" />
-              <span className="text-emerald-800">Push Subscriptions: <strong className="font-mono">{health.pushSubscriptions}</strong></span>
+          {/* Session Info */}
+          <div className="bg-white p-3 rounded-lg border border-emerald-100">
+            <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Sesión & Storage</p>
+            <p className="text-[10px] font-mono text-emerald-800 break-all">{health.sessionInfo}</p>
+          </div>
+
+          {/* Console Errors */}
+          {health.consoleErrors.length > 0 && (
+            <div className="bg-white p-3 rounded-lg border border-red-200">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle size={12} className="text-red-500" />
+                <span className="text-[10px] font-bold text-red-600 uppercase">Console Errors (capturados)</span>
+              </div>
+              <div className="max-h-40 overflow-y-auto">
+                {health.consoleErrors.map((err, i) => (
+                  <p key={i} className="text-[10px] font-mono text-red-700 py-0.5 border-b border-red-100 last:border-0">{err}</p>
+                ))}
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Database size={12} className="text-emerald-600" />
-              <span className="text-emerald-800">Último Pedido: <strong className="font-mono text-[10px]">{health.lastOrder}</strong></span>
+          )}
+
+          {/* Quick Actions */}
+          <div>
+            <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">Acciones de Reparación</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <button onClick={clearCaches} className="bg-white border border-amber-300 text-amber-700 text-[10px] font-bold px-3 py-2 rounded-lg hover:bg-amber-50 transition-colors cursor-pointer">
+                Limpiar Cachés
+              </button>
+              <button onClick={unregisterSW} className="bg-white border border-amber-300 text-amber-700 text-[10px] font-bold px-3 py-2 rounded-lg hover:bg-amber-50 transition-colors cursor-pointer">
+                Reset Service Worker
+              </button>
+              <button onClick={testRLS} className="bg-white border border-blue-300 text-blue-700 text-[10px] font-bold px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer">
+                Test RLS (anon)
+              </button>
+              <button onClick={testInsertNotification} className="bg-white border border-blue-300 text-blue-700 text-[10px] font-bold px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer">
+                Test Insert Notification
+              </button>
             </div>
           </div>
         </div>
