@@ -653,6 +653,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           console.warn('[SW→Client] No se pudo reproducir sonido:', err.message)
         );
       }
+      // In-app notification banner when push arrives and app is in foreground
+      if (event.data?.type === 'SHOW_IN_APP_NOTIFICATION') {
+        const n = event.data.notification;
+        if (n && document.visibilityState === 'visible') {
+          setNotifications(prev => {
+            const id = `push-${Date.now()}`;
+            if (prev.some(p => p.id === id)) return prev;
+            return [{ id, titulo: n.title, mensaje: n.body, fecha: new Date().toLocaleString(), tipo: 'todos' as const, leida: false }, ...prev].slice(0, 50);
+          });
+        }
+      }
     };
 
     navigator.serviceWorker.addEventListener('message', handleSWMessage);
@@ -683,6 +694,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     syncOnLogin();
+  }, [currentUser]);
+
+  // ✅ Re-sync push subscription when app regains visibility (fixes "no llegan después de horas")
+  // Mobile OS kills service workers; re-subscribing on focus ensures push works again
+  useEffect(() => {
+    if (!currentUser) return;
+    if (typeof document === 'undefined') return;
+
+    const handleVisibility = async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        const permission = Notification.permission;
+        if (permission !== 'granted') return;
+        const registration = await navigator.serviceWorker.ready;
+        let sub = await registration.pushManager.getSubscription();
+        if (!sub) {
+          // SW was killed, re-subscribe
+          const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+          if (!vapidKey) return;
+          const { urlBase64ToUint8Array } = await import('../utils/vapid');
+          sub = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(vapidKey)
+          });
+        }
+        // Always re-sync to DB on focus
+        await syncPushSubscription();
+      } catch (err) {
+        console.warn('[Visibility] Push re-sync failed:', err);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    // Also sync once on mount
+    handleVisibility();
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [currentUser]);
 
   useEffect(() => {

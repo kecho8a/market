@@ -203,25 +203,32 @@ self.addEventListener('push', function(event) {
       vibrate: [300, 100, 300, 100, 300],
       tag: tag,
       renotify: true,
-      requireInteraction: true,
       silent: false,
       data: { url: urlToOpen, tag: tag, soundUrl: soundUrl, add_to_cart: payload.add_to_cart || false },
       actions: [
-        { action: 'open',  title: '🛒 Ver Producto' },
-        { action: 'add_cart', title: '🛒 Agregar al Carrito' },
+        { action: 'open',  title: 'Ver' },
         { action: 'close', title: 'Cerrar' }
       ]
     };
 
     event.waitUntil(
-      self.registration.showNotification(title, options).then(function() {
+      self.registration.showNotification(brandedTitle, options).then(function() {
         return self.clients
           .matchAll({ type: 'window', includeUncontrolled: true })
           .then(function(clients) {
             clients.forEach(function(client) {
               client.postMessage({ type: 'PLAY_NOTIFICATION_SOUND', soundUrl: soundUrl });
+              client.postMessage({ type: 'SHOW_IN_APP_NOTIFICATION', notification: { title: brandedTitle, body: body, icon: icon, url: urlToOpen } });
             });
           });
+      }).catch(function(err) {
+        console.error('[SW Push] showNotification failed:', err);
+        return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clients) {
+          clients.forEach(function(client) {
+            client.postMessage({ type: 'PLAY_NOTIFICATION_SOUND', soundUrl: soundUrl });
+            client.postMessage({ type: 'SHOW_IN_APP_NOTIFICATION', notification: { title: brandedTitle, body: body, icon: icon, url: urlToOpen } });
+          });
+        });
       })
     );
   } catch (error) {
