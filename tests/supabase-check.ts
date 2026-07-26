@@ -2,10 +2,7 @@
 // Run: npx tsx tests/supabase-check.ts
 
 import { createClient } from '@supabase/supabase-js';
-
-const SUPABASE_URL = 'https://gqhanfjhqfeqsgpscmet.supabase.co';
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdxaGFuZmpocWZlcXNncHNjbWV0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTIzMzEyOSwiZXhwIjoyMDk0ODA5MTI5fQ.zVOk9zqT6xFROwhp9wpb74ERfO1T0pUM_eabYuQ93i8';
-const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdxaGFuZmpocWZlcXNncHNjbWV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMzMxMjksImV4cCI6MjA5NDgwOTEyOX0.WkO1pwDH8uTV--wmOcDL-Bz73ZOZT50dyc2-cAN6Cew';
+import { SUPABASE_URL, SERVICE_ROLE_KEY, ANON_KEY } from './test-config';
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 

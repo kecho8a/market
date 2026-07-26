@@ -1,13 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
+import { SUPABASE_URL, SERVICE_ROLE_KEY, SUPERADMIN_EMAIL, SUPERADMIN_PASSWORD, ADMIN_EMAIL } from './test-config';
 
-const SUPABASE_URL = 'https://gqhanfjhqfeqsgpscmet.supabase.co';
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdxaGFuZmpocWZlcXNncHNjbWV0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTIzMzEyOSwiZXhwIjoyMDk0ODA5MTI5fQ.zVOk9zqT6xFROwhp9wpb74ERfO1T0pUM_eabYuQ93i8';
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+  console.error('Falta VITE_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en .env');
+  process.exit(1);
+}
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-
-const SUPERADMIN_EMAIL = 'sugolo28@gmail.com';
-const SUPERADMIN_PASSWORD = 'susa.280';
-const ADMIN_EMAIL = 'kecho8a@gmail.com';
 
 async function main() {
   console.log('╔═══════════════════════════════════════════╗');

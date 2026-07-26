@@ -1,9 +1,6 @@
 // QA Test: Load Testing - Concurrent Clients, Cart Race Conditions
 import { createClient } from '@supabase/supabase-js';
-
-const URL = 'https://gqhanfjhqfeqsgpscmet.supabase.co';
-const SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdxaGFuZmpocWZlcXNncHNjbWV0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTIzMzEyOSwiZXhwIjoyMDk0ODA5MTI5fQ.zVOk9zqT6xFROwhp9wpb74ERfO1T0pUM_eabYuQ93i8';
-const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdxaGFuZmpocWZlcXNncHNjbWV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMzMxMjksImV4cCI6MjA5NDgwOTEyOX0.WkO1pwDH8uTV--wmOcDL-Bz73ZOZT50dyc2-cAN6Cew';
+import { SUPABASE_URL as URL, SERVICE_ROLE_KEY as SERVICE_KEY, ANON_KEY } from '../test-config';
 
 interface TestResult {
   test: string;
@@ -43,7 +40,7 @@ async function testConcurrentConnections() {
     const startTime = Date.now();
 
     const promises = Array.from({ length: count }, () =>
-      supabase.from('products').select('id, nombre, precio_usd').eq('activo', true).limit(10)
+      Promise.resolve(supabase.from('products').select('id, nombre, precio_usd').eq('activo', true).limit(10))
         .then(r => ({ ok: !r.error, duration: Date.now() - startTime, count: r.data?.length || 0 }))
         .catch(() => ({ ok: false, duration: Date.now() - startTime, count: 0 }))
     );
@@ -94,10 +91,10 @@ async function testStockRaceCondition() {
 
   const orderPromises = Array.from({ length: orderCount }, (_, i) => {
     const newStock = originalStock - 2;
-    return supabase.from('products')
+    return Promise.resolve(supabase.from('products')
       .update({ stock: newStock })
       .eq('id', product.id)
-      .eq('stock', originalStock) // Optimistic lock: only if stock hasn't changed
+      .eq('stock', originalStock))
       .then(r => ({ success: !r.error, index: i }))
       .catch(() => ({ success: false, index: i }));
   });
@@ -214,9 +211,9 @@ async function testQueryPerformance() {
       if (duration < 500) {
         pass('Performance', query.name, `${count} rows in ${duration}ms`, duration);
       } else if (duration < 2000) {
-        warn('Performance', query.name, `${count} rows in ${duration}ms (slow)`, duration);
+        warn('Performance', query.name, `${count} rows in ${duration}ms (slow)`);
       } else {
-        fail('Performance', query.name, `${count} rows in ${duration}ms (very slow)`, duration);
+        fail('Performance', query.name, `${count} rows in ${duration}ms (very slow)`);
       }
     } else {
       fail('Performance', query.name, `Error: ${error.message.substring(0, 60)}`);

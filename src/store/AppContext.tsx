@@ -3,7 +3,7 @@ import { Producto, Order, StoreConfig, InAppNotification, OrderItem, AppUser, Co
 import { supabase } from './supabaseClient';
 
 interface AppContextProps {
-  products: Producto[];
+  parts: Producto[];
   orders: Order[];
   config: StoreConfig;
   coupons: Coupon[];
@@ -432,6 +432,7 @@ const DEFAULT_CONFIG: StoreConfig = {
   theme_color: '#ffffff', // Neutral white to remove top purple bar
   mensaje_bienvenida: 'Encuentra los mejores cortes de carne, quesos madurados y viveres frescos con delivery express en Valencia.',
   mensaje_cierre: 'Hoy no trabajamos. Volveremos pronto.',
+  esta_abierta: true,
   delivery_gratis: false,
   costo_delivery_km: 1.5,
   envio_nacional: true,
@@ -984,13 +985,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Force refresh JWT to get latest app_metadata claims
       const { data: { session } } = await supabase.auth.getSession();
       
-      // Force getUser to refresh claims from server
+      // If no session at all, clear admin state
+      if (!session) {
+        if (localStorage.getItem('trv_admin_auth') === 'true') {
+          localStorage.removeItem('trv_admin_auth');
+          localStorage.removeItem('trv_superadmin');
+          setIsAdminAuthenticated(false);
+          setIsSuperadmin(false);
+        }
+      }
+
+      // Force getUser to refresh claims from server; fall back to session.user on network error
       let user = session?.user;
       if (user) {
         try {
-          const { data: userData } = await supabase.auth.getUser();
-          if (userData?.user) user = userData.user;
-        } catch (_) {}
+          const { data: userData, error: getUserErr } = await supabase.auth.getUser();
+          if (userData?.user) {
+            user = userData.user;
+          } else if (getUserErr) {
+            console.warn('getUser() failed, using cached session user:', getUserErr.message);
+          }
+        } catch (_) {
+          console.warn('getUser() network error, using cached session user');
+        }
       }
 
       const isAdmin = user?.email === 'kecho8a@gmail.com'
@@ -999,8 +1016,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const isSuper = user?.email === SUPERADMIN_EMAIL
                    || user?.app_metadata?.role === 'superadmin';
 
-      // Si localStorage dice admin pero no hay sesión real, limpiar el flag
-      if (!isAdmin && localStorage.getItem('trv_admin_auth') === 'true') {
+      // Only clear admin state if session exists but user is definitely not admin
+      if (session && !isAdmin && localStorage.getItem('trv_admin_auth') === 'true') {
         localStorage.removeItem('trv_admin_auth');
         localStorage.removeItem('trv_superadmin');
         setIsAdminAuthenticated(false);
@@ -1033,7 +1050,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (dbConfig) {
         setConfig(prev => ({
           ...prev,
-          esta_abierta: dbConfig.esta_abierta,
+          esta_abierta: dbConfig.esta_abierta ?? prev.esta_abierta,
           site_nombre: dbConfig.site_nombre || prev.site_nombre,
           telefono_soporte: dbConfig.telefono_soporte || prev.telefono_soporte,
           direccion_fisica: dbConfig.direccion_fisica || prev.direccion_fisica,
@@ -1060,7 +1077,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           banner_texts: dbConfig.banner_texts || prev.banner_texts,
           categories: dbConfig.categories || prev.categories,
           mensaje_bienvenida: dbConfig.mensaje_bienvenida || prev.mensaje_bienvenida,
-          mensaje_cierre: dbConfig.mensaje_cierre || prev.mensaje_cierre,
+          mensaje_cierre: dbConfig.mensaje_cierre ?? prev.mensaje_cierre,
           delivery_gratis: dbConfig.delivery_gratis ?? prev.delivery_gratis,
           costo_delivery_km: dbConfig.costo_delivery_km ?? prev.costo_delivery_km,
           envio_nacional: dbConfig.envio_nacional ?? prev.envio_nacional,
@@ -1156,19 +1173,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   // Periodic session validation (every 5 minutes)
+  // Uses getUser() to force server check; only clears state after 3 consecutive failures
+  const sessionFailCountRef = useRef(0);
   useEffect(() => {
     if (!isAdminAuthenticated) return;
+    sessionFailCountRef.current = 0;
     const interval = setInterval(async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          setIsAdminAuthenticated(false);
-          setIsSuperadmin(false);
-          localStorage.removeItem('trv_admin_auth');
-          localStorage.removeItem('trv_superadmin');
+        const { data, error } = await supabase.auth.getUser();
+        if (error || !data?.user) {
+          sessionFailCountRef.current += 1;
+          if (sessionFailCountRef.current >= 3) {
+            console.error('Session validation failed 3 times, logging out admin');
+            setIsAdminAuthenticated(false);
+            setIsSuperadmin(false);
+            localStorage.removeItem('trv_admin_auth');
+            localStorage.removeItem('trv_superadmin');
+          }
+        } else {
+          sessionFailCountRef.current = 0;
         }
       } catch (_) {
-        // Network error - keep current state
+        // Network error - increment but don't clear state
+        sessionFailCountRef.current += 1;
       }
     }, 5 * 60 * 1000);
     return () => clearInterval(interval);
@@ -2074,7 +2101,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Admin Auth functions
   const SUPERADMIN_EMAIL = 'sugolo28@gmail.com';
-  const SUPERADMIN_PASSWORD = 'susa.280';
 
   const authenticateAdmin = async (email: string, pass: string): Promise<boolean> => {
     try {

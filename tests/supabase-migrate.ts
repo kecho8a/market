@@ -2,16 +2,24 @@
 // Run: npx tsx tests/supabase-migrate.ts
 
 import { Client } from 'pg';
+import * as dotenv from 'dotenv';
+dotenv.config();
 
-const DB_PASSWORD = 'Ochoa12474252';
+const DB_PASSWORD = process.env.SUPABASE_DB_PASSWORD || '';
+const DB_HOST = process.env.SUPABASE_DB_HOST || 'db.gqhanfjhqfeqsgpscmet.supabase.co';
+
+if (!DB_PASSWORD) {
+  console.error('Falta SUPABASE_DB_PASSWORD en .env');
+  process.exit(1);
+}
 
 async function main() {
   console.log('🔌 Conectando a Supabase PostgreSQL...\n');
 
   const configs = [
-    { host: 'aws-0-us-east-1.pooler.supabase.com', port: 6543, user: 'postgres.gqhanfjhqfeqsgpscmet', database: 'postgres' },
+    { host: 'aws-0-us-east-1.pooler.supabase.com', port: 6543, user: `postgres.${DB_HOST.replace('db.', '').replace('.supabase.co', '')}`, database: 'postgres' },
     { host: 'aws-0-us-east-1.pooler.supabase.com', port: 6543, user: 'postgres', database: 'postgres' },
-    { host: 'db.gqhanfjhqfeqsgpscmet.supabase.co', port: 5432, user: 'postgres', database: 'postgres' },
+    { host: DB_HOST, port: 5432, user: 'postgres', database: 'postgres' },
   ];
 
   let client: Client | null = null;

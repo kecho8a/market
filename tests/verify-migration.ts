@@ -1,6 +1,4 @@
-const SUPABASE_URL = 'https://gqhanfjhqfeqsgpscmet.supabase.co';
-const SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdxaGFuZmpocWZlcXNncHNjbWV0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTIzMzEyOSwiZXhwIjoyMDk0ODA5MTI5fQ.zVOk9zqT6xFROwhp9wpb74ERfO1T0pUM_eabYuQ93i8';
-const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdxaGFuZmpocWZlcXNncHNjbWV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMzMxMjksImV4cCI6MjA5NDgwOTEyOX0.WkO1pwDH8uTV--wmOcDL-Bz73ZOZT50dyc2-cAN6Cew';
+import { SUPABASE_URL, SERVICE_ROLE_KEY as SERVICE_KEY, ANON_KEY } from './test-config';
 
 async function query(table: string, key: string, select = '*', limit = 5) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=${select}&limit=${limit}`, {

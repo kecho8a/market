@@ -1,9 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
+import { SUPABASE_URL, SERVICE_ROLE_KEY } from './test-config';
 
-const supabase = createClient(
-  'https://gqhanfjhqfeqsgpscmet.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdxaGFuZmpocWZlcXNncHNjbWV0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTIzMzEyOSwiZXhwIjoyMDk0ODA5MTI5fQ.zVOk9zqT6xFROwhp9wpb74ERfO1T0pUM_eabYuQ93i8'
-);
+const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
 // Step 1: Create exec_sql function
 const createExecSql = `

@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useApp } from '../store/AppContext';
 import { Producto, Order, OrderItem, AppUser, DeliveryZone } from '../types/store';
 import { supabase, uploadFileToStorage, compressImage, getPublicUrl } from '../store/supabaseClient';
-import { createClient } from '@supabase/supabase-js';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line } from 'recharts';
 import {
   Plus, Edit, Trash2, Landmark, Settings, ShoppingBag, BarChart3, Mic, FileJson,
@@ -64,15 +63,14 @@ const SystemHealthCheck: React.FC = () => {
         if (data) lastOrder = `${data.id} (${data.fecha || 'N/A'})`;
       } catch (_) {}
 
-      // RLS test (anon should be restricted)
+      // RLS test: fetch orders as anonymous (no auth) to verify RLS blocks
       let rlsActive = false;
       try {
-        const anonClient = createClient(
-          import.meta.env.VITE_SUPABASE_URL || '',
-          import.meta.env.VITE_SUPABASE_ANON_KEY || ''
-        );
-        const { count } = await anonClient.from('orders').select('*', { count: 'exact', head: true });
-        rlsActive = (count ?? 0) === 0 || true; // RLS may allow some reads
+        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/orders?select=id&limit=1`;
+        const res = await fetch(url, { headers: { 'apikey': anonKey } });
+        const rows = await res.json();
+        rlsActive = !Array.isArray(rows) || rows.length === 0;
       } catch (_) {
         rlsActive = true;
       }
@@ -135,7 +133,7 @@ const SystemHealthCheck: React.FC = () => {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {Object.entries(health.tables).map(([table, count]) => (
               <div key={table} className="bg-white p-2.5 rounded-lg border border-emerald-100 text-center">
-                <p className="text-[10px] font-bold text-slate-500 uppercase truncate">{table.replace('_', ' ')}</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase truncate">{table.replaceAll('_', ' ')}</p>
                 <p className="text-lg font-black text-emerald-700 font-mono">{count}</p>
               </div>
             ))}
@@ -2961,38 +2959,6 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               </div>
             </div>
 
-            {/* Configuración Push Webhook - Solo Superadmin */}
-            {isSuperadmin && (
-            <div className="col-span-2 border-t border-slate-100 pt-3 flex flex-col gap-3">
-              <span className="text-[10px] uppercase font-mono text-slate-500 block pb-1">Configuración del Motor Push (VAPID / Webhook)</span>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                <div className="flex flex-col gap-1">
-                  <span>URL del Webhook (Cloudflare Pages):</span>
-                  <input
-                    type="text"
-                    value={config.push_webhook_url || ''}
-                    onChange={(e) => updateConfig({ push_webhook_url: e.target.value })}
-                    placeholder="https://su-app.pages.dev/api/push-notify"
-                    className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500 font-mono text-[11px]"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span>Webhook Secret (Auth):</span>
-                  <input
-                    type="password"
-                    value={config.push_webhook_secret || ''}
-                    onChange={(e) => updateConfig({ push_webhook_secret: e.target.value })}
-                    placeholder="Clave de seguridad del webhook..."
-                    className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500 font-mono text-[11px]"
-                  />
-                </div>
-              </div>
-              <p className="text-[10px] text-slate-400 italic">
-                Esta configuración conecta Supabase con el Worker de Cloudflare para procesar los envíos reales a los navegadores.
-              </p>
-            </div>
-            )}
-
             {/* Change Payment switches toggles */}
             <div className="col-span-2 border-t border-slate-100 pt-3 flex flex-col gap-2">
               <span className="text-[10px] uppercase font-mono text-slate-500 block pb-1">Habilitar Canales de Pago</span>
@@ -3399,6 +3365,41 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
             >
               Ejecutar Test de Notificación Push
             </button>
+          </div>
+
+          {/* CONFIGURACION PUSH WEBHOOK */}
+          <div className="flex flex-col gap-4 p-5 border border-slate-200 rounded-2xl bg-white shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-slate-100 text-slate-600 rounded-xl">
+                <Wifi size={20} />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">Configuración del Motor Push (VAPID / Webhook)</h4>
+                <p className="text-[11px] text-slate-500">Conecta Supabase con el Worker de Cloudflare para envíos reales de notificaciones push.</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] uppercase font-mono text-slate-500">URL del Webhook (Cloudflare Pages):</span>
+                <input
+                  type="text"
+                  value={config.push_webhook_url || ''}
+                  onChange={(e) => updateConfig({ push_webhook_url: e.target.value })}
+                  placeholder="https://su-app.pages.dev/api/push-notify"
+                  className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500 font-mono text-[11px]"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] uppercase font-mono text-slate-500">Webhook Secret (Auth):</span>
+                <input
+                  type="password"
+                  value={config.push_webhook_secret || ''}
+                  onChange={(e) => updateConfig({ push_webhook_secret: e.target.value })}
+                  placeholder="Clave de seguridad del webhook..."
+                  className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 outline-none focus:border-violet-500 font-mono text-[11px]"
+                />
+              </div>
+            </div>
           </div>
 
           {/* MANTENIMIENTO PWA */}
