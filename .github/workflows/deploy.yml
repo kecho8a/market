@@ -4,22 +4,46 @@ on:
   push:
     branches: [main]
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-    steps:
-      - uses: actions/checkout@v4
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
-      - uses: actions/setup-node@v4
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: "24"
           cache: npm
 
-      - run: npm ci
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
 
-      - run: npm run build
+      - name: Install dependencies (fallback)
+        if: failure()
+        run: |
+          rm -rf node_modules
+          rm -f package-lock.json
+          npm install --no-audit --no-fund
+          npm ci --no-audit --no-fund
 
-      - run: npx wrangler pages deploy dist --project-name=market
+      - name: Build
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://gqhanfjhqfeqsgpscmet.supabase.co
+          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdxaGFuZmpocWZlcXNncHNjbWV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMzMxMjksImV4cCI6MjA5NDgwOTEyOX0.WkO1pwDH8uTV--wmOcDL-Bz73ZOZT50dyc2-cAN6Cew
+          VITE_VAPID_PUBLIC_KEY: BK1GCkznJWRWgopv6XmBLDZUt6t-v9zdC9zuaUo0EfmyLA5ejib-0srDHJBvnsClQKGKyyfv6-jQ_W_FS6W6MFQ
+          VITE_PUSH_WEBHOOK_URL: https://market-cbh.pages.dev/api/push-notify
+          VITE_WEBHOOK_SECRET: 5fca5a4d8825d4de66811590f47af870b01d45e80f391920f4ea76a59ae3c8bf
+          VITE_ADMIN_USER: kecho8a@gmail.com
+          VITE_ADMIN_PASS: susa.280
+
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler pages deploy dist --project-name=market
