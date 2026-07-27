@@ -18,7 +18,7 @@ import {
 import { SEOHead } from './components/SEOHead';
 
 function AppContent() {
-  const { cart, config, addToCart, isAdminAuthenticated, isSuperadmin, authenticateAdmin, logoutAdmin, currentUser, notifications, displayCurrency, toggleCurrency, isGlobalLoading, parts } = useApp();
+  const { cart, config, addToCart, isAdminAuthenticated, isSuperadmin, authenticateAdmin, logoutAdmin, currentUser, notifications, displayCurrency, toggleCurrency, isGlobalLoading, parts, clubPwaBonus } = useApp();
 
   // Cache-busting para el logo: fuerza recarga cuando cambia
   const logoUrl = useMemo(() => config.logo_url ? `${config.logo_url}?v=${encodeURIComponent(config.logo_url)}` : '', [config.logo_url]);
@@ -41,6 +41,7 @@ function AppContent() {
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
         setDeferredPrompt(null);
+        try { await clubPwaBonus(); } catch (_) {}
       }
     }
   };
@@ -84,6 +85,16 @@ function AppContent() {
       }
     }
   }, [parts]);
+
+  // Club: capturar codigo de referido de la URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref) {
+      sessionStorage.setItem('club_referral_code', ref);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
 
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState('');

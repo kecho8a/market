@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Producto, Order, StoreConfig, InAppNotification, OrderItem, AppUser, Coupon } from '../types/store';
+import { ClubSettings, ClubAccount, ClubTransaction, ClubReward, ClubRedemption, ClubAccountWithUser, ClubUserCoupon, ClubUserCouponWithDetails } from '../types/loyalty';
 import { supabase } from './supabaseClient';
 
 interface AppContextProps {
@@ -82,6 +83,29 @@ interface AppContextProps {
   updateAdminCredentials: (user: string, pass: string) => void;
   adminUser: string;
   adminPass: string;
+
+  // Club de Fidelizacion
+  clubSettings: ClubSettings;
+  clubAccount: ClubAccount | null;
+  clubTransactions: ClubTransaction[];
+  clubRewards: ClubReward[];
+  clubRedemptions: ClubRedemption[];
+  clubAccountsAdmin: ClubAccountWithUser[];
+  clubUserCoupons: ClubUserCouponWithDetails[];
+  clubUserCouponsAdmin: ClubUserCouponWithDetails[];
+  clubAwardPurchase: (orderId: string, totalUsd: number) => Promise<void>;
+  clubAwardReferral: (referralCode: string, newUserId: string) => Promise<boolean>;
+  clubRedeemReward: (rewardId: string) => Promise<{ success: boolean; message: string }>;
+  clubAdminAdjust: (userId: string, points: number, description: string) => Promise<boolean>;
+  clubPwaBonus: () => Promise<boolean>;
+  clubRefresh: () => Promise<void>;
+  updateClubSettings: (settings: Partial<ClubSettings>) => Promise<void>;
+  addClubReward: (reward: Omit<ClubReward, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
+  updateClubReward: (id: string, updated: Partial<ClubReward>) => Promise<void>;
+  deleteClubReward: (id: string) => Promise<void>;
+  assignCouponToUser: (userId: string, couponId: string) => Promise<boolean>;
+  unassignCoupon: (id: string) => Promise<boolean>;
+  markCouponUsed: (id: string) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -553,6 +577,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setHapticEnabled(newVal);
     localStorage.setItem('trv_haptic_enabled', String(newVal));
   };
+
+  // ── Club de Fidelizacion State ─────────────────────────────────────────
+  const [clubSettings, setClubSettings] = useState<ClubSettings>(() => {
+    const saved = localStorage.getItem('trv_club_settings');
+    return saved ? JSON.parse(saved) : {
+      id: 1, club_enabled: true, welcome_bonus_points: 100, points_per_dollar: 1.0,
+      referral_referrer_points: 150, referral_referred_points: 100, pwa_install_points: 50,
+    };
+  });
+  const [clubAccount, setClubAccount] = useState<ClubAccount | null>(() => {
+    const saved = localStorage.getItem('trv_club_account');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [clubTransactions, setClubTransactions] = useState<ClubTransaction[]>(() => {
+    const saved = localStorage.getItem('trv_club_transactions');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [clubRewards, setClubRewards] = useState<ClubReward[]>(() => {
+    const saved = localStorage.getItem('trv_club_rewards');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [clubRedemptions, setClubRedemptions] = useState<ClubRedemption[]>(() => {
+    const saved = localStorage.getItem('trv_club_redemptions');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [clubAccountsAdmin, setClubAccountsAdmin] = useState<ClubAccountWithUser[]>([]);
+  const [clubUserCoupons, setClubUserCoupons] = useState<ClubUserCouponWithDetails[]>([]);
+  const [clubUserCouponsAdmin, setClubUserCouponsAdmin] = useState<ClubUserCouponWithDetails[]>([]);
+
+  useEffect(() => { localStorage.setItem('trv_club_settings', JSON.stringify(clubSettings)); }, [clubSettings]);
+  useEffect(() => { localStorage.setItem('trv_club_account', JSON.stringify(clubAccount)); }, [clubAccount]);
+  useEffect(() => { localStorage.setItem('trv_club_transactions', JSON.stringify(clubTransactions)); }, [clubTransactions]);
+  useEffect(() => { localStorage.setItem('trv_club_rewards', JSON.stringify(clubRewards)); }, [clubRewards]);
+  useEffect(() => { localStorage.setItem('trv_club_redemptions', JSON.stringify(clubRedemptions)); }, [clubRedemptions]);
 
   const toggleCurrency = () => {
     const newCurrency = displayCurrency === 'USD' ? 'BS' : 'USD';
@@ -1161,6 +1219,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const { data: dbCoupons } = await supabase.from('coupons').select('*');
       if (dbCoupons) setCoupons(dbCoupons as Coupon[]);
 
+      // Cargar datos del Club de Fidelizacion
+      try {
+        const { data: cs } = await supabase.from('club_settings').select('*').eq('id', 1).single();
+        if (cs) setClubSettings(cs);
+        const { data: cr } = await supabase.from('club_rewards').select('*').order('display_order', { ascending: true });
+        if (cr) setClubRewards(cr);
+        if (currentUser) {
+          const { data: ca } = await supabase.from('club_accounts').select('*').eq('user_id', currentUser.id).single();
+          if (ca) setClubAccount(ca);
+          const { data: ctx } = await supabase.from('club_transactions').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(50);
+          if (ctx) setClubTransactions(ctx);
+          const { data: crd } = await supabase.from('club_redemptions').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+          if (crd) setClubRedemptions(crd);
+        }
+        if (isAdmin) {
+          try {
+            const { data: allAcc } = await supabase.rpc('get_all_club_accounts');
+            if (allAcc) setClubAccountsAdmin(allAcc);
+          } catch (_) {}
+        }
+        // Cargar cupones asignados del club
+        try {
+          const { data: ucs } = await supabase.from('club_user_coupons').select('*');
+          if (ucs) {
+            const couponIds = [...new Set(ucs.map((uc: any) => uc.coupon_id))];
+            const { data: couponsData } = await supabase.from('coupons').select('id, code, discount_percent').in('id', couponIds);
+            const couponMap = new Map((couponsData || []).map((c: any) => [c.id, c]));
+            const enriched = ucs.map((uc: any) => ({
+              ...uc,
+              coupon_code: couponMap.get(uc.coupon_id)?.code || 'N/A',
+              discount_percent: couponMap.get(uc.coupon_id)?.discount_percent || 0,
+            }));
+            if (isAdmin) setClubUserCouponsAdmin(enriched);
+            if (currentUser) setClubUserCoupons(enriched.filter((e: any) => e.user_id === currentUser.id));
+          }
+        } catch (_) {}
+      } catch (e) { console.error('[Club] load error:', e); }
+
       if (isAdmin) {
         setIsAdminAuthenticated(true);
         // Cargar TODO para el admin ignorando filtros de usuario
@@ -1551,6 +1647,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         'personal',
         newOrder.cliente_telefono
       );
+    }
+
+    // Club: otorgar puntos por compra
+    if (currentUser) {
+      clubAwardPurchase(newOrder.id, newOrder.total_usd);
     }
 
     return newOrder;
@@ -2223,6 +2324,137 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // ── Club de Fidelizacion Methods ─────────────────────────────────────
+
+  const clubRefresh = async () => {
+    if (!currentUser) return;
+    try {
+      const { data: acc } = await supabase.from('club_accounts').select('*').eq('user_id', currentUser.id).single();
+      if (acc) setClubAccount(acc);
+      const { data: txns } = await supabase.from('club_transactions').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(50);
+      if (txns) setClubTransactions(txns);
+      const { data: redds } = await supabase.from('club_redemptions').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+      if (redds) setClubRedemptions(redds);
+    } catch (e) { console.error('[Club] refresh error:', e); }
+  };
+
+  const clubAwardPurchase = async (orderId: string, totalUsd: number) => {
+    if (!currentUser) return;
+    const { data, error } = await supabase.rpc('club_award_purchase', { p_user_id: currentUser.id, p_order_id: orderId, p_total_usd: totalUsd });
+    if (error) { console.error('[Club] award purchase error:', error); return; }
+    if (data?.success) await clubRefresh();
+  };
+
+  const clubAwardReferral = async (referralCode: string, newUserId: string): Promise<boolean> => {
+    const { data, error } = await supabase.rpc('club_award_referral', { p_referral_code: referralCode, p_new_user_id: newUserId });
+    if (error) { console.error('[Club] referral error:', error); return false; }
+    return data?.success || false;
+  };
+
+  const clubRedeemReward = async (rewardId: string): Promise<{ success: boolean; message: string }> => {
+    if (!currentUser) return { success: false, message: 'Inicia sesion' };
+    const { data, error } = await supabase.rpc('club_redeem_reward', { p_user_id: currentUser.id, p_reward_id: rewardId });
+    if (error) return { success: false, message: error.message };
+    if (data?.success) {
+      await clubRefresh();
+      const { data: rw } = await supabase.from('club_rewards').select('*').order('display_order', { ascending: true });
+      if (rw) setClubRewards(rw);
+    }
+    return { success: data?.success, message: data?.message || 'OK' };
+  };
+
+  const clubAdminAdjust = async (userId: string, points: number, description: string): Promise<boolean> => {
+    const { data, error } = await supabase.rpc('club_admin_adjust', { p_user_id: userId, p_points: points, p_description: description });
+    if (error) return false;
+    return data?.success || false;
+  };
+
+  const clubPwaBonus = async (): Promise<boolean> => {
+    if (!currentUser) return false;
+    const { data, error } = await supabase.rpc('club_pwa_bonus', { p_user_id: currentUser.id });
+    if (error) return false;
+    if (data?.success) await clubRefresh();
+    return data?.success || false;
+  };
+
+  const updateClubSettings = async (newSettings: Partial<ClubSettings>) => {
+    setClubSettings(prev => ({ ...prev, ...newSettings }));
+    await supabase.from('club_settings').upsert({ id: 1, ...newSettings });
+  };
+
+  const addClubReward = async (reward: Omit<ClubReward, 'id' | 'created_at' | 'updated_at'>) => {
+    const { data, error } = await supabase.from('club_rewards').insert([reward]).select().single();
+    if (error) { console.error('[Club] add reward error:', error); return; }
+    if (data) setClubRewards(prev => [...prev, data]);
+  };
+
+  const updateClubReward = async (id: string, updated: Partial<ClubReward>) => {
+    await supabase.from('club_rewards').update(updated).eq('id', id);
+    setClubRewards(prev => prev.map(r => r.id === id ? { ...r, ...updated } : r));
+  };
+
+  const deleteClubReward = async (id: string) => {
+    await supabase.from('club_rewards').delete().eq('id', id);
+    setClubRewards(prev => prev.filter(r => r.id !== id));
+  };
+
+  // ── Club User Coupons (asignar cupones existentes a miembros) ────────
+
+  const assignCouponToUser = async (userId: string, couponId: string): Promise<boolean> => {
+    const { error } = await supabase.from('club_user_coupons').insert([{ user_id: userId, coupon_id: couponId }]);
+    if (error) { console.error('[Club] assign coupon error:', error); return false; }
+    await clubRefreshUserCoupons();
+    return true;
+  };
+
+  const unassignCoupon = async (id: string): Promise<boolean> => {
+    const { error } = await supabase.from('club_user_coupons').delete().eq('id', id);
+    if (error) return false;
+    await clubRefreshUserCoupons();
+    return true;
+  };
+
+  const markCouponUsed = async (id: string): Promise<boolean> => {
+    const { error } = await supabase.from('club_user_coupons').update({ used_at: new Date().toISOString() }).eq('id', id);
+    if (error) return false;
+    await clubRefreshUserCoupons();
+    return true;
+  };
+
+  const clubRefreshUserCoupons = async () => {
+    if (!currentUser) return;
+    try {
+      if (isAdminAuthenticated || isSuperadmin) {
+        const { data } = await supabase.from('club_user_coupons').select('*');
+        if (data) {
+          const couponIds = [...new Set(data.map((uc: ClubUserCoupon) => uc.coupon_id))];
+          const { data: couponsData } = await supabase.from('coupons').select('id, code, discount_percent').in('id', couponIds);
+          const couponMap = new Map((couponsData || []).map((c: any) => [c.id, c]));
+          const enriched = data.map((uc: ClubUserCoupon) => ({
+            ...uc,
+            coupon_code: couponMap.get(uc.coupon_id)?.code || 'N/A',
+            discount_percent: couponMap.get(uc.coupon_id)?.discount_percent || 0,
+          }));
+          setClubUserCouponsAdmin(enriched);
+          setClubUserCoupons(enriched.filter(e => e.user_id === currentUser.id));
+        }
+      } else {
+        const { data } = await supabase.from('club_user_coupons').select('*').eq('user_id', currentUser.id);
+        if (data) {
+          const couponIds = [...new Set(data.map((uc: ClubUserCoupon) => uc.coupon_id))];
+          const { data: couponsData } = await supabase.from('coupons').select('id, code, discount_percent').in('id', couponIds);
+          const couponMap = new Map((couponsData || []).map((c: any) => [c.id, c]));
+          const enriched = data.map((uc: ClubUserCoupon) => ({
+            ...uc,
+            coupon_code: couponMap.get(uc.coupon_id)?.code || 'N/A',
+            discount_percent: couponMap.get(uc.coupon_id)?.discount_percent || 0,
+          }));
+          setClubUserCoupons(enriched);
+        }
+      }
+    } catch (e) { console.error('[Club] refresh user coupons error:', e); }
+  };
+
   return (
     <AppContext.Provider value={{
       // NOTE: the store currently uses `products` as the source of truth.
@@ -2286,7 +2518,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       displayCurrency,
       toggleCurrency,
       hapticEnabled,
-      toggleHaptic
+      toggleHaptic,
+      clubSettings,
+      clubAccount,
+      clubTransactions,
+      clubRewards,
+      clubRedemptions,
+      clubAccountsAdmin,
+      clubUserCoupons,
+      clubUserCouponsAdmin,
+      clubAwardPurchase,
+      clubAwardReferral,
+      clubRedeemReward,
+      clubAdminAdjust,
+      clubPwaBonus,
+      clubRefresh,
+      updateClubSettings,
+      addClubReward,
+      updateClubReward,
+      deleteClubReward,
+      assignCouponToUser,
+      unassignCoupon,
+      markCouponUsed
     }}>
       {children}
     </AppContext.Provider>

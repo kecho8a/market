@@ -39,10 +39,19 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
     hapticEnabled,
     toggleHaptic,
     toggleLike,
-    addToCart
+    addToCart,
+    clubAccount,
+    clubSettings,
+    clubTransactions,
+    clubRedemptions,
+    clubRewards,
+    clubRedeemReward,
+    clubRefresh,
+    clubAwardReferral,
+    clubUserCoupons
   } = useApp();
 
-  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'orders' | 'notifications' | 'recomendados'>('orders');
+  const [activeSubTab, setActiveSubTab] = useState<'profile' | 'orders' | 'notifications' | 'recomendados' | 'club'>('orders');
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgot'>('login');
 
   // ── Lógica de Popup Automático de Instalación (PWA) ────────────────────────
@@ -253,6 +262,15 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
 
     setAuthError('');
     const userCreated = await registerUser(regName.trim(), regEmail.trim(), regPhone.trim(), regPassword.trim());
+    
+    // Club: procesar codigo de referido si existe
+    const referralCode = sessionStorage.getItem('club_referral_code');
+    if (referralCode && userCreated?.id) {
+      try {
+        await clubAwardReferral(referralCode, userCreated.id);
+      } catch (e) { console.error('[Club] referral award error:', e); }
+      sessionStorage.removeItem('club_referral_code');
+    }
     
     // Set Edit states
     setEditName(userCreated.nombre);
@@ -903,6 +921,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
 
               <button
                 type="button"
+                onClick={() => { setActiveSubTab('club'); setShowEditFields(false); }}
+                className={`flex-1 py-1 px-1.5 rounded-lg text-xs font-bold font-display uppercase tracking-wider text-center flex items-center justify-center gap-1 ${activeSubTab === 'club' ? 'bg-zinc-950 text-white' : 'text-zinc-500 hover:text-zinc-900 bg-white border border-zinc-200'}`}
+              >
+                <Sparkles size={13} /> Puntos
+              </button>
+
+              <button
+                type="button"
                 onClick={() => { setActiveSubTab('profile'); setShowEditFields(true); }}
                 className={`flex-1 py-1 px-1.5 rounded-lg text-xs font-bold font-display uppercase tracking-wider text-center flex items-center justify-center gap-1 ${activeSubTab === 'profile' ? 'bg-zinc-950 text-white' : 'text-zinc-500 hover:text-zinc-900 bg-white border border-zinc-200'}`}
               >
@@ -1511,6 +1537,230 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
               </div>
             );
           })()}
+        </div>
+      )}
+
+      {/* CLUB DE FIDELIZACION */}
+      {activeSubTab === 'club' && (
+        <div className="flex flex-col gap-4 text-xs">
+
+          {/* 1. TARJETA DE SALDO */}
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 p-[1px]">
+            <div className="flex flex-col gap-3 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 rounded-[15px] p-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-600">Tu Saldo de Puntos</span>
+                  <p className="text-3xl font-black font-mono text-zinc-900 mt-1">
+                    {clubAccount?.current_balance || 0}
+                    <span className="text-sm font-bold text-zinc-500 ml-1">pts</span>
+                  </p>
+                </div>
+                <div className="p-2.5 bg-white/60 rounded-xl">
+                  <Sparkles size={24} className="text-amber-500" />
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-bold text-slate-500 uppercase">Ganados</span>
+                  <span className="text-sm font-black font-mono text-emerald-600">+{clubAccount?.total_earned || 0}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[9px] font-bold text-slate-500 uppercase">Canjeados</span>
+                  <span className="text-sm font-black font-mono text-red-500">-{clubAccount?.total_redeemed || 0}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. CODIGO DE REFERIDO */}
+          {clubAccount?.referral_code && (
+            <div className="p-4 border border-violet-200 rounded-2xl bg-violet-50 shadow-sm flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-violet-100 text-violet-600 rounded-xl">
+                  <Send size={18} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-violet-900">Tu Código de Referido</h4>
+                  <p className="text-[10px] text-violet-600">Comparte y gana {clubSettings.referral_referrer_points} puntos por cada amigo</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 bg-white border-2 border-dashed border-violet-300 rounded-xl px-4 py-2.5 text-center">
+                  <span className="text-lg font-black font-mono text-violet-600 tracking-widest">{clubAccount.referral_code}</span>
+                </div>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(clubAccount.referral_code); alert('Código copiado!'); }}
+                  className="p-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl transition-colors cursor-pointer"
+                >
+                  <Copy size={16} />
+                </button>
+                <button
+                  onClick={() => {
+                    const url = `${window.location.origin}?ref=${clubAccount.referral_code}`;
+                    if (navigator.share) navigator.share({ title: 'Únete a Marketo', text: 'Usa mi código y gana puntos!', url });
+                    else navigator.clipboard.writeText(url);
+                  }}
+                  className="p-2.5 bg-white border border-violet-300 text-violet-600 hover:bg-violet-50 rounded-xl transition-colors cursor-pointer"
+                >
+                  <ExternalLink size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 3. MIS CUPONES ASIGNADOS */}
+          {clubUserCoupons.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <h3 className="text-sm font-bold font-display text-zinc-900 flex items-center gap-2">
+                <Ticket size={16} className="text-violet-500" /> Mis Cupones
+              </h3>
+              <div className="grid grid-cols-1 gap-2">
+                {clubUserCoupons.map(uc => (
+                  <div key={uc.id} className="p-3 bg-white border border-zinc-200 rounded-xl flex justify-between items-center">
+                    <div className="flex flex-col">
+                      <span className="text-xs font-black font-mono text-violet-600">{uc.coupon_code}</span>
+                      <span className="text-[10px] text-zinc-500">-{uc.discount_percent}% descuento</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${uc.used_at ? 'bg-zinc-100 text-zinc-500' : 'bg-emerald-100 text-emerald-700'}`}>
+                        {uc.used_at ? 'Usado' : 'Activo'}
+                      </span>
+                      {!uc.used_at && (
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(uc.coupon_code || ''); alert('Código copiado!'); }}
+                          className="p-1.5 bg-violet-50 text-violet-600 hover:bg-violet-100 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Copy size={12} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 4. CATALOGO DE RECOMPENSAS */}
+          <div className="flex flex-col gap-3">
+            <h3 className="text-sm font-bold font-display text-zinc-900 flex items-center gap-2">
+              <Sparkles size={16} className="text-amber-500" /> Recompensas Disponibles
+            </h3>
+            <div className="grid grid-cols-2 gap-2.5">
+              {clubRewards.filter(r => r.active).map(rw => {
+                const canRedeem = (clubAccount?.current_balance || 0) >= rw.points_cost && rw.stock > 0;
+                return (
+                  <div key={rw.id} className="flex flex-col bg-white border border-zinc-200 rounded-xl overflow-hidden">
+                    {rw.image_url && (
+                      <div className="aspect-square overflow-hidden bg-zinc-100">
+                        <img src={rw.image_url} alt={rw.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      </div>
+                    )}
+                    <div className="p-2.5 flex flex-col gap-1">
+                      <h4 className="text-[11px] font-bold text-zinc-900 line-clamp-2 leading-tight">{rw.name}</h4>
+                      <p className="text-[9px] text-zinc-500 line-clamp-1">{rw.description}</p>
+                      <div className="flex justify-between items-center mt-1">
+                        <span className="text-[10px] font-black text-amber-600">{rw.points_cost} pts</span>
+                        <span className="text-[9px] text-zinc-400">Stock: {rw.stock}</span>
+                      </div>
+                      <button
+                        disabled={!canRedeem}
+                        onClick={async () => {
+                          if (!confirm(`¿Canjear "${rw.name}" por ${rw.points_cost} puntos?`)) return;
+                          const result = await clubRedeemReward(rw.id);
+                          alert(result.message);
+                        }}
+                        className={`w-full mt-1 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                          canRedeem
+                            ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm active:scale-95'
+                            : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
+                        }`}
+                      >
+                        {canRedeem ? 'Canjear' : 'Sin puntos'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {clubRewards.filter(r => r.active).length === 0 && (
+                <div className="col-span-full text-center py-8 bg-zinc-50 border border-dashed border-zinc-200 rounded-xl">
+                  <Sparkles size={24} className="mx-auto text-zinc-300 mb-2" />
+                  <h4 className="font-semibold text-zinc-500 text-xs">No hay recompensas disponibles</h4>
+                  <p className="text-[10px] text-zinc-400 mt-1">Pronto habrá recompensas para canjear</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 5. HISTORIAL DE PUNTOS + CANJES */}
+          <div className="flex flex-col gap-4">
+            {/* Transacciones */}
+            {clubTransactions.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <h3 className="text-sm font-bold font-display text-zinc-900">Historial de Puntos</h3>
+                <div className="flex flex-col gap-1.5">
+                  {clubTransactions.map(tx => (
+                    <div key={tx.id} className="flex justify-between items-center p-2.5 bg-white border border-zinc-200 rounded-xl">
+                      <div className="flex flex-col">
+                        <span className="text-[11px] font-semibold text-zinc-800">
+                          {tx.type === 'welcome_bonus' ? 'Bono de Bienvenida' :
+                           tx.type === 'purchase' ? 'Compra' :
+                           tx.type === 'referral_referrer' ? 'Referido (referidor)' :
+                           tx.type === 'referral_referred' ? 'Bono de bienvenida (referido)' :
+                           tx.type === 'pwa_install' ? 'Instalación PWA' :
+                           tx.type === 'reward_redemption' ? 'Canje de Recompensa' :
+                           tx.type === 'admin_adjustment' ? 'Ajuste Admin' : tx.type}
+                        </span>
+                        <span className="text-[9px] text-zinc-400">{tx.description || ''}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-black font-mono ${tx.points > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                          {tx.points > 0 ? '+' : ''}{tx.points}
+                        </span>
+                        <span className="text-[9px] text-zinc-400 font-mono">→ {tx.balance_after}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Canjes */}
+            {clubRedemptions.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <h3 className="text-sm font-bold font-display text-zinc-900">Mis Canjes</h3>
+                <div className="flex flex-col gap-1.5">
+                  {clubRedemptions.map(r => (
+                    <div key={r.id} className="flex justify-between items-center p-2.5 bg-white border border-zinc-200 rounded-xl">
+                      <div className="flex flex-col">
+                        <span className="text-[11px] font-semibold text-zinc-800">Recompensa</span>
+                        <span className="text-[9px] text-zinc-400">{new Date(r.created_at).toLocaleDateString()}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black font-mono text-red-500">-{r.points_spent} pts</span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                          r.status === 'fulfilled' ? 'bg-emerald-100 text-emerald-700' :
+                          r.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                          'bg-amber-100 text-amber-700'
+                        }`}>
+                          {r.status === 'fulfilled' ? 'Cumplido' : r.status === 'cancelled' ? 'Cancelado' : 'Pendiente'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {clubTransactions.length === 0 && clubRedemptions.length === 0 && (
+              <div className="text-center py-10 bg-zinc-50 border border-dashed border-zinc-200 rounded-xl">
+                <Sparkles size={28} className="mx-auto text-zinc-300 mb-2" />
+                <h4 className="font-semibold text-zinc-600">Aún no tienes actividad</h4>
+                <p className="text-[11px] text-zinc-400 max-w-xs mx-auto mt-1">
+                  Realiza compras, comparte tu código de referido o instala la app para ganar puntos.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

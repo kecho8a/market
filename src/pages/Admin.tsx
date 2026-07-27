@@ -7,7 +7,7 @@ import {
   Plus, Edit, Trash2, Landmark, Settings, ShoppingBag, BarChart3, Mic, FileJson,
   Search, CheckCircle, Truck, PackageCheck, AlertTriangle, Send, Bell, Ticket,
   Receipt, Printer, Check, X, MessageSquare, MessageCircle, ExternalLink, Upload, DollarSign, Package, ShoppingCart, User, Download, FileSpreadsheet, Eye, EyeOff, Calendar, AlertCircle, RefreshCcw,
-  Activity, Database, Shield, HardDrive, Wifi
+  Activity, Database, Shield, HardDrive, Wifi, Sparkles
 } from 'lucide-react';
 import { SEOHead } from '../components/SEOHead';
 import { EditProductForm } from '../components/EditProductForm';
@@ -318,7 +318,10 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
     updateAdminCredentials, adminUser, adminPass, users, updateUserByAdmin,
     addCategory, deleteCategory, updateCategory, 
     coupons, addCoupon, updateCoupon, deleteCoupon, clearAllNotifications,
-    isSuperadmin
+    isSuperadmin,
+    clubSettings, clubRewards, clubRedemptions, clubAccountsAdmin, clubUserCouponsAdmin,
+    updateClubSettings, addClubReward, updateClubReward, deleteClubReward, clubAdminAdjust, clubRefresh,
+    assignCouponToUser, unassignCoupon, markCouponUsed
   } = useApp();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -329,7 +332,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
   const [newAdminPass, setNewAdminPass] = useState(adminPass);
 
   // Navigation within admin panel: 'inventory' | 'orders' | 'settings' | 'reports' | 'notifications' | 'customers'
-  const [adminSection, setAdminSection] = useState<'inventory' | 'orders' | 'settings' | 'reports' | 'notifications' | 'customers' | 'coupons' | 'system'>('reports');
+  const [adminSection, setAdminSection] = useState<'inventory' | 'orders' | 'settings' | 'reports' | 'notifications' | 'customers' | 'coupons' | 'system' | 'club'>('reports');
   const [showAdminPass, setShowAdminPass] = useState(false);
   const restoreInputRef = useRef<HTMLInputElement>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
@@ -365,6 +368,20 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
   const [newZoneCost, setNewZoneCost] = useState(0);
   const [newZoneMinKm, setNewZoneMinKm] = useState(0);
   const [newZoneMaxKm, setNewZoneMaxKm] = useState(0);
+
+  // Club de Fidelizacion state
+  const [newRewardName, setNewRewardName] = useState('');
+  const [newRewardDesc, setNewRewardDesc] = useState('');
+  const [newRewardImage, setNewRewardImage] = useState('');
+  const [newRewardPoints, setNewRewardPoints] = useState(100);
+  const [newRewardStock, setNewRewardStock] = useState(10);
+  const [newRewardMaxPerUser, setNewRewardMaxPerUser] = useState(1);
+  const [editingRewardId, setEditingRewardId] = useState<string | null>(null);
+  const [adjustModalUser, setAdjustModalUser] = useState<{ userId: string; nombre: string } | null>(null);
+  const [adjustPoints, setAdjustPoints] = useState(0);
+  const [adjustDescription, setAdjustDescription] = useState('');
+  const [assignCouponUser, setAssignCouponUser] = useState('');
+  const [assignCouponId, setAssignCouponId] = useState('');
 
   useEffect(() => {
     if (editingOrderItems) {
@@ -1089,6 +1106,7 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
           { key: 'notifications', label: 'Alertas', icon: Bell },
           { key: 'customers', label: 'Clientes', icon: User },
           { key: 'coupons', label: 'Cupones', icon: Ticket },
+          { key: 'club', label: 'Fidelización', icon: Sparkles },
           { key: 'settings', label: 'Ajustes', icon: Landmark },
           ...(isSuperadmin ? [{ key: 'system', label: 'Sistema', icon: Shield }] : [])
         ].map(sect => {
@@ -2245,6 +2263,350 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ----------------- SUBSECTION: CLUB DE FIDELIZACION ----------------- */}
+      {adminSection === 'club' && (
+        <div className="flex flex-col gap-6 animate-fade-in">
+
+          {/* 1. CONFIGURACION DEL CLUB */}
+          <div className="p-4 border border-slate-200 rounded-xl bg-white shadow-sm flex flex-col gap-4">
+            <h4 className="text-xs font-bold font-display text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <Sparkles size={16} className="text-amber-500" /> Configuración del Club de Fidelización
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-end">
+              <label className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={clubSettings.club_enabled}
+                  onChange={(e) => updateClubSettings({ club_enabled: e.target.checked })}
+                  className="accent-violet-600 w-4 h-4"
+                />
+                <span className="text-xs font-bold text-slate-700">Club Habilitado</span>
+              </label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Puntos por Dólar</label>
+                <input type="number" step="0.1" min="0" value={clubSettings.points_per_dollar}
+                  onChange={(e) => updateClubSettings({ points_per_dollar: Number(e.target.value) })}
+                  className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Bono Bienvenida (pts)</label>
+                <input type="number" min="0" value={clubSettings.welcome_bonus_points}
+                  onChange={(e) => updateClubSettings({ welcome_bonus_points: Number(e.target.value) })}
+                  className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Pts Referidor</label>
+                <input type="number" min="0" value={clubSettings.referral_referrer_points}
+                  onChange={(e) => updateClubSettings({ referral_referrer_points: Number(e.target.value) })}
+                  className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Pts Referido</label>
+                <input type="number" min="0" value={clubSettings.referral_referred_points}
+                  onChange={(e) => updateClubSettings({ referral_referred_points: Number(e.target.value) })}
+                  className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Pts Instalación PWA</label>
+                <input type="number" min="0" value={clubSettings.pwa_install_points}
+                  onChange={(e) => updateClubSettings({ pwa_install_points: Number(e.target.value) })}
+                  className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+              </div>
+            </div>
+          </div>
+
+          {/* 2. RECOMPENSAS DEL CLUB (CRUD) */}
+          <div className="p-4 border border-slate-200 rounded-xl bg-white shadow-sm flex flex-col gap-4">
+            <h4 className="text-xs font-bold font-display text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <Sparkles size={16} className="text-emerald-500" /> Recompensas del Club
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Nombre</label>
+                <input type="text" value={newRewardName} onChange={(e) => setNewRewardName(e.target.value)}
+                  placeholder="Ej: Descuento 10%" className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Descripción</label>
+                <input type="text" value={newRewardDesc} onChange={(e) => setNewRewardDesc(e.target.value)}
+                  placeholder="Descripción breve" className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">URL Imagen</label>
+                <input type="text" value={newRewardImage} onChange={(e) => setNewRewardImage(e.target.value)}
+                  placeholder="https://..." className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Costo (pts)</label>
+                <input type="number" min="1" value={newRewardPoints} onChange={(e) => setNewRewardPoints(Number(e.target.value))}
+                  className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Stock</label>
+                <input type="number" min="0" value={newRewardStock} onChange={(e) => setNewRewardStock(Number(e.target.value))}
+                  className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Max/Usuario</label>
+                <input type="number" min="1" value={newRewardMaxPerUser} onChange={(e) => setNewRewardMaxPerUser(Number(e.target.value))}
+                  className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+              </div>
+              <button onClick={() => {
+                  if (!newRewardName.trim()) return alert('Indique el nombre');
+                  addClubReward({ name: newRewardName.trim(), description: newRewardDesc.trim(), image_url: newRewardImage.trim(), points_cost: newRewardPoints, stock: newRewardStock, active: true, max_per_user: newRewardMaxPerUser, display_order: clubRewards.length });
+                  setNewRewardName(''); setNewRewardDesc(''); setNewRewardImage(''); setNewRewardPoints(100); setNewRewardStock(10); setNewRewardMaxPerUser(1);
+                }}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 rounded-lg transition-colors cursor-pointer">
+                {editingRewardId ? 'Actualizar' : 'Crear Recompensa'}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {clubRewards.map(rw => (
+                <div key={rw.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col gap-2">
+                  <div className="flex justify-between items-start">
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-900">{rw.name}</span>
+                      <span className="text-[10px] text-slate-500">{rw.description}</span>
+                    </div>
+                    <span className="text-[10px] font-black bg-amber-100 text-amber-700 px-2 py-0.5 rounded">{rw.points_cost} pts</span>
+                  </div>
+                  <div className="text-[10px] text-slate-400 font-mono">Stock: {rw.stock} | Max/user: {rw.max_per_user}</div>
+                  <div className="flex justify-between items-center mt-1 pt-2 border-t border-slate-100">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={rw.active} onChange={(e) => updateClubReward(rw.id, { active: e.target.checked })} className="accent-emerald-600" />
+                      <span className="text-[10px] font-bold uppercase text-slate-600">Activo</span>
+                    </label>
+                    <div className="flex gap-2">
+                      <button onClick={() => {
+                        setEditingRewardId(rw.id);
+                        setNewRewardName(rw.name); setNewRewardDesc(rw.description); setNewRewardImage(rw.image_url);
+                        setNewRewardPoints(rw.points_cost); setNewRewardStock(rw.stock); setNewRewardMaxPerUser(rw.max_per_user);
+                      }} className="text-blue-500 hover:text-blue-700 transition-colors cursor-pointer"><Edit size={13}/></button>
+                      <button onClick={() => { if (confirm('Eliminar esta recompensa?')) deleteClubReward(rw.id); }}
+                        className="text-red-500 hover:text-red-700 transition-colors cursor-pointer"><Trash2 size={13}/></button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {clubRewards.length === 0 && (
+                <div className="col-span-full text-center py-8 text-slate-400 text-xs border border-dashed rounded-xl">
+                  No hay recompensas creadas aún.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 3. CUPONES ASIGNADOS A MIEMBROS */}
+          <div className="p-4 border border-slate-200 rounded-xl bg-white shadow-sm flex flex-col gap-4">
+            <h4 className="text-xs font-bold font-display text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <Ticket size={16} className="text-violet-500" /> Cupones Asignados a Miembros
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Cliente</label>
+                <select value={assignCouponUser} onChange={(e) => setAssignCouponUser(e.target.value)}
+                  className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs">
+                  <option value="">Seleccionar cliente...</option>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>{u.nombre} ({u.telefono})</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Cupón</label>
+                <select value={assignCouponId} onChange={(e) => setAssignCouponId(e.target.value)}
+                  className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs">
+                  <option value="">Seleccionar cupón...</option>
+                  {coupons.filter(c => c.active).map(c => (
+                    <option key={c.id} value={c.id}>{c.code} (-{c.discount_percent}%)</option>
+                  ))}
+                </select>
+              </div>
+              <button onClick={async () => {
+                  if (!assignCouponUser || !assignCouponId) return alert('Seleccione cliente y cupón');
+                  const ok = await assignCouponToUser(assignCouponUser, assignCouponId);
+                  if (ok) { setAssignCouponUser(''); setAssignCouponId(''); alert('Cupón asignado correctamente'); }
+                  else alert('Error al asignar cupón');
+                }}
+                className="bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs py-2.5 rounded-lg transition-colors cursor-pointer">
+                Asignar Cupón
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {clubUserCouponsAdmin.map(uc => (
+                <div key={uc.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col gap-2">
+                  <div className="flex justify-between items-start">
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold font-mono text-violet-600">{uc.coupon_code}</span>
+                      <span className="text-[10px] text-slate-500">Descuento: {uc.discount_percent}%</span>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${uc.used_at ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {uc.used_at ? 'Usado' : 'Activo'}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-400">Asignado: {new Date(uc.assigned_at).toLocaleDateString()}</div>
+                  <div className="flex gap-2 mt-1 pt-2 border-t border-slate-100">
+                    {!uc.used_at && (
+                      <button onClick={async () => { await markCouponUsed(uc.id); }}
+                        className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold py-1.5 rounded-lg cursor-pointer">
+                        Marcar Usado
+                      </button>
+                    )}
+                    <button onClick={async () => { if (confirm('Desasignar este cupón?')) await unassignCoupon(uc.id); }}
+                      className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 text-[10px] font-bold py-1.5 rounded-lg cursor-pointer">
+                      Desasignar
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {clubUserCouponsAdmin.length === 0 && (
+                <div className="col-span-full text-center py-8 text-slate-400 text-xs border border-dashed rounded-xl">
+                  No hay cupones asignados aún.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 4. CUENTAS DE CLIENTES */}
+          <div className="p-4 border border-slate-200 rounded-xl bg-white shadow-sm flex flex-col gap-4">
+            <h4 className="text-xs font-bold font-display text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <User size={16} className="text-blue-500" /> Cuentas de Clientes
+            </h4>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th className="text-left py-2 px-2 font-bold text-slate-600 uppercase text-[10px]">Cliente</th>
+                    <th className="text-left py-2 px-2 font-bold text-slate-600 uppercase text-[10px]">Email</th>
+                    <th className="text-right py-2 px-2 font-bold text-slate-600 uppercase text-[10px]">Saldo</th>
+                    <th className="text-right py-2 px-2 font-bold text-slate-600 uppercase text-[10px]">Ganado</th>
+                    <th className="text-right py-2 px-2 font-bold text-slate-600 uppercase text-[10px]">Canjeado</th>
+                    <th className="text-center py-2 px-2 font-bold text-slate-600 uppercase text-[10px]">Código Ref</th>
+                    <th className="text-center py-2 px-2 font-bold text-slate-600 uppercase text-[10px]">Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clubAccountsAdmin.map(acc => (
+                    <tr key={acc.id} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="py-2 px-2 font-semibold text-slate-800">{acc.nombre}</td>
+                      <td className="py-2 px-2 text-slate-500">{acc.email}</td>
+                      <td className="py-2 px-2 text-right font-mono font-bold text-emerald-600">{acc.current_balance}</td>
+                      <td className="py-2 px-2 text-right font-mono text-slate-600">{acc.total_earned}</td>
+                      <td className="py-2 px-2 text-right font-mono text-red-500">{acc.total_redeemed}</td>
+                      <td className="py-2 px-2 text-center font-mono text-violet-600 text-[10px]">{acc.referral_code}</td>
+                      <td className="py-2 px-2 text-center">
+                        <button onClick={() => { setAdjustModalUser({ userId: acc.user_id, nombre: acc.nombre }); setAdjustPoints(0); setAdjustDescription(''); }}
+                          className="bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg cursor-pointer">
+                          Ajustar Pts
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {clubAccountsAdmin.length === 0 && (
+                    <tr><td colSpan={7} className="text-center py-8 text-slate-400 text-xs border border-dashed rounded-xl">No hay cuentas registradas.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 5. CANJES PENDIENTES */}
+          <div className="p-4 border border-slate-200 rounded-xl bg-white shadow-sm flex flex-col gap-4">
+            <h4 className="text-xs font-bold font-display text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <PackageCheck size={16} className="text-rose-500" /> Canjes Pendientes
+            </h4>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th className="text-left py-2 px-2 font-bold text-slate-600 uppercase text-[10px]">ID</th>
+                    <th className="text-left py-2 px-2 font-bold text-slate-600 uppercase text-[10px]">Usuario ID</th>
+                    <th className="text-left py-2 px-2 font-bold text-slate-600 uppercase text-[10px]">Recompensa ID</th>
+                    <th className="text-right py-2 px-2 font-bold text-slate-600 uppercase text-[10px]">Puntos</th>
+                    <th className="text-center py-2 px-2 font-bold text-slate-600 uppercase text-[10px]">Estado</th>
+                    <th className="text-left py-2 px-2 font-bold text-slate-600 uppercase text-[10px]">Fecha</th>
+                    <th className="text-center py-2 px-2 font-bold text-slate-600 uppercase text-[10px]">Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clubRedemptions.map(r => (
+                    <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="py-2 px-2 font-mono text-[10px] text-slate-500">{r.id.slice(0, 8)}</td>
+                      <td className="py-2 px-2 font-mono text-[10px] text-slate-500">{r.user_id.slice(0, 8)}...</td>
+                      <td className="py-2 px-2 font-mono text-[10px] text-slate-500">{r.reward_id.slice(0, 8)}...</td>
+                      <td className="py-2 px-2 text-right font-mono font-bold text-red-500">{r.points_spent}</td>
+                      <td className="py-2 px-2 text-center">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                          r.status === 'fulfilled' ? 'bg-green-100 text-green-700' :
+                          r.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                          'bg-amber-100 text-amber-700'
+                        }`}>{r.status === 'fulfilled' ? 'Cumplido' : r.status === 'cancelled' ? 'Cancelado' : 'Pendiente'}</span>
+                      </td>
+                      <td className="py-2 px-2 text-slate-500">{new Date(r.created_at).toLocaleDateString()}</td>
+                      <td className="py-2 px-2 text-center">
+                        {r.status === 'pending' && (
+                          <div className="flex gap-1 justify-center">
+                            <button onClick={async () => {
+                                await supabase.from('club_redemptions').update({ status: 'fulfilled' }).eq('id', r.id);
+                                clubRefresh();
+                              }}
+                              className="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold px-2 py-1 rounded cursor-pointer">Cumplir</button>
+                            <button onClick={async () => {
+                                await supabase.from('club_redemptions').update({ status: 'cancelled' }).eq('id', r.id);
+                                clubRefresh();
+                              }}
+                              className="bg-red-500 hover:bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded cursor-pointer">Cancelar</button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {clubRedemptions.length === 0 && (
+                    <tr><td colSpan={7} className="text-center py-8 text-slate-400 text-xs border border-dashed rounded-xl">No hay canjes registrados.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* MODAL AJUSTE MANUAL DE PUNTOS */}
+          {adjustModalUser && (
+            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+              <div className="w-full max-w-sm bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col animate-in zoom-in-95 duration-200">
+                <div className="p-4 bg-blue-600 text-white flex justify-between items-center">
+                  <h3 className="font-bold text-xs uppercase tracking-wider">Ajustar Puntos — {adjustModalUser.nombre}</h3>
+                  <button onClick={() => setAdjustModalUser(null)} className="hover:rotate-90 transition-transform"><X size={18}/></button>
+                </div>
+                <div className="p-4 flex flex-col gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Puntos (+ para sumar, - para restar)</label>
+                    <input type="number" value={adjustPoints} onChange={(e) => setAdjustPoints(Number(e.target.value))}
+                      className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono" />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Descripción / Motivo</label>
+                    <input type="text" value={adjustDescription} onChange={(e) => setAdjustDescription(e.target.value)}
+                      placeholder="Ej: Bono especial, Corrección..." className="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs" />
+                  </div>
+                  <button onClick={async () => {
+                      if (!adjustPoints) return alert('Indique la cantidad de puntos');
+                      if (!adjustDescription.trim()) return alert('Indique un motivo');
+                      const ok = await clubAdminAdjust(adjustModalUser.userId, adjustPoints, adjustDescription.trim());
+                      if (ok) { setAdjustModalUser(null); clubRefresh(); alert('Puntos ajustados correctamente'); }
+                      else alert('Error al ajustar puntos');
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-xs uppercase tracking-widest transition-all">
+                    Aplicar Ajuste
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
