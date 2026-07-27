@@ -2041,10 +2041,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     
     console.log('✅ Notificación guardada en Supabase:', notifId);
 
-    // El disparo del Webhook Push ya no se hace desde el frontend por seguridad y para evitar errores 401.
-    // Ahora lo gestiona exclusivamente el trigger "trigger_notify_push" en Supabase 
-    // (definido en schema_definitivo.sql) usando la extensión pg_net, garantizando que el 
-    // secreto de autenticación nunca viaje por el navegador del cliente.
+    // Disparar push notification via Cloudflare Function
+    // (el trigger de Supabase pg_net no funciona sin extensión habilitada)
+    const pushPayload = {
+      id: notifId,
+      titulo: title,
+      mensaje: message,
+      tipo,
+      destinatario_telefono: targetPhone,
+      imagen_url: imageUrl,
+      link_url: linkUrl,
+    };
+    const webhookSecret = import.meta.env.VITE_WEBHOOK_SECRET || '';
+    fetch('/api/push-notify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(webhookSecret ? { 'x-push-webhook-secret': webhookSecret } : {}),
+      },
+      body: JSON.stringify(pushPayload),
+    })
+      .then(r => r.json())
+      .then(data => console.log('🔔 Push result:', data))
+      .catch(err => console.error('❌ Push dispatch failed:', err));
 
     return true;
   };
