@@ -2364,15 +2364,15 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {clubRewards.map(rw => (
                 <div key={rw.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col gap-2">
-                  <div className="flex justify-between items-start">
-                    <div className="flex flex-col">
-                      <span className="text-xs font-bold text-slate-900">{rw.name}</span>
-                      <span className="text-[10px] text-slate-500">{rw.description}</span>
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="text-xs font-bold text-slate-900 truncate">{rw.name}</span>
+                      <span className="text-[10px] text-slate-500 truncate">{rw.description}</span>
                     </div>
-                    <span className="text-[10px] font-black bg-amber-100 text-amber-700 px-2 py-0.5 rounded">{rw.points_cost} pts</span>
+                    <span className="text-[10px] font-black bg-amber-100 text-amber-700 px-2 py-0.5 rounded shrink-0">{rw.points_cost} pts</span>
                   </div>
                   <div className="text-[10px] text-slate-400 font-mono">Stock: {rw.stock} | Max/user: {rw.max_per_user}</div>
                   <div className="flex justify-between items-center mt-1 pt-2 border-t border-slate-100">
@@ -2437,15 +2437,15 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {clubUserCouponsAdmin.map(uc => (
                 <div key={uc.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col gap-2">
-                  <div className="flex justify-between items-start">
-                    <div className="flex flex-col">
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="flex flex-col min-w-0 flex-1">
                       <span className="text-xs font-bold font-mono text-violet-600">{uc.coupon_code}</span>
                       <span className="text-[10px] text-slate-500">Descuento: {uc.discount_percent}%</span>
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${uc.used_at ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded shrink-0 ${uc.used_at ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
                       {uc.used_at ? 'Usado' : 'Activo'}
                     </span>
                   </div>
@@ -2477,7 +2477,45 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
             <h4 className="text-xs font-bold font-display text-slate-900 uppercase tracking-wider flex items-center gap-2">
               <User size={16} className="text-blue-500" /> Cuentas de Clientes
             </h4>
-            <div className="overflow-x-auto">
+
+            {/* MOBILE: Cards */}
+            <div className="flex flex-col gap-2 md:hidden">
+              {clubAccountsAdmin.map(acc => (
+                <div key={acc.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col gap-2">
+                  <div className="flex justify-between items-start">
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-xs font-bold text-slate-900 truncate">{acc.nombre}</span>
+                      <span className="text-[10px] text-slate-500 truncate">{acc.email}</span>
+                    </div>
+                    <span className="text-[10px] font-black font-mono text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded shrink-0">{acc.referral_code}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-white rounded-lg p-1.5 border border-slate-100">
+                      <span className="text-[9px] font-bold text-slate-500 uppercase block">Saldo</span>
+                      <span className="text-xs font-black font-mono text-emerald-600">{acc.current_balance}</span>
+                    </div>
+                    <div className="bg-white rounded-lg p-1.5 border border-slate-100">
+                      <span className="text-[9px] font-bold text-slate-500 uppercase block">Ganado</span>
+                      <span className="text-xs font-black font-mono text-slate-600">{acc.total_earned}</span>
+                    </div>
+                    <div className="bg-white rounded-lg p-1.5 border border-slate-100">
+                      <span className="text-[9px] font-bold text-slate-500 uppercase block">Canjeado</span>
+                      <span className="text-xs font-black font-mono text-red-500">{acc.total_redeemed}</span>
+                    </div>
+                  </div>
+                  <button onClick={() => { setAdjustModalUser({ userId: acc.user_id, nombre: acc.nombre }); setAdjustPoints(0); setAdjustDescription(''); }}
+                    className="w-full bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-bold py-2 rounded-lg cursor-pointer">
+                    Ajustar Puntos
+                  </button>
+                </div>
+              ))}
+              {clubAccountsAdmin.length === 0 && (
+                <div className="text-center py-8 text-slate-400 text-xs border border-dashed rounded-xl">No hay cuentas registradas.</div>
+              )}
+            </div>
+
+            {/* DESKTOP: Table */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-slate-200">
@@ -2520,7 +2558,52 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
             <h4 className="text-xs font-bold font-display text-slate-900 uppercase tracking-wider flex items-center gap-2">
               <PackageCheck size={16} className="text-rose-500" /> Canjes Pendientes
             </h4>
-            <div className="overflow-x-auto">
+
+            {/* MOBILE: Cards */}
+            <div className="flex flex-col gap-2 md:hidden">
+              {clubRedemptions.map(r => (
+                <div key={r.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col gap-2">
+                  <div className="flex justify-between items-start">
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-[10px] font-mono text-slate-500">ID: {r.id.slice(0, 8)}</span>
+                      <span className="text-[10px] font-mono text-slate-500">Usuario: {r.user_id.slice(0, 8)}...</span>
+                      <span className="text-[10px] font-mono text-slate-500">Recompensa: {r.reward_id.slice(0, 8)}...</span>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded shrink-0 ${
+                      r.status === 'fulfilled' ? 'bg-green-100 text-green-700' :
+                      r.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                      'bg-amber-100 text-amber-700'
+                    }`}>{r.status === 'fulfilled' ? 'Cumplido' : r.status === 'cancelled' ? 'Cancelado' : 'Pendiente'}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-black font-mono text-red-500">-{r.points_spent} pts</span>
+                      <span className="text-[10px] text-slate-400">{new Date(r.created_at).toLocaleDateString()}</span>
+                    </div>
+                    {r.status === 'pending' && (
+                      <div className="flex gap-1">
+                        <button onClick={async () => {
+                            await supabase.from('club_redemptions').update({ status: 'fulfilled' }).eq('id', r.id);
+                            clubRefresh();
+                          }}
+                          className="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold px-2.5 py-1 rounded cursor-pointer">Cumplir</button>
+                        <button onClick={async () => {
+                            await supabase.from('club_redemptions').update({ status: 'cancelled' }).eq('id', r.id);
+                            clubRefresh();
+                          }}
+                          className="bg-red-500 hover:bg-red-600 text-white text-[10px] font-bold px-2.5 py-1 rounded cursor-pointer">Cancelar</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {clubRedemptions.length === 0 && (
+                <div className="text-center py-8 text-slate-400 text-xs border border-dashed rounded-xl">No hay canjes registrados.</div>
+              )}
+            </div>
+
+            {/* DESKTOP: Table */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-slate-200">
@@ -2576,8 +2659,8 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
 
           {/* MODAL AJUSTE MANUAL DE PUNTOS */}
           {adjustModalUser && (
-            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-              <div className="w-full max-w-sm bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col animate-in zoom-in-95 duration-200">
+            <div className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/80 backdrop-blur-md">
+              <div className="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-bottom duration-200 sm:animate-in sm:zoom-in-95">
                 <div className="p-4 bg-blue-600 text-white flex justify-between items-center">
                   <h3 className="font-bold text-xs uppercase tracking-wider">Ajustar Puntos — {adjustModalUser.nombre}</h3>
                   <button onClick={() => setAdjustModalUser(null)} className="hover:rotate-90 transition-transform"><X size={18}/></button>

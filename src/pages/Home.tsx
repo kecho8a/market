@@ -37,7 +37,7 @@ export const Home: React.FC<HomeProps> = ({
   deferredPrompt,
   onInstallClick
 }) => {
-  const { parts, config, addToCart, currentUser, requestPart } = useApp();
+  const { parts, config, addToCart, currentUser, requestPart, clubSettings } = useApp();
   const [activeBanner, setActiveBanner] = useState(0);
   const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
   const [suggestions, setSuggestions] = useState<Producto[]>([]);
@@ -367,6 +367,61 @@ export const Home: React.FC<HomeProps> = ({
               >
               Habilitar
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* CLUB DE FIDELIZACION - BANNER PROMOCIONAL */}
+      {clubSettings.club_enabled && !currentUser && (
+        <div className="relative overflow-hidden rounded-3xl shadow-xl border border-amber-200/60">
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50"></div>
+          <div className="absolute -top-16 -right-16 w-48 h-48 bg-amber-300/20 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="absolute -bottom-12 -left-12 w-36 h-36 bg-orange-300/15 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="relative z-10 flex flex-row items-stretch gap-0">
+            <div className="w-[35%] min-h-[130px] h-auto overflow-hidden rounded-l-3xl hidden sm:block">
+              <img
+                src="https://images.unsplash.com/photo-1604719312566-8912e9227c6a?auto=format&fit=crop&q=80&w=600"
+                alt="Club de Fidelización"
+                className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <div className="flex-1 flex flex-col justify-center gap-2.5 p-4 md:p-5">
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] font-black uppercase tracking-[0.15em] text-amber-700 bg-amber-100/80 backdrop-blur-sm border border-amber-200/60 px-3 py-1 rounded-full shadow-sm flex items-center gap-1">
+                  <Sparkles size={10} /> Club de Puntos
+                </span>
+                {clubSettings.welcome_bonus_points > 0 && (
+                  <span className="text-[9px] font-black uppercase tracking-[0.12em] text-emerald-700 bg-emerald-100/80 backdrop-blur-sm border border-emerald-200/60 px-2.5 py-1 rounded-full shadow-sm">
+                    +{clubSettings.welcome_bonus_points} pts gratis
+                  </span>
+                )}
+              </div>
+              <h3 className="text-lg md:text-xl font-extrabold text-zinc-900 leading-snug tracking-tight">
+                Registrate y empieza a ganar puntos canjeables
+              </h3>
+              <p className="text-[12px] text-zinc-500 leading-relaxed max-w-md font-medium">
+                Unite al club, descarga la app y acumula puntos con cada compra, referido e instalación. Canjealos por descuentos, delivery gratis y productos exclusivos.
+              </p>
+              <div className="flex items-center gap-3 mt-1">
+                <button
+                  onClick={() => setTab('profile')}
+                  className="text-white font-extrabold py-3 px-6 rounded-2xl text-[11px] uppercase tracking-[0.12em] cursor-pointer transition-all shadow-lg hover:shadow-xl active:scale-[0.96] flex items-center gap-2"
+                  style={{ background: `linear-gradient(135deg, ${config.theme_color || '#0f5d34'}, ${config.theme_color || '#ea580c'})` }}
+                >
+                  Registrarme Ahora
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+                </button>
+                {deferredPrompt && (
+                  <button
+                    onClick={onInstallClick}
+                    className="text-amber-700 bg-amber-100 hover:bg-amber-200 font-bold py-2.5 px-4 rounded-xl text-[11px] uppercase tracking-wider cursor-pointer transition-all border border-amber-200 flex items-center gap-1.5"
+                  >
+                    <Smartphone size={13} /> Descargar App
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

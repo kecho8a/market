@@ -1548,14 +1548,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
           <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500 via-orange-500 to-rose-500 p-[1px]">
             <div className="flex flex-col gap-3 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 rounded-[15px] p-4">
               <div className="flex justify-between items-start">
-                <div>
+                <div className="min-w-0 flex-1">
                   <span className="text-[10px] font-black uppercase tracking-widest text-amber-600">Tu Saldo de Puntos</span>
-                  <p className="text-3xl font-black font-mono text-zinc-900 mt-1">
+                  <p className="text-2xl sm:text-3xl font-black font-mono text-zinc-900 mt-1">
                     {clubAccount?.current_balance || 0}
                     <span className="text-sm font-bold text-zinc-500 ml-1">pts</span>
                   </p>
                 </div>
-                <div className="p-2.5 bg-white/60 rounded-xl">
+                <div className="p-2.5 bg-white/60 rounded-xl shrink-0">
                   <Sparkles size={24} className="text-amber-500" />
                 </div>
               </div>
@@ -1576,34 +1576,36 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
           {clubAccount?.referral_code && (
             <div className="p-4 border border-violet-200 rounded-2xl bg-violet-50 shadow-sm flex flex-col gap-3">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-violet-100 text-violet-600 rounded-xl">
+                <div className="p-2 bg-violet-100 text-violet-600 rounded-xl shrink-0">
                   <Send size={18} />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h4 className="text-xs font-bold text-violet-900">Tu Código de Referido</h4>
-                  <p className="text-[10px] text-violet-600">Comparte y gana {clubSettings.referral_referrer_points} puntos por cada amigo</p>
+                  <p className="text-[10px] text-violet-600 truncate">Comparte y gana {clubSettings.referral_referrer_points} pts por cada amigo</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="flex-1 bg-white border-2 border-dashed border-violet-300 rounded-xl px-4 py-2.5 text-center">
-                  <span className="text-lg font-black font-mono text-violet-600 tracking-widest">{clubAccount.referral_code}</span>
+              <div className="flex flex-col gap-2">
+                <div className="bg-white border-2 border-dashed border-violet-300 rounded-xl px-4 py-3 text-center">
+                  <span className="text-xl font-black font-mono text-violet-600 tracking-widest">{clubAccount.referral_code}</span>
                 </div>
-                <button
-                  onClick={() => { navigator.clipboard.writeText(clubAccount.referral_code); alert('Código copiado!'); }}
-                  className="p-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl transition-colors cursor-pointer"
-                >
-                  <Copy size={16} />
-                </button>
-                <button
-                  onClick={() => {
-                    const url = `${window.location.origin}?ref=${clubAccount.referral_code}`;
-                    if (navigator.share) navigator.share({ title: 'Únete a Marketo', text: 'Usa mi código y gana puntos!', url });
-                    else navigator.clipboard.writeText(url);
-                  }}
-                  className="p-2.5 bg-white border border-violet-300 text-violet-600 hover:bg-violet-50 rounded-xl transition-colors cursor-pointer"
-                >
-                  <ExternalLink size={16} />
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(clubAccount.referral_code); alert('Código copiado!'); }}
+                    className="flex-1 flex items-center justify-center gap-1.5 p-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl transition-colors cursor-pointer text-[11px] font-bold"
+                  >
+                    <Copy size={14} /> Copiar
+                  </button>
+                  <button
+                    onClick={() => {
+                      const url = `${window.location.origin}?ref=${clubAccount.referral_code}`;
+                      if (navigator.share) navigator.share({ title: 'Únete a Marketo', text: 'Usa mi código y gana puntos!', url });
+                      else navigator.clipboard.writeText(url);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 p-2.5 bg-white border border-violet-300 text-violet-600 hover:bg-violet-50 rounded-xl transition-colors cursor-pointer text-[11px] font-bold"
+                  >
+                    <ExternalLink size={14} /> Compartir
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -1645,7 +1647,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
             <h3 className="text-sm font-bold font-display text-zinc-900 flex items-center gap-2">
               <Sparkles size={16} className="text-amber-500" /> Recompensas Disponibles
             </h3>
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-2.5">
               {clubRewards.filter(r => r.active).map(rw => {
                 const canRedeem = (clubAccount?.current_balance || 0) >= rw.points_cost && rw.stock > 0;
                 return (
@@ -1655,12 +1657,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                         <img src={rw.image_url} alt={rw.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       </div>
                     )}
-                    <div className="p-2.5 flex flex-col gap-1">
-                      <h4 className="text-[11px] font-bold text-zinc-900 line-clamp-2 leading-tight">{rw.name}</h4>
-                      <p className="text-[9px] text-zinc-500 line-clamp-1">{rw.description}</p>
+                    <div className="p-2 sm:p-2.5 flex flex-col gap-1">
+                      <h4 className="text-[10px] sm:text-[11px] font-bold text-zinc-900 line-clamp-2 leading-tight">{rw.name}</h4>
+                      <p className="text-[8px] sm:text-[9px] text-zinc-500 line-clamp-1">{rw.description}</p>
                       <div className="flex justify-between items-center mt-1">
-                        <span className="text-[10px] font-black text-amber-600">{rw.points_cost} pts</span>
-                        <span className="text-[9px] text-zinc-400">Stock: {rw.stock}</span>
+                        <span className="text-[9px] sm:text-[10px] font-black text-amber-600">{rw.points_cost} pts</span>
+                        <span className="text-[8px] sm:text-[9px] text-zinc-400">Stock: {rw.stock}</span>
                       </div>
                       <button
                         disabled={!canRedeem}
@@ -1669,7 +1671,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                           const result = await clubRedeemReward(rw.id);
                           alert(result.message);
                         }}
-                        className={`w-full mt-1 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                        className={`w-full mt-1 py-1.5 rounded-lg text-[9px] sm:text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
                           canRedeem
                             ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm active:scale-95'
                             : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
@@ -1699,9 +1701,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                 <h3 className="text-sm font-bold font-display text-zinc-900">Historial de Puntos</h3>
                 <div className="flex flex-col gap-1.5">
                   {clubTransactions.map(tx => (
-                    <div key={tx.id} className="flex justify-between items-center p-2.5 bg-white border border-zinc-200 rounded-xl">
-                      <div className="flex flex-col">
-                        <span className="text-[11px] font-semibold text-zinc-800">
+                    <div key={tx.id} className="flex justify-between items-start p-2.5 bg-white border border-zinc-200 rounded-xl gap-2">
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="text-[10px] sm:text-[11px] font-semibold text-zinc-800 truncate">
                           {tx.type === 'welcome_bonus' ? 'Bono de Bienvenida' :
                            tx.type === 'purchase' ? 'Compra' :
                            tx.type === 'referral_referrer' ? 'Referido (referidor)' :
@@ -1710,13 +1712,13 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                            tx.type === 'reward_redemption' ? 'Canje de Recompensa' :
                            tx.type === 'admin_adjustment' ? 'Ajuste Admin' : tx.type}
                         </span>
-                        <span className="text-[9px] text-zinc-400">{tx.description || ''}</span>
+                        <span className="text-[8px] sm:text-[9px] text-zinc-400 truncate">{tx.description || ''}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs font-black font-mono ${tx.points > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`text-[11px] sm:text-xs font-black font-mono ${tx.points > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
                           {tx.points > 0 ? '+' : ''}{tx.points}
                         </span>
-                        <span className="text-[9px] text-zinc-400 font-mono">→ {tx.balance_after}</span>
+                        <span className="text-[8px] sm:text-[9px] text-zinc-400 font-mono">→ {tx.balance_after}</span>
                       </div>
                     </div>
                   ))}
@@ -1730,14 +1732,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                 <h3 className="text-sm font-bold font-display text-zinc-900">Mis Canjes</h3>
                 <div className="flex flex-col gap-1.5">
                   {clubRedemptions.map(r => (
-                    <div key={r.id} className="flex justify-between items-center p-2.5 bg-white border border-zinc-200 rounded-xl">
-                      <div className="flex flex-col">
-                        <span className="text-[11px] font-semibold text-zinc-800">Recompensa</span>
-                        <span className="text-[9px] text-zinc-400">{new Date(r.created_at).toLocaleDateString()}</span>
+                    <div key={r.id} className="flex justify-between items-center p-2.5 bg-white border border-zinc-200 rounded-xl gap-2">
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="text-[10px] sm:text-[11px] font-semibold text-zinc-800">Recompensa</span>
+                        <span className="text-[8px] sm:text-[9px] text-zinc-400">{new Date(r.created_at).toLocaleDateString()}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-black font-mono text-red-500">-{r.points_spent} pts</span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[11px] sm:text-xs font-black font-mono text-red-500">-{r.points_spent} pts</span>
+                        <span className={`text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded ${
                           r.status === 'fulfilled' ? 'bg-emerald-100 text-emerald-700' :
                           r.status === 'cancelled' ? 'bg-red-100 text-red-700' :
                           'bg-amber-100 text-amber-700'
