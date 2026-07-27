@@ -6,7 +6,7 @@ import {
   User, Lock, Phone, UserPlus, LogIn, LogOut, Bell, Package, Mail,
   CheckCircle, Clock, Truck, MapPin, Edit2, AlertCircle, Eye, EyeOff, Tag,
   Copy, Check, X, Smartphone, MessageSquare, Send, ExternalLink, Trash2,
-  Heart, ShoppingCart, Sparkles
+  Heart, ShoppingCart, Sparkles, Ticket, Star, History, Map, ChevronRight, CircleDot
 } from 'lucide-react';
 import { SEOHead } from '../components/SEOHead';
 
@@ -381,6 +381,24 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
 
   // Unread notification count
   const unreadCount = userNotifications.filter(n => !n.leida).length;
+
+  // Productos recomendados basados en historial de compras
+  const recommendedFromOrders = currentUser ? (() => {
+    const purchasedNames = new Set<string>();
+    userOrders.forEach(o => o.items.forEach(it => purchasedNames.add(it.nombre.toLowerCase())));
+    return [...(parts || [])]
+      .filter(p => p.activo !== false && p.stock > 0 && purchasedNames.has(p.nombre.toLowerCase()))
+      .slice(0, 6);
+  })() : [];
+
+  // Historial de ubicaciones (direcciones únicas de pedidos anteriores)
+  const locationHistory = currentUser ? (() => {
+    const seen = new Set<string>();
+    return userOrders
+      .filter(o => o.direccion_envio && !seen.has(o.direccion_envio) && seen.add(o.direccion_envio))
+      .map(o => ({ address: o.direccion_envio, lat: o.lat, lng: o.lng, date: o.fecha, orderId: o.id }))
+      .slice(0, 10);
+  })() : [];
 
   // Disparar modal si existe un pedido reciente creado en Checkout
   useEffect(() => {
@@ -863,7 +881,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
           <div className="p-5 border border-zinc-200 rounded-xl bg-gradient-to-br from-zinc-50 to-zinc-100/40 divide-y divide-zinc-200/80 flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-violet-600 text-white font-bold flex items-center justify-center text-lg shadow-inner animate-fade-in animate-duration-500">
+                <div className="w-12 h-12 rounded-full text-white font-bold flex items-center justify-center text-lg shadow-inner animate-fade-in animate-duration-500" style={{ backgroundColor: config.theme_color || '#7c3aed' }}>
                   {currentUser.nombre.charAt(0).toUpperCase()}
                 </div>
                 <div>
@@ -888,52 +906,36 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
               </button>
             </div>
 
-            {/* SUB-TABS INTERIOR */}
-            <div className="pt-4 flex justify-between items-center bg-transparent gap-2">
-              <button
-                type="button"
-                onClick={() => { setActiveSubTab('orders'); setShowEditFields(false); }}
-                className={`flex-1 py-1 px-1.5 rounded-lg text-xs font-bold font-display uppercase tracking-wider text-center flex items-center justify-center gap-1 ${activeSubTab === 'orders' ? 'bg-zinc-950 text-white' : 'text-zinc-500 hover:text-zinc-900 bg-white border border-zinc-200'}`}
-              >
-                <Package size={13} /> Pedidos ({userOrders.length})
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => { setActiveSubTab('notifications'); setShowEditFields(false); }}
-                className={`flex-1 py-1 px-1.5 rounded-lg text-xs font-bold font-display uppercase tracking-wider text-center flex items-center justify-center gap-1 relative ${activeSubTab === 'notifications' ? 'bg-zinc-950 text-white' : 'text-zinc-500 hover:text-zinc-900 bg-white border border-zinc-200'}`}
-              >
-                <Bell size={13} /> Mensajes
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1 bg-red-500 border border-white text-white font-mono text-[8px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center antialiased">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setActiveSubTab('recomendados'); setShowEditFields(false); }}
-                className={`flex-1 py-1 px-1.5 rounded-lg text-xs font-bold font-display uppercase tracking-wider text-center flex items-center justify-center gap-1 ${activeSubTab === 'recomendados' ? 'bg-zinc-950 text-white' : 'text-zinc-500 hover:text-zinc-900 bg-white border border-zinc-200'}`}
-              >
-                <Sparkles size={13} /> Top
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setActiveSubTab('club'); setShowEditFields(false); }}
-                className={`flex-1 py-1 px-1.5 rounded-lg text-xs font-bold font-display uppercase tracking-wider text-center flex items-center justify-center gap-1 ${activeSubTab === 'club' ? 'bg-zinc-950 text-white' : 'text-zinc-500 hover:text-zinc-900 bg-white border border-zinc-200'}`}
-              >
-                <Sparkles size={13} /> Puntos
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setActiveSubTab('profile'); setShowEditFields(true); }}
-                className={`flex-1 py-1 px-1.5 rounded-lg text-xs font-bold font-display uppercase tracking-wider text-center flex items-center justify-center gap-1 ${activeSubTab === 'profile' ? 'bg-zinc-950 text-white' : 'text-zinc-500 hover:text-zinc-900 bg-white border border-zinc-200'}`}
-              >
-                <Edit2 size={13} /> Mi Cuenta
-              </button>
+            {/* SUB-TABS INTERIOR - Scrollable on mobile */}
+            <div className="pt-3 flex overflow-x-auto gap-1.5 bg-transparent no-scrollbar -mx-1 px-1 snap-x snap-mandatory">
+              {([
+                { tab: 'orders' as const, icon: <Package size={12} />, label: 'Pedidos', badge: userOrders.length },
+                { tab: 'notifications' as const, icon: <Bell size={12} />, label: 'Mensajes', badge: unreadCount > 0 ? unreadCount : null },
+                { tab: 'recomendados' as const, icon: <Star size={12} />, label: 'Top', badge: null },
+                { tab: 'club' as const, icon: <Sparkles size={12} />, label: 'Club', badge: null },
+                { tab: 'profile' as const, icon: <User size={12} />, label: 'Mi Cuenta', badge: null },
+              ]).map(item => (
+                <button
+                  key={item.tab}
+                  type="button"
+                  onClick={() => { setActiveSubTab(item.tab); if (item.tab === 'profile') setShowEditFields(true); else setShowEditFields(false); }}
+                  className={`flex-shrink-0 py-2 px-3 rounded-xl text-[10px] font-bold font-display uppercase tracking-wider text-center flex items-center justify-center gap-1 snap-start transition-all ${
+                    activeSubTab === item.tab
+                      ? 'text-white shadow-md'
+                      : 'text-zinc-500 hover:text-zinc-900 bg-white border border-zinc-200 hover:border-zinc-300'
+                  }`}
+                  style={activeSubTab === item.tab ? { backgroundColor: config.theme_color || '#18181b' } : undefined}
+                >
+                  {item.icon} {item.label}
+                  {item.badge !== null && item.badge > 0 && (
+                    <span className={`ml-0.5 min-w-[14px] h-3.5 text-[7px] font-extrabold rounded-full flex items-center justify-center px-1 ${
+                      activeSubTab === item.tab ? 'bg-white text-zinc-950' : 'bg-red-500 text-white'
+                    }`}>
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -1155,6 +1157,38 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                   ))}
                 </div>
               )}
+
+              {/* HISTORIAL DE UBICACIONES */}
+              {locationHistory.length > 0 && (
+                <div className="flex flex-col gap-2 mt-2">
+                  <h3 className="text-sm font-bold font-display text-zinc-900 flex items-center gap-2">
+                    <Map size={14} className="text-red-500" /> Mis Direcciones
+                  </h3>
+                  <div className="flex flex-col gap-1.5">
+                    {locationHistory.map((loc, idx) => (
+                      <div key={idx} className="flex items-center gap-3 p-2.5 bg-white border border-zinc-200 rounded-xl">
+                        <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
+                          <MapPin size={14} className="text-red-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-semibold text-zinc-800 truncate">{loc.address}</p>
+                          <p className="text-[9px] text-zinc-400 font-mono">{loc.date}</p>
+                        </div>
+                        {loc.lat && loc.lng && (
+                          <a
+                            href={`https://www.google.com/maps?q=${loc.lat},${loc.lng}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-violet-600 hover:text-violet-800 shrink-0"
+                          >
+                            <ExternalLink size={12} />
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1181,69 +1215,6 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
               {/* Contenido basado en pestaña */}
               {notifSubTab === 'messages' ? (
                 <>
-                  {/* Browser Push Notifications Utility Box */}
-                  <div id="browser-push-settings" className="p-4 border border-violet-200 bg-violet-50/10 rounded-xl relative overflow-hidden flex flex-col gap-3">
-                    <div className="flex gap-2.5 items-start">
-                      <div className="p-2 bg-violet-100 rounded-lg text-violet-600 shrink-0">
-                        <Bell size={16} />
-                      </div>
-                      <div className="flex-1 flex flex-col gap-0.5">
-                        <h4 className="font-bold text-zinc-950 text-xs">Notificaciones de Escritorio / Móvil</h4>
-                        <p className="text-[11px] text-zinc-650 leading-relaxed font-sans">
-                          Permite que la app te envíe avisos rápidos de promociones y estado de tus pedidos directamente en tu pantalla.
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Sub-status control based on state */}
-                    {notificationPermission === 'unsupported' && (
-                      <div className="bg-zinc-100 border border-zinc-200 text-zinc-650 text-[10px] p-2.5 rounded-lg flex items-center gap-1.5 leading-normal">
-                         <AlertCircle size={12} className="shrink-0 text-zinc-500" />
-                        <span>Las notificaciones nativas no son soportadas por tu navegador en este contexto. Prueba abriendo en una pestaña aparte.</span>
-                      </div>
-                    )}
-
-                    {notificationPermission === 'denied' && (
-                      <div className="bg-rose-50 border border-rose-100 text-rose-800 text-[10px] p-2.5 rounded-lg flex flex-col gap-1 leading-normal font-sans">
-                        <div className="flex items-center gap-1.5 font-bold">
-                          <AlertCircle size={12} className="shrink-0 text-rose-500" />
-                          <span>Notificaciones Bloqueadas en tu Navegador</span>
-                        </div>
-                        <span>Has desactivado los permisos de notificación. Para habilitarlos, por favor haz clic en el ícono de candado junto a la URL del navegador y cambia el permiso a "Permitir".</span>
-                      </div>
-                    )}
-
-                    {notificationPermission === 'default' && (
-                      <div className="flex flex-col gap-2 pt-1 border-t border-violet-100/30 font-display">
-                        <button
-                          type="button"
-                          onClick={requestNotificationPermission}
-                          className="w-full bg-violet-600 hover:bg-violet-750 text-white font-extrabold py-2.5 px-3 rounded-lg text-[11px] uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-[0.98]"
-                        >
-                          <span>Habilitar Notificaciones de Navegador</span>
-                        </button>
-                      </div>
-                    )}
-
-                    {notificationPermission === 'granted' && (
-                      <div className="flex flex-col gap-2.5 pt-1 border-t border-violet-100/30">
-                        <div className="bg-violet-50 border border-violet-150 text-violet-850 text-[10px] p-2.5 rounded-lg flex items-center gap-1.5 font-medium leading-normal">
-                          <CheckCircle size={12} className="shrink-0 text-violet-600" />
-                          <span>¡Notificaciones Habilitadas Exitosamente para Valencia!</span>
-                        </div>
-                        <div>
-                          <button
-                            type="button"
-                            onClick={sendTestPushNotification}
-                            className="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-bold py-2.5 px-3.5 rounded-lg text-[11px] transition-colors flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.97]"
-                          >
-                            🔔 Enviar Notificación de Prueba
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
                   {userNotifications.length === 0 ? (
                     <div className="text-center py-16 bg-zinc-50 border border-zinc-200 rounded-xl flex flex-col items-center gap-2">
                       <span className="text-3xl mt-1"></span>
@@ -1304,6 +1275,16 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                               )}
                             </div>
                             <p className="text-[11px] text-zinc-650 leading-relaxed font-sans mt-0.5">{notif.mensaje}</p>
+                            {notif.imagen_url && (
+                              <div className="mt-2 rounded-xl overflow-hidden border border-zinc-200 max-h-40">
+                                <img
+                                  src={notif.imagen_url}
+                                  alt={notif.titulo}
+                                  className="w-full h-full object-cover"
+                                  referrerPolicy="no-referrer"
+                                />
+                              </div>
+                            )}
                             <span className="text-[9px] font-mono text-zinc-400 mt-1">{notif.fecha}</span>
                           </div>
 
@@ -1537,6 +1518,46 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
               </div>
             );
           })()}
+
+          {/* RECOMENDADOS BASADOS EN TUS COMPRAS */}
+          {recommendedFromOrders.length > 0 && (
+            <div className="flex flex-col gap-3 mt-2">
+              <h3 className="text-sm font-bold font-display text-zinc-900 flex items-center gap-2">
+                <Heart size={16} className="text-rose-500" /> Porque Ya Pediste...
+              </h3>
+              <div className="flex overflow-x-auto gap-2.5 pb-2 no-scrollbar -mx-1 px-1 snap-x">
+                {recommendedFromOrders.map(part => (
+                  <div
+                    key={part.id}
+                    className="flex-shrink-0 w-[140px] flex flex-col bg-white border border-zinc-200 rounded-xl hover:border-rose-300 hover:shadow-md transition-all cursor-pointer group overflow-hidden snap-start"
+                  >
+                    <div className="relative aspect-square overflow-hidden bg-zinc-100">
+                      <img
+                        src={part.imagen_urls?.[0]}
+                        alt={part.nombre}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                    <div className="p-2 flex flex-col gap-1">
+                      <h4 className="text-[10px] font-bold text-zinc-900 line-clamp-2 leading-tight min-h-[28px]">{part.nombre}</h4>
+                      <div className="flex items-center justify-between mt-auto">
+                        <span className="text-[11px] font-black text-zinc-900">${part.precio_usd.toFixed(2)}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); if (part.stock > 0) addToCart(part); }}
+                          disabled={part.stock === 0}
+                          className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer disabled:opacity-30"
+                        >
+                          <ShoppingCart size={11} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1610,13 +1631,55 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
             </div>
           )}
 
-          {/* 3. MIS CUPONES ASIGNADOS */}
+          {/* 3. TIMELINE INTERACTIVO - Productos que ya pediste */}
+          {recommendedFromOrders.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <h3 className="text-sm font-bold font-display text-zinc-900 flex items-center gap-2">
+                <History size={16} className="text-orange-500" /> Tu Historial de Productos
+              </h3>
+              <div className="relative">
+                {/* Linea vertical de tiempo */}
+                <div className="absolute left-[18px] top-0 bottom-0 w-[2px] bg-gradient-to-b from-orange-300 via-amber-300 to-yellow-200" />
+                <div className="flex flex-col gap-0">
+                  {userOrders.slice(0, 5).map((order, oIdx) => (
+                    <div key={order.id} className="relative pl-10 pb-4 last:pb-0">
+                      {/* Nodo de tiempo */}
+                      <div className={`absolute left-2.5 top-1 w-3 h-3 rounded-full border-2 border-white shadow-sm z-10 ${
+                        oIdx === 0 ? 'bg-orange-500 animate-pulse' : 'bg-amber-400'
+                      }`} />
+                      {/* Contenido */}
+                      <div className="bg-white border border-zinc-200 rounded-xl p-2.5 shadow-xs">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[9px] font-mono text-zinc-400">{order.fecha}</span>
+                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${
+                            order.status === 'Entregado' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {order.status}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {order.items.map((it, iIdx) => (
+                            <span key={iIdx} className="inline-flex items-center gap-1 bg-zinc-50 border border-zinc-100 rounded-lg px-2 py-0.5 text-[9px] font-medium text-zinc-700">
+                              <CircleDot size={8} className="text-amber-500 shrink-0" />
+                              <span className="truncate max-w-[100px]">{it.nombre}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 4. MIS CUPONES ASIGNADOS */}
           {clubUserCoupons.length > 0 && (
             <div className="flex flex-col gap-3">
               <h3 className="text-sm font-bold font-display text-zinc-900 flex items-center gap-2">
                 <Ticket size={16} className="text-violet-500" /> Mis Cupones
               </h3>
-              <div className="grid grid-cols-1 gap-2">
+              <div className="flex flex-col gap-2">
                 {clubUserCoupons.map(uc => (
                   <div key={uc.id} className="p-3 bg-white border border-zinc-200 rounded-xl flex justify-between items-center">
                     <div className="flex flex-col">
@@ -1642,49 +1705,53 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
             </div>
           )}
 
-          {/* 4. CATALOGO DE RECOMPENSAS */}
+          {/* 5. CATALOGO DE RECOMPENSAS - Lista vertical */}
           <div className="flex flex-col gap-3">
             <h3 className="text-sm font-bold font-display text-zinc-900 flex items-center gap-2">
               <Sparkles size={16} className="text-amber-500" /> Recompensas Disponibles
             </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-2.5">
+            <div className="flex flex-col gap-2">
               {clubRewards.filter(r => r.active).map(rw => {
                 const canRedeem = (clubAccount?.current_balance || 0) >= rw.points_cost && rw.stock > 0;
                 return (
-                  <div key={rw.id} className="flex flex-col bg-white border border-zinc-200 rounded-xl overflow-hidden">
-                    {rw.image_url && (
-                      <div className="aspect-square overflow-hidden bg-zinc-100">
+                  <div key={rw.id} className="flex items-center gap-3 p-3 bg-white border border-zinc-200 rounded-xl hover:border-amber-300 transition-all">
+                    {rw.image_url ? (
+                      <div className="w-12 h-12 rounded-lg overflow-hidden bg-zinc-100 shrink-0">
                         <img src={rw.image_url} alt={rw.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       </div>
-                    )}
-                    <div className="p-2 sm:p-2.5 flex flex-col gap-1">
-                      <h4 className="text-[10px] sm:text-[11px] font-bold text-zinc-900 line-clamp-2 leading-tight">{rw.name}</h4>
-                      <p className="text-[8px] sm:text-[9px] text-zinc-500 line-clamp-1">{rw.description}</p>
-                      <div className="flex justify-between items-center mt-1">
-                        <span className="text-[9px] sm:text-[10px] font-black text-amber-600">{rw.points_cost} pts</span>
-                        <span className="text-[8px] sm:text-[9px] text-zinc-400">Stock: {rw.stock}</span>
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+                        <Sparkles size={18} className="text-amber-400" />
                       </div>
-                      <button
-                        disabled={!canRedeem}
-                        onClick={async () => {
-                          if (!confirm(`¿Canjear "${rw.name}" por ${rw.points_cost} puntos?`)) return;
-                          const result = await clubRedeemReward(rw.id);
-                          alert(result.message);
-                        }}
-                        className={`w-full mt-1 py-1.5 rounded-lg text-[9px] sm:text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                          canRedeem
-                            ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm active:scale-95'
-                            : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
-                        }`}
-                      >
-                        {canRedeem ? 'Canjear' : 'Sin puntos'}
-                      </button>
+                    )}
+                    <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                      <h4 className="text-[11px] font-bold text-zinc-900 truncate">{rw.name}</h4>
+                      <p className="text-[9px] text-zinc-500 truncate">{rw.description}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-black text-amber-600">{rw.points_cost} pts</span>
+                        <span className="text-[8px] text-zinc-400">Stock: {rw.stock}</span>
+                      </div>
                     </div>
+                    <button
+                      disabled={!canRedeem}
+                      onClick={async () => {
+                        if (!confirm(`¿Canjear "${rw.name}" por ${rw.points_cost} puntos?`)) return;
+                        const result = await clubRedeemReward(rw.id);
+                        alert(result.message);
+                      }}
+                      className={`px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all shrink-0 cursor-pointer ${
+                        canRedeem
+                          ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm active:scale-95'
+                          : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
+                      }`}
+                    >
+                      {canRedeem ? 'Canjear' : 'Sin pts'}
+                    </button>
                   </div>
                 );
               })}
               {clubRewards.filter(r => r.active).length === 0 && (
-                <div className="col-span-full text-center py-8 bg-zinc-50 border border-dashed border-zinc-200 rounded-xl">
+                <div className="text-center py-8 bg-zinc-50 border border-dashed border-zinc-200 rounded-xl">
                   <Sparkles size={24} className="mx-auto text-zinc-300 mb-2" />
                   <h4 className="font-semibold text-zinc-500 text-xs">No hay recompensas disponibles</h4>
                   <p className="text-[10px] text-zinc-400 mt-1">Pronto habrá recompensas para canjear</p>
@@ -1693,9 +1760,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
             </div>
           </div>
 
-          {/* 5. HISTORIAL DE PUNTOS + CANJES */}
+          {/* 6. HISTORIAL DE PUNTOS + CANJES */}
           <div className="flex flex-col gap-4">
-            {/* Transacciones */}
             {clubTransactions.length > 0 && (
               <div className="flex flex-col gap-2">
                 <h3 className="text-sm font-bold font-display text-zinc-900">Historial de Puntos</h3>
@@ -1726,7 +1792,6 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
               </div>
             )}
 
-            {/* Canjes */}
             {clubRedemptions.length > 0 && (
               <div className="flex flex-col gap-2">
                 <h3 className="text-sm font-bold font-display text-zinc-900">Mis Canjes</h3>
@@ -1827,6 +1892,18 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                   {selectedNotification.mensaje}
                 </p>
               </div>
+
+              {/* Image if present */}
+              {selectedNotification.imagen_url && (
+                <div className="rounded-xl overflow-hidden border border-zinc-200">
+                  <img
+                    src={selectedNotification.imagen_url}
+                    alt={selectedNotification.titulo}
+                    className="w-full max-h-60 object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+              )}
 
               {/* Link */}
               {selectedNotification.link_url && (

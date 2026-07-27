@@ -3274,8 +3274,8 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
             </div>
 
             <div className="col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-slate-100 pt-3">
-              <div className="flex flex-col gap-2 p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                <span className="font-bold text-slate-800">Opciones de Delivery Local</span>
+              <div className="flex flex-col gap-3 p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                <span className="font-bold text-slate-800 text-xs uppercase tracking-wider">Opciones de Delivery Local</span>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
@@ -3283,25 +3283,62 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                     onChange={(e) => updateConfig({ delivery_gratis: e.target.checked })}
                     className="accent-violet-600 h-4 w-4 rounded"
                   />
-                  <span>Delivery Gratis</span>
+                  <span className="text-sm">Delivery Gratis (para todos los pedidos)</span>
                 </label>
+
                 {!config.delivery_gratis && (
-                  <div className="flex items-center gap-2 mt-1">
-                    <span>Costo base por Km ($):</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      value={config.costo_delivery_km || 0}
-                      onChange={(e) => updateConfig({ costo_delivery_km: parseFloat(e.target.value) || 0 })}
-                      className="bg-white border border-slate-300 rounded px-2 py-1 outline-none focus:border-violet-500 w-24"
-                    />
+                  <div className="flex flex-col gap-2 mt-1 pl-6 border-l-2 border-violet-200">
+                    <span className="text-[11px] font-bold text-slate-600 uppercase">Método de cobro:</span>
+
+                    {/* Radio: Por Zonas */}
+                    <label className="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-white transition-colors">
+                      <input
+                        type="radio"
+                        name="delivery_pricing"
+                        checked={config.entrega_por_zonas === true}
+                        onChange={() => updateConfig({ entrega_por_zonas: true })}
+                        className="accent-violet-600 h-4 w-4"
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-slate-800">Por Zonas</span>
+                        <span className="text-[10px] text-slate-500">Costo fijo por zona (auto-detectada por GPS del cliente)</span>
+                      </div>
+                    </label>
+
+                    {/* Radio: Por Kilómetro */}
+                    <label className="flex items-center gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-white transition-colors">
+                      <input
+                        type="radio"
+                        name="delivery_pricing"
+                        checked={config.entrega_por_zonas === false}
+                        onChange={() => updateConfig({ entrega_por_zonas: false })}
+                        className="accent-violet-600 h-4 w-4"
+                      />
+                      <div className="flex flex-col flex-1">
+                        <span className="text-sm font-bold text-slate-800">Por Kilómetro</span>
+                        <span className="text-[10px] text-slate-500">Costo = base + (distancia × tarifa por km)</span>
+                      </div>
+                    </label>
+
+                    {config.entrega_por_zonas === false && (
+                      <div className="flex items-center gap-2 mt-1 p-2 bg-white rounded-lg">
+                        <span className="text-xs text-slate-600">Tarifa por Km ($):</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          value={config.costo_delivery_km || 0}
+                          onChange={(e) => updateConfig({ costo_delivery_km: parseFloat(e.target.value) || 0 })}
+                          className="bg-slate-50 border border-slate-300 rounded px-2 py-1 outline-none focus:border-violet-500 w-24 text-xs font-mono"
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
-              <div className="flex flex-col gap-2 p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                <span className="font-bold text-slate-800">Opciones de Envío Nacional</span>
+              <div className="flex flex-col gap-2 p-4 bg-slate-50 border border-slate-200 rounded-lg">
+                <span className="font-bold text-slate-800 text-xs uppercase tracking-wider">Opciones de Envío Nacional</span>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
@@ -3309,54 +3346,44 @@ export const Admin: React.FC<AdminProps> = ({ setTab }) => {
                     onChange={(e) => updateConfig({ envio_nacional: e.target.checked })}
                     className="accent-violet-600 h-4 w-4 rounded"
                   />
-                  <span>Ofrecer Envío Nacional</span>
+                  <span className="text-sm">Ofrecer Envío Nacional</span>
                 </label>
                 {config.envio_nacional && (
-                  <div className="flex items-center gap-2 mt-1">
-                    <span>Costo de Envío Fijo ($):</span>
+                  <div className="flex items-center gap-2 mt-1 pl-6">
+                    <span className="text-xs text-slate-600">Costo fijo ($):</span>
                     <input
                       type="number"
                       min="0"
                       step="0.5"
                       value={config.costo_envio_nacional || 0}
                       onChange={(e) => updateConfig({ costo_envio_nacional: parseFloat(e.target.value) || 0 })}
-                      className="bg-white border border-slate-300 rounded px-2 py-1 outline-none focus:border-violet-500 w-24"
+                      className="bg-white border border-slate-300 rounded px-2 py-1 outline-none focus:border-violet-500 w-24 text-xs font-mono"
                     />
                   </div>
                 )}
-              </div>
 
-              <div className="flex flex-col gap-2 p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                <span className="font-bold text-slate-800">Recogida en el Local</span>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={config.recogida_en_local || false}
-                    onChange={(e) => updateConfig({ recogida_en_local: e.target.checked })}
-                    className="accent-violet-600 h-4 w-4 rounded"
-                  />
-                  <span>Ofrecer Recogida en Tienda</span>
-                </label>
-              </div>
-
-              <div className="flex flex-col gap-2 p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                <span className="font-bold text-slate-800">Entrega por Zonas</span>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={config.entrega_por_zonas || false}
-                    onChange={(e) => updateConfig({ entrega_por_zonas: e.target.checked })}
-                    className="accent-violet-600 h-4 w-4 rounded"
-                  />
-                  <span>Ofrecer Entrega por Zonas (selección manual)</span>
-                </label>
+                <div className="border-t border-slate-200 mt-2 pt-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={config.recogida_en_local || false}
+                      onChange={(e) => updateConfig({ recogida_en_local: e.target.checked })}
+                      className="accent-violet-600 h-4 w-4 rounded"
+                    />
+                    <span className="text-sm">Ofrecer Recogida en Tienda (gratis)</span>
+                  </label>
+                </div>
               </div>
             </div>
 
             {/* Editor de Zonas de Delivery */}
             <div className="col-span-2 border-t border-slate-100 pt-3 flex flex-col gap-3">
               <span className="text-[10px] uppercase font-mono text-slate-500 block pb-1">Configuración de Zonas de Delivery</span>
-              <p className="text-[11px] text-slate-400">Define las zonas de entrega con su nombre, costo y rango de distancia (km). Estas zonas aparecen en el checkout cuando el cliente elige "Entrega por Zonas".</p>
+              <p className="text-[11px] text-slate-400">
+                {config.entrega_por_zonas
+                  ? 'Define las zonas de entrega con su nombre, costo y rango de distancia (km). El sistema auto-detecta la zona del cliente por GPS.'
+                  : 'Las zonas están desactivadas. El cobro es por kilómetro según la tarifa configurada arriba.'}
+              </p>
 
               {/* Lista de zonas existentes */}
               <div className="flex flex-col gap-2">
