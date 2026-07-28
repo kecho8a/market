@@ -66,6 +66,19 @@ function AppContent() {
     setHeaderSearchInput(globalSearch);
   }, [globalSearch]);
 
+  // Auto-detect PWA standalone mode and award bonus if user is logged in
+  useEffect(() => {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+    if (isStandalone && currentUser) {
+      const alreadyClaimed = localStorage.getItem('trv_pwa_bonus_claimed_' + currentUser.id);
+      if (!alreadyClaimed) {
+        clubPwaBonus().then(success => {
+          if (success) localStorage.setItem('trv_pwa_bonus_claimed_' + currentUser.id, 'true');
+        }).catch(() => {});
+      }
+    }
+  }, [currentUser]);
+
   // Deep linking: parse ?id=PRODUCT_ID from URL and open product detail
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);

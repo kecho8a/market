@@ -6,7 +6,7 @@ import {
   User, Lock, Phone, UserPlus, LogIn, LogOut, Bell, Package, Mail,
   CheckCircle, Clock, Truck, MapPin, Edit2, AlertCircle, Eye, EyeOff, Tag,
   Copy, Check, X, Smartphone, MessageSquare, Send, ExternalLink, Trash2,
-  Heart, ShoppingCart, Sparkles, Ticket, Star, History, Map, ChevronRight, CircleDot
+  Heart, ShoppingCart, Sparkles, Ticket, Star, History, Map, ChevronRight, CircleDot, Target
 } from 'lucide-react';
 import { SEOHead } from '../components/SEOHead';
 
@@ -1631,49 +1631,75 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
             </div>
           )}
 
-          {/* 3. TIMELINE INTERACTIVO - Productos que ya pediste */}
-          {recommendedFromOrders.length > 0 && (
+          {/* 3. COMO GANAR PUNTOS - Guia visual de metas */}
+          <div className="flex flex-col gap-3">
+            <h3 className="text-sm font-bold font-display text-zinc-900 flex items-center gap-2">
+              <Sparkles size={16} className="text-amber-500" /> Cómo Ganar Puntos
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {[
+                { icon: <User size={16} />, label: 'Bono de Bienvenida', points: clubSettings.welcome_bonus_points, desc: 'Al registrarte', done: clubAccount?.welcome_bonus_given },
+                { icon: <ShoppingCart size={16} />, label: 'Compras', points: clubSettings.points_per_dollar, desc: 'Por cada $1 USD comprado', done: (clubAccount?.total_earned || 0) > 0 },
+                { icon: <Send size={16} />, label: 'Referir Amigos', points: clubSettings.referral_referrer_points, desc: 'Por cada amigo referido', done: false },
+                { icon: <Smartphone size={16} />, label: 'Instalar App', points: clubSettings.pwa_install_points, desc: 'Descarga la app móvil', done: clubAccount?.pwa_install_bonus_given },
+              ].map((method, idx) => (
+                <div key={idx} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${method.done ? 'bg-emerald-50/50 border-emerald-200' : 'bg-white border-zinc-200 hover:border-amber-300'}`}>
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${method.done ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-50 text-amber-500'}`}>
+                    {method.done ? <CheckCircle size={16} /> : method.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-zinc-900 truncate">{method.label}</span>
+                      <span className="text-[10px] font-black text-amber-600 font-mono">+{method.points}</span>
+                    </div>
+                    <span className="text-[9px] text-zinc-500">{method.desc}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 4. PROGRESO HACIA RECOMPENSA */}
+          {clubRewards.filter(r => r.active).length > 0 && (
             <div className="flex flex-col gap-3">
               <h3 className="text-sm font-bold font-display text-zinc-900 flex items-center gap-2">
-                <History size={16} className="text-orange-500" /> Tu Historial de Productos
+                <Target size={16} className="text-violet-500" /> Tu Progreso
               </h3>
-              <div className="relative">
-                {/* Linea vertical de tiempo */}
-                <div className="absolute left-[18px] top-0 bottom-0 w-[2px] bg-gradient-to-b from-orange-300 via-amber-300 to-yellow-200" />
-                <div className="flex flex-col gap-0">
-                  {userOrders.slice(0, 5).map((order, oIdx) => (
-                    <div key={order.id} className="relative pl-10 pb-4 last:pb-0">
-                      {/* Nodo de tiempo */}
-                      <div className={`absolute left-2.5 top-1 w-3 h-3 rounded-full border-2 border-white shadow-sm z-10 ${
-                        oIdx === 0 ? 'bg-orange-500 animate-pulse' : 'bg-amber-400'
-                      }`} />
-                      {/* Contenido */}
-                      <div className="bg-white border border-zinc-200 rounded-xl p-2.5 shadow-xs">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[9px] font-mono text-zinc-400">{order.fecha}</span>
-                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${
-                            order.status === 'Entregado' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                          }`}>
-                            {order.status}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {order.items.map((it, iIdx) => (
-                            <span key={iIdx} className="inline-flex items-center gap-1 bg-zinc-50 border border-zinc-100 rounded-lg px-2 py-0.5 text-[9px] font-medium text-zinc-700">
-                              <CircleDot size={8} className="text-amber-500 shrink-0" />
-                              <span className="truncate max-w-[100px]">{it.nombre}</span>
-                            </span>
-                          ))}
-                        </div>
-                      </div>
+              {(() => {
+                const cheapestReward = clubRewards.filter(r => r.active && r.stock > 0).sort((a, b) => a.points_cost - b.points_cost)[0];
+                if (!cheapestReward) return null;
+                const balance = clubAccount?.current_balance || 0;
+                const progress = Math.min(100, (balance / cheapestReward.points_cost) * 100);
+                const remaining = Math.max(0, cheapestReward.points_cost - balance);
+                return (
+                  <div className="p-4 bg-gradient-to-r from-violet-50 to-amber-50 border border-violet-200 rounded-2xl">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-[10px] font-bold text-violet-700 uppercase tracking-wider">Meta más cercana</span>
+                      <span className="text-[10px] font-mono text-violet-600">{balance}/{cheapestReward.points_cost} pts</span>
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <div className="w-full h-3 bg-violet-100 rounded-full overflow-hidden mb-2">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progress}%` }}
+                        transition={{ duration: 1, ease: 'easeOut' }}
+                        className="h-full bg-gradient-to-r from-violet-500 to-amber-400 rounded-full"
+                      />
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] text-zinc-600 truncate mr-2">{cheapestReward.name}</span>
+                      {remaining > 0 ? (
+                        <span className="text-[9px] font-bold text-violet-600 shrink-0">Faltan {remaining} pts</span>
+                      ) : (
+                        <span className="text-[9px] font-bold text-emerald-600 shrink-0">¡Listo para canjear!</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
-          {/* 4. MIS CUPONES ASIGNADOS */}
+          {/* 5. MIS CUPONES ASIGNADOS */}
           {clubUserCoupons.length > 0 && (
             <div className="flex flex-col gap-3">
               <h3 className="text-sm font-bold font-display text-zinc-900 flex items-center gap-2">
@@ -1705,7 +1731,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
             </div>
           )}
 
-          {/* 5. CATALOGO DE RECOMPENSAS - Lista vertical */}
+          {/* 6. CATALOGO DE RECOMPENSAS - Lista vertical */}
           <div className="flex flex-col gap-3">
             <h3 className="text-sm font-bold font-display text-zinc-900 flex items-center gap-2">
               <Sparkles size={16} className="text-amber-500" /> Recompensas Disponibles
@@ -1760,35 +1786,53 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
             </div>
           </div>
 
-          {/* 6. HISTORIAL DE PUNTOS + CANJES */}
+          {/* 7. HISTORIAL DE PUNTOS + CANJES */}
           <div className="flex flex-col gap-4">
             {clubTransactions.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-bold font-display text-zinc-900">Historial de Puntos</h3>
-                <div className="flex flex-col gap-1.5">
-                  {clubTransactions.map(tx => (
-                    <div key={tx.id} className="flex justify-between items-start p-2.5 bg-white border border-zinc-200 rounded-xl gap-2">
-                      <div className="flex flex-col min-w-0 flex-1">
-                        <span className="text-[10px] sm:text-[11px] font-semibold text-zinc-800 truncate">
-                          {tx.type === 'welcome_bonus' ? 'Bono de Bienvenida' :
-                           tx.type === 'purchase' ? 'Compra' :
-                           tx.type === 'referral_referrer' ? 'Referido (referidor)' :
-                           tx.type === 'referral_referred' ? 'Bono de bienvenida (referido)' :
-                           tx.type === 'pwa_install' ? 'Instalación PWA' :
-                           tx.type === 'reward_redemption' ? 'Canje de Recompensa' :
-                           tx.type === 'admin_adjustment' ? 'Ajuste Admin' : tx.type}
-                        </span>
-                        <span className="text-[8px] sm:text-[9px] text-zinc-400 truncate">{tx.description || ''}</span>
+              <div className="flex flex-col gap-3">
+                <h3 className="text-sm font-bold font-display text-zinc-900 flex items-center gap-2">
+                  <History size={16} className="text-orange-500" /> Mis Puntos Ganados
+                </h3>
+                <div className="relative">
+                  <div className="absolute left-[18px] top-0 bottom-0 w-[2px] bg-gradient-to-b from-amber-300 via-orange-200 to-transparent" />
+                  <div className="flex flex-col gap-0">
+                    {clubTransactions.slice(0, 10).map((tx, txIdx) => (
+                      <div key={tx.id} className="relative pl-10 pb-3 last:pb-0">
+                        <div className={`absolute left-2.5 top-1 w-3 h-3 rounded-full border-2 border-white shadow-sm z-10 ${
+                          tx.points > 0 ? 'bg-emerald-400' : 'bg-red-400'
+                        } ${txIdx === 0 ? 'animate-pulse' : ''}`} />
+                        <div className="bg-white border border-zinc-200 rounded-xl p-3 shadow-xs">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] sm:text-[11px] font-bold text-zinc-800">
+                              {tx.type === 'welcome_bonus' ? 'Bono de Bienvenida' :
+                               tx.type === 'purchase' ? 'Compra en tienda' :
+                               tx.type === 'referral_referrer' ? 'Amigo referido' :
+                               tx.type === 'referral_referred' ? 'Bono por ser referido' :
+                               tx.type === 'pwa_install' ? 'Instalación de App' :
+                               tx.type === 'reward_redemption' ? 'Canje de Recompensa' :
+                               tx.type === 'admin_adjustment' ? 'Ajuste manual' : tx.type}
+                            </span>
+                            <span className={`text-xs sm:text-sm font-black font-mono ${tx.points > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                              {tx.points > 0 ? '+' : ''}{tx.points} pts
+                            </span>
+                          </div>
+                          {tx.description && (
+                            <p className="text-[9px] text-zinc-400 truncate mb-1">{tx.description}</p>
+                          )}
+                          <div className="flex items-center justify-between">
+                            <span className="text-[8px] font-mono text-zinc-400">
+                              {new Date(tx.created_at).toLocaleDateString()} {new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <span className="text-[8px] font-mono text-zinc-500">Saldo: {tx.balance_after} pts</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className={`text-[11px] sm:text-xs font-black font-mono ${tx.points > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                          {tx.points > 0 ? '+' : ''}{tx.points}
-                        </span>
-                        <span className="text-[8px] sm:text-[9px] text-zinc-400 font-mono">→ {tx.balance_after}</span>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
+                {clubTransactions.length > 10 && (
+                  <p className="text-[10px] text-zinc-400 text-center font-mono">Mostrando últimos 10 de {clubTransactions.length} registros</p>
+                )}
               </div>
             )}
 
@@ -1821,9 +1865,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
             {clubTransactions.length === 0 && clubRedemptions.length === 0 && (
               <div className="text-center py-10 bg-zinc-50 border border-dashed border-zinc-200 rounded-xl">
                 <Sparkles size={28} className="mx-auto text-zinc-300 mb-2" />
-                <h4 className="font-semibold text-zinc-600">Aún no tienes actividad</h4>
-                <p className="text-[11px] text-zinc-400 max-w-xs mx-auto mt-1">
-                  Realiza compras, comparte tu código de referido o instala la app para ganar puntos.
+                <h4 className="font-semibold text-zinc-600">Aún no tienes puntos</h4>
+                <p className="text-[11px] text-zinc-400 max-w-xs mx-auto mt-1 leading-relaxed">
+                  Ganarás puntos automáticamente al registrarte, hacer compras, referir amigos o instalar la app. ¡Empieza ahora!
                 </p>
               </div>
             )}
