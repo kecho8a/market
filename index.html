@@ -37,7 +37,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Marketo" />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="theme-color" content="#0f5d34" />
 
     <!-- CSP: allow Google Fonts + required font formats -->
     <meta
@@ -45,7 +45,7 @@
       content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https:; connect-src 'self' https: wss:; frame-src 'self' https:; media-src 'self' blob: https://assets.mixkit.co; object-src 'none'; base-uri 'self'; form-action 'self' https:;"
     />
     <link rel="manifest" href="/manifest.json" />
-    <link rel="apple-touch-icon" href="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=192" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55,28 +55,52 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   </head>
   <body class="bg-zinc-100 text-zinc-900 antialiased overflow-x-hidden">
-    <!-- Aplicar color y nombre de tienda antes de que React cargue para evitar flash -->
+    <div id="root"></div>
+    <!-- Aplicar color, splash y nombre de tienda antes de que React cargue -->
     <script>
       (function() {
+        var themeColor = '#0f5d34';
+        var siteName = 'Marketo';
+        var logoUrl = '';
         try {
           var saved = localStorage.getItem('trv_config');
           if (saved) {
             var cfg = JSON.parse(saved);
-            if (cfg.theme_color) {
-              document.body.style.backgroundColor = cfg.theme_color;
-              document.querySelector('meta[name="theme-color"]').setAttribute('content', cfg.theme_color);
-              document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').setAttribute('content', 'black-translucent');
-            }
-            if (cfg.site_nombre) {
-              document.title = cfg.site_nombre + ' | Supermercado Online y Delivery Express';
-              document.querySelector('meta[name="apple-mobile-web-app-title"]').setAttribute('content', cfg.site_nombre);
-              document.querySelector('meta[name="og:site_name"]').setAttribute('content', cfg.site_nombre);
-            }
+            if (cfg.theme_color) themeColor = cfg.theme_color;
+            if (cfg.site_nombre) siteName = cfg.site_nombre;
+            if (cfg.logo_url) logoUrl = cfg.logo_url;
           }
         } catch(e) {}
+
+        // Aplicar color al body y meta tags inmediatamente
+        document.body.style.backgroundColor = themeColor;
+        var themeMeta = document.querySelector('meta[name="theme-color"]');
+        if (themeMeta) themeMeta.setAttribute('content', themeColor);
+        var appleMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+        if (appleMeta) appleMeta.setAttribute('content', 'black-translucent');
+        if (siteName) {
+          document.title = siteName + ' | Supermercado Online y Delivery Express';
+          var appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+          if (appleTitle) appleTitle.setAttribute('content', siteName);
+          var ogSiteName = document.querySelector('meta[property="og:site_name"]');
+          if (ogSiteName) ogSiteName.setAttribute('content', siteName);
+        }
+
+        // Renderizar splash pre-React dentro de #root
+        var root = document.getElementById('root');
+        if (root) {
+          var logoHtml = logoUrl
+            ? '<img src="' + logoUrl + '" style="width:112px;height:112px;object-fit:contain;border-radius:24px;margin-bottom:20px;box-shadow:0 0 30px rgba(255,255,255,0.3)" />'
+            : '<div style="width:112px;height:112px;border-radius:24px;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;margin-bottom:20px;font-size:48px">🛒</div>';
+          root.innerHTML =
+            '<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:' + themeColor + ';color:#fff;font-family:system-ui,-apple-system,sans-serif;text-align:center;padding:20px">' +
+              logoHtml +
+              '<h1 style="font-size:28px;font-weight:800;letter-spacing:-0.5px;margin:0">' + siteName + '</h1>' +
+              '<p style="font-size:11px;opacity:0.5;margin-top:8px;text-transform:uppercase;letter-spacing:2px">Cargando pasillos...</p>' +
+            '</div>';
+        }
       })();
     </script>
-    <div id="root"></div>
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>

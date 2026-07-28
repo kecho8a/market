@@ -453,7 +453,7 @@ const DEFAULT_CONFIG: StoreConfig = {
   transferencia_discount_percent: 0,
   tasa_cambio: 612.43,
   logo_url: '',
-  theme_color: '#ffffff', // Neutral white to remove top purple bar
+  theme_color: '#0f5d34',
   mensaje_bienvenida: 'Encuentra los mejores cortes de carne, quesos madurados y viveres frescos con delivery express en Valencia.',
   mensaje_cierre: 'Hoy no trabajamos. Volveremos pronto.',
   esta_abierta: true,
@@ -980,7 +980,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error('Realtime channels failed:', e);
     }
 
-    setIsGlobalLoading(false);
     return () => {
       if (mainChannel) supabase.removeChannel(mainChannel);
     };

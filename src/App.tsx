@@ -166,7 +166,7 @@ function AppContent() {
   if (isGlobalLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-white relative overflow-hidden" style={{ backgroundColor: config.theme_color || '#0f5d34' }}>
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+        
         <div className="z-10 flex flex-col items-center">
           <style>{`
             @keyframes logoZoomIn {

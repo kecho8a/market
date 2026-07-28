@@ -20,8 +20,8 @@ export default defineConfig(({mode}) => {
           description: 'Tu supermercado premium con despacho express en el Gran Valencia, Carabobo.',
           scope: '/',
           start_url: '/',
-          theme_color: '#ffffff',
-          background_color: '#ffffff',
+          theme_color: '#0f5d34',
+          background_color: '#0f5d34',
           display: 'standalone',
           orientation: 'portrait',
           prefer_related_applications: false,
@@ -29,12 +29,14 @@ export default defineConfig(({mode}) => {
             {
               src: 'pwa-192x192.png',
               sizes: '192x192',
-              type: 'image/png'
+              type: 'image/png',
+              purpose: 'any maskable'
             },
             {
               src: 'pwa-512x512.png',
               sizes: '512x512',
-              type: 'image/png'
+              type: 'image/png',
+              purpose: 'any maskable'
             }
           ]
         },
