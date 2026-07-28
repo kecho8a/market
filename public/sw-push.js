@@ -174,9 +174,10 @@ self.addEventListener('push', function(event) {
     const storeName = payload.store_name || 'Marketo';
     const title     = payload.titulo  || payload.title  || storeName;
     const body      = payload.mensaje || payload.body   || '';
-    const icon      = payload.icon   || payload.badge || '/icon-192.png';
+    const icon      = payload.icon   || payload.badge || '/icon.png';
     const badge     = payload.badge  || icon;
-    const image     = payload.imagen_url || payload.image || undefined;
+    const hasImage  = !!(payload.imagen_url || payload.image);
+    const image     = hasImage ? (payload.imagen_url || payload.image) : undefined;
     const urlToOpen = payload.link_url || payload.url || '/';
     const tag       = payload.tag || String(payload.id || Date.now());
     const soundUrl  = payload.sound_url || payload.sound || '/sounds/notification.mp3';
@@ -195,21 +196,27 @@ self.addEventListener('push', function(event) {
     // Build branded title: "🛒 Marketo — Título original"
     const brandedTitle = title.includes(storeName) ? title : storeName + ' — ' + title;
 
-    const options = {
+    // Build options without undefined values to avoid silent showNotification failures on mobile
+    var options = {
       body: body,
       icon: icon,
       badge: badge,
-      image: image,
       vibrate: [300, 100, 300, 100, 300],
       tag: tag,
       renotify: true,
       silent: false,
+      requireInteraction: true,
       data: { url: urlToOpen, tag: tag, soundUrl: soundUrl, add_to_cart: payload.add_to_cart || false },
       actions: [
         { action: 'open',  title: 'Ver' },
         { action: 'close', title: 'Cerrar' }
       ]
     };
+
+    // Only add image if defined - passing undefined as a value breaks showNotification on Android/Chrome PWA
+    if (hasImage && image) {
+      options.image = image;
+    }
 
     event.waitUntil(
       self.registration.showNotification(brandedTitle, options).then(function() {
@@ -222,11 +229,38 @@ self.addEventListener('push', function(event) {
             });
           });
       }).catch(function(err) {
-        console.error('[SW Push] showNotification failed:', err);
-        return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clients) {
-          clients.forEach(function(client) {
-            client.postMessage({ type: 'PLAY_NOTIFICATION_SOUND', soundUrl: soundUrl });
-            client.postMessage({ type: 'SHOW_IN_APP_NOTIFICATION', notification: { title: brandedTitle, body: body, icon: icon, url: urlToOpen } });
+        console.error('[SW Push] showNotification failed, retrying with fallback icon:', err);
+        // Retry with guaranteed safe params (remove image and use guaranteed icon)
+        var fallbackOptions = {
+          body: body,
+          icon: '/icon.png',
+          badge: '/badge.png',
+          vibrate: [300, 100, 300],
+          tag: tag,
+          renotify: true,
+          silent: false,
+          requireInteraction: true,
+          data: { url: urlToOpen, tag: tag, soundUrl: soundUrl, add_to_cart: payload.add_to_cart || false },
+          actions: [
+            { action: 'open',  title: 'Ver' },
+            { action: 'close', title: 'Cerrar' }
+          ]
+        };
+        return self.registration.showNotification(brandedTitle, fallbackOptions).then(function() {
+          return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clients) {
+            clients.forEach(function(client) {
+              client.postMessage({ type: 'PLAY_NOTIFICATION_SOUND', soundUrl: soundUrl });
+              client.postMessage({ type: 'SHOW_IN_APP_NOTIFICATION', notification: { title: brandedTitle, body: body, icon: icon, url: urlToOpen } });
+            });
+          });
+        }).catch(function(fallbackErr) {
+          console.error('[SW Push] Fallback showNotification also failed:', fallbackErr);
+          // Last resort: at least play sound and show in-app toast
+          return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clients) {
+            clients.forEach(function(client) {
+              client.postMessage({ type: 'PLAY_NOTIFICATION_SOUND', soundUrl: soundUrl });
+              client.postMessage({ type: 'SHOW_IN_APP_NOTIFICATION', notification: { title: brandedTitle, body: body, icon: '/icon.png', url: urlToOpen } });
+            });
           });
         });
       })

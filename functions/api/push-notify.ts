@@ -174,7 +174,7 @@ export const onRequestPost: any = async (context: any) => {
 
     // 5. Payload Web Push - branded with store logo + name
     const hasProductLink = linkUrl && linkUrl.includes('id=');
-    const payloadForSW = {
+    const payloadForSW: any = {
       title: titulo,
       body: mensaje,
       link_url: linkUrl,
@@ -182,12 +182,15 @@ export const onRequestPost: any = async (context: any) => {
       id: String(record.id),
       icon: storeLogo,
       badge: storeLogo,
-      image: record.imagen_url || undefined,
       store_name: storeName,
       add_to_cart: hasProductLink,
-      requireInteraction: false,
+      requireInteraction: true,
       silent: false,
     };
+    // Only add image_url if present - passing undefined breaks showNotification on Android/Chrome PWA
+    if (record.imagen_url) {
+      payloadForSW.image = record.imagen_url;
+    }
 
     // 6. Enviar a cada suscripción en paralelo
     const results = await Promise.all(

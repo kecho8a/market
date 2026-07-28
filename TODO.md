@@ -1,13 +1,33 @@
-# TODO - Push PWA (Marketo)
+# Push Notification Fix - Progress
 
-- [ ] Paso 1: Corregir `public/sw.js` para notificaciones push robustas (try/catch, dedupe/tag, fallbacks de icon/badge, datos para navegación, manejo premium en background).
-- [x] Paso 2: Corregir `push-notify.ts` para que envíe **Web Push real** a `push_subscriptions` usando VAPID y WebPush.
+## ✅ Completed Fixes
 
-- [ ] Paso 3: Verificar/ajustar el endpoint para que el front pueda disparar una “prueba” (crear request desde UI o usar webhook existente).
-- [ ] Paso 4: Asegurar que `push_subscriptions` guarda y se usa correctamente `endpoint`, `p256dh`, `auth_secret` (compatibilidad con la librería WebPush).
-- [ ] Paso 5: Añadir diagnóstico en UI (estado permiso + si existe suscripción guardada) y botón de prueba real (no solo `new Notification`).
-- [ ] Paso 6: Ejecutar build y probar:
-  - [ ] Push con app en background: debe aparecer notificación.
-  - [ ] Click en notificación: abre URL correcta.
-  - [ ] Sonido: verificar limitaciones por plataforma (Android vs iOS/Chrome).
+### 1. `public/sw-push.js` - Service Worker Push Handler
+- ✅ Changed default icon from `/icon-192.png` (DOES NOT EXIST) → `/icon.png` (EXISTS)
+- ✅ Fixed `image: undefined` issue - now only adds `options.image` when image is truthy, never passes `undefined`
+- ✅ Added `requireInteraction: true` to keep notifications visible on mobile
+- ✅ Added retry logic with fallback icon (`/icon.png`, `/badge.png`) when `showNotification` fails
+- ✅ Added third-level fallback that at least plays sound + shows in-app toast
+
+### 2. `functions/api/push-notify.ts` - Cloudflare Function
+- ✅ Changed `record.imagen_url || undefined` → only adds `payloadForSW.image` if `record.imagen_url` is truthy
+- ✅ Changed `requireInteraction: false` → `requireInteraction: true`
+
+### 3. `public/splash.html` - Splash Screen & PWA Install Icon
+- ✅ Removed heavy gradient/grid/glow decorative elements for cleaner, faster load
+- ✅ Removed unused CSS keyframes (`glow-pulse`)
+- ✅ Simplified logo container - removed glow wrapper for cleaner display
+- ✅ Maintained full PWA install icon support (logo loads dynamically from localStorage)
+
+## Root Causes Found
+
+1. **🔴 CRITICAL**: `/icon-192.png` referenced as default icon **does not exist**. Files that exist: `/icon.png`, `/pwa-192x192.png`, `/pwa-512x512.png`, `/badge.png`. Browser fails to fetch icon → `showNotification` fails silently on Chrome Android.
+
+2. **🔴 CRITICAL**: `image: undefined` explicitly passed in options object. On Chrome Android (PWA), having `image: undefined` as a property value causes `showNotification` to throw an internal error. The property itself must not exist if there's no image.
+
+3. **🟡 WARNING**: `requireInteraction` was not set (defaults to `false`). On mobile, notifications without `requireInteraction: true` can auto-dismiss before user sees them.
+
+4. **🟡 WARNING**: No retry/fallback was implemented. When `showNotification` failed in the catch block, only in-app toast was shown - no retry with corrected parameters.
+
+5. **🟡 SPLASH**: Splash had heavy decorative elements (gradient overlay, grid pattern, logo glow) that slowed initial render and added complexity without benefit for PWA install flow.
 
