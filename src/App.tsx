@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { AppProvider, useApp } from './store/AppContext';
 import { Home } from './pages/Home';
 import { Catalog } from './pages/Catalog';
@@ -28,19 +28,35 @@ function AppContent() {
 
   // In-app toast for notifications when app is in foreground
   const [inAppToast, setInAppToast] = useState<{ title: string; body: string; url: string } | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = (title: string, body: string, url: string) => {
+    setInAppToast({ title, body, url });
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setInAppToast(null), 5000);
+  };
 
   useEffect(() => {
     const handleSWMessage = (event: MessageEvent) => {
       if (event.data?.type === 'SHOW_IN_APP_NOTIFICATION' && event.data.notification) {
         const n = event.data.notification;
-        setInAppToast({ title: n.title, body: n.body, url: n.url || '/' });
-        setTimeout(() => setInAppToast(null), 5000);
+        showToast(n.title, n.body, n.url || '/');
       }
     };
+    const handleRealtimeToast = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail) showToast(detail.title, detail.body, detail.url);
+    };
+
+    window.addEventListener('SHOW_IN_APP_TOAST', handleRealtimeToast);
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', handleSWMessage);
-      return () => navigator.serviceWorker.removeEventListener('message', handleSWMessage);
+      return () => {
+        navigator.serviceWorker.removeEventListener('message', handleSWMessage);
+        window.removeEventListener('SHOW_IN_APP_TOAST', handleRealtimeToast);
+      };
     }
+    return () => window.removeEventListener('SHOW_IN_APP_TOAST', handleRealtimeToast);
   }, []);
 
   useEffect(() => {

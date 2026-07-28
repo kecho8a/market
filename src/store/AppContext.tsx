@@ -528,17 +528,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [notifications, setNotifications] = useState<InAppNotification[]>(() => {
     const saved = localStorage.getItem('trv_notifications');
-    return saved ? JSON.parse(saved) : [
-      {
-        id: 'init-notif',
-        titulo: 'Bienvenidos a Marketo',
-        mensaje: 'Encuentra los mejores cortes de carne, quesos madurados y viveres frescos con delivery express en Valencia.',
-        fecha: new Date().toLocaleDateString(),
-        tipo: 'todos',
-        leida: false,
-        click_count: 0
-      }
-    ];
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed)
+          ? parsed.filter((n: InAppNotification) => {
+              const id = String(n.id || '');
+              return !id.startsWith('diag-') && !id.startsWith('test-') && id !== 'init-notif';
+            })
+          : [];
+      } catch { return []; }
+    }
+    return [];
   });
 
   const [isGlobalLoading, setIsGlobalLoading] = useState(true);
@@ -729,17 +730,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           console.warn('[SW→Client] No se pudo reproducir sonido:', err.message)
         );
       }
-      // In-app notification banner when push arrives and app is in foreground
-      if (event.data?.type === 'SHOW_IN_APP_NOTIFICATION') {
-        const n = event.data.notification;
-        if (n && document.visibilityState === 'visible') {
-          setNotifications(prev => {
-            const id = `push-${Date.now()}`;
-            if (prev.some(p => p.id === id)) return prev;
-            return [{ id, titulo: n.title, mensaje: n.body, fecha: new Date().toLocaleString(), tipo: 'todos' as const, leida: false }, ...prev].slice(0, 50);
-          });
-        }
-      }
     };
 
     navigator.serviceWorker.addEventListener('message', handleSWMessage);
@@ -911,11 +901,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                          (isAdminAuthenticatedRef.current && (newNotif.tipo === 'request' || newNotif.tipo === 'admin'));
 
           if (isForMe) {
+            const idStr = String(newNotif.id || '');
+            if (idStr.startsWith('diag-') || idStr.startsWith('test-') || idStr === 'init-notif') return;
             setNotifications(prev => {
               if (prev.some(n => n.id === newNotif.id)) return prev;
               return [newNotif, ...prev];
             });
             playNotificationSound('update');
+            window.dispatchEvent(new CustomEvent('SHOW_IN_APP_TOAST', {
+              detail: { title: newNotif.titulo, body: newNotif.mensaje, url: newNotif.link_url || '/' }
+            }));
           }
         })
         // Escuchar cambios en Productos (CDC)
@@ -1011,7 +1006,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [config]);
 
   useEffect(() => {
-    localStorage.setItem('trv_notifications', JSON.stringify(notifications));
+    const clean = notifications.filter(n => {
+      const id = String(n.id || '');
+      return !id.startsWith('diag-') && !id.startsWith('test-') && id !== 'init-notif';
+    });
+    localStorage.setItem('trv_notifications', JSON.stringify(clean));
   }, [notifications]);
 
   useEffect(() => {
@@ -1333,10 +1332,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           .order('fecha', { ascending: false });
         if (dbOrders) setOrders(dbOrders as Order[]);
 
-        // Cargar Notificaciones (Solo globales o personales del usuario)
+        // Cargar Notificaciones (Solo globales o personales del usuario, excluyendo tests y antiguas)
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
         const { data: dbNotifs } = await supabase.from('notifications')
           .select('*')
           .or(`tipo.eq.todos,and(tipo.eq.personal,destinatario_telefono.eq.${currentUser.telefono})`)
+          .not('id', 'like', 'diag-%')
+          .not('id', 'like', 'test-%')
+          .not('id', 'like', 'init-notif')
+          .gte('created_at', thirtyDaysAgo)
           .order('id', { ascending: false });
         if (dbNotifs) setNotifications(dbNotifs as InAppNotification[]);
       }
