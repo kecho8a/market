@@ -106,6 +106,9 @@ interface AppContextProps {
   assignCouponToUser: (userId: string, couponId: string) => Promise<boolean>;
   unassignCoupon: (id: string) => Promise<boolean>;
   markCouponUsed: (id: string) => Promise<boolean>;
+  // Points Award Notification
+  pointsNotification: { points: number; reason: string; newBalance: number; icon: string } | null;
+  dismissPointsNotification: () => void;
 }
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -605,6 +608,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [clubAccountsAdmin, setClubAccountsAdmin] = useState<ClubAccountWithUser[]>([]);
   const [clubUserCoupons, setClubUserCoupons] = useState<ClubUserCouponWithDetails[]>([]);
   const [clubUserCouponsAdmin, setClubUserCouponsAdmin] = useState<ClubUserCouponWithDetails[]>([]);
+
+  // Points Award Notification
+  const [pointsNotification, setPointsNotification] = useState<{ points: number; reason: string; newBalance: number; icon: string } | null>(null);
+  const pointsNotifTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dismissPointsNotification = () => {
+    if (pointsNotifTimeoutRef.current) clearTimeout(pointsNotifTimeoutRef.current);
+    setPointsNotification(null);
+  };
+  const showPointsAward = (points: number, reason: string, icon: string) => {
+    const newBal = (clubAccount?.current_balance || 0) + points;
+    setPointsNotification({ points, reason, newBalance: newBal, icon });
+    // Auto-dismiss after 6 seconds
+    if (pointsNotifTimeoutRef.current) clearTimeout(pointsNotifTimeoutRef.current);
+    pointsNotifTimeoutRef.current = setTimeout(() => setPointsNotification(null), 6000);
+  };
 
   useEffect(() => { localStorage.setItem('trv_club_settings', JSON.stringify(clubSettings)); }, [clubSettings]);
   useEffect(() => { localStorage.setItem('trv_club_account', JSON.stringify(clubAccount)); }, [clubAccount]);
@@ -1234,7 +1252,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               const { data: newAcc } = await supabase.rpc('ensure_club_account', { p_user_id: currentUser.id });
               if (newAcc?.success) {
                 const { data: freshCa } = await supabase.from('club_accounts').select('*').eq('user_id', currentUser.id).single();
-                if (freshCa) setClubAccount(freshCa);
+                if (freshCa) {
+                  setClubAccount(freshCa);
+                  if (newAcc.points_awarded > 0) {
+                    setTimeout(() => showPointsAward(newAcc.points_awarded, 'Bono de bienvenida por unirte', '🎉'), 1500);
+                  }
+                }
               } else {
                 // Fallback: create manually
                 const code = Math.random().toString(36).substring(2, 10).toUpperCase();
@@ -1256,6 +1279,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     description: 'Bonificacion de bienvenida',
                     balance_after: bonus
                   });
+                  setTimeout(() => showPointsAward(bonus, 'Bono de bienvenida por unirte', '🎉'), 1500);
                 }
               }
             } catch (e) { console.error('[Club] auto-create account error:', e); }
@@ -2374,12 +2398,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!currentUser) return;
     const { data, error } = await supabase.rpc('club_award_purchase', { p_user_id: currentUser.id, p_order_id: orderId, p_total_usd: totalUsd });
     if (error) { console.error('[Club] award purchase error:', error); return; }
-    if (data?.success) await clubRefresh();
+    if (data?.success) {
+      await clubRefresh();
+      showPointsAward(data.points_awarded, `Compra #${orderId} - $${totalUsd.toFixed(2)}`, '🛒');
+    }
   };
 
   const clubAwardReferral = async (referralCode: string, newUserId: string): Promise<boolean> => {
     const { data, error } = await supabase.rpc('club_award_referral', { p_referral_code: referralCode, p_new_user_id: newUserId });
     if (error) { console.error('[Club] referral error:', error); return false; }
+    if (data?.success) {
+      await clubRefresh();
+      showPointsAward(data.referrer_points || 0, 'Referiste a un amigo', '👥');
+    }
     return data?.success || false;
   };
 
@@ -2405,7 +2436,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!currentUser) return false;
     const { data, error } = await supabase.rpc('club_pwa_bonus', { p_user_id: currentUser.id });
     if (error) return false;
-    if (data?.success) await clubRefresh();
+    if (data?.success) {
+      await clubRefresh();
+      showPointsAward(data.points_awarded || 0, 'Instalaste la app en tu celular', '📱');
+    }
     return data?.success || false;
   };
 
@@ -2571,7 +2605,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteClubReward,
       assignCouponToUser,
       unassignCoupon,
-      markCouponUsed
+      markCouponUsed,
+      pointsNotification,
+      dismissPointsNotification
     }}>
       {children}
     </AppContext.Provider>

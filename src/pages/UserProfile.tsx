@@ -48,7 +48,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
     clubRedeemReward,
     clubRefresh,
     clubAwardReferral,
-    clubUserCoupons
+    clubUserCoupons,
+    pointsNotification,
+    dismissPointsNotification
   } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<'profile' | 'orders' | 'notifications' | 'recomendados' | 'club'>('orders');
@@ -480,6 +482,89 @@ export const UserProfile: React.FC<UserProfileProps> = ({ setTab, deferredPrompt
                   Quizás luego
                 </button>
               </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* ── POINTS AWARD NOTIFICATION MODAL ───────────────────────────── */}
+      {pointsNotification && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: 30 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ type: 'spring', damping: 15, stiffness: 300 }}
+            className="w-full max-w-[320px] bg-white rounded-3xl shadow-2xl overflow-hidden border border-amber-200"
+          >
+            {/* Top gradient header */}
+            <div className="relative h-36 bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500 flex items-center justify-center overflow-hidden">
+              {/* Animated sparkles background */}
+              <div className="absolute inset-0">
+                {[...Array(8)].map((_, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 20, x: Math.random() * 100 - 50 }}
+                    animate={{ opacity: [0, 1, 0], y: -40, x: Math.random() * 60 - 30 }}
+                    transition={{ duration: 2, delay: i * 0.2, repeat: Infinity }}
+                    className="absolute text-white/30"
+                    style={{ left: `${10 + i * 12}%`, bottom: '10%' }}
+                  >
+                    <Sparkles size={12 + Math.random() * 8} />
+                  </motion.div>
+                ))}
+              </div>
+              {/* Big points number */}
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', damping: 10, stiffness: 200, delay: 0.2 }}
+                className="relative z-10 flex flex-col items-center"
+              >
+                <span className="text-5xl font-black text-white drop-shadow-lg font-mono">+{pointsNotification.points}</span>
+                <span className="text-sm font-bold text-white/90 mt-1 uppercase tracking-widest">puntos</span>
+              </motion.div>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 flex flex-col items-center gap-3 text-center">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <h3 className="text-lg font-black text-zinc-900 font-display">
+                  ¡Felicitaciones! {pointsNotification.icon}
+                </h3>
+              </motion.div>
+
+              <motion.p
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="text-[12px] text-zinc-600 leading-relaxed max-w-[260px]"
+              >
+                Has recibido <strong className="text-amber-600 font-black">{pointsNotification.points} puntos</strong> por: <strong className="text-zinc-800">{pointsNotification.reason}</strong>
+              </motion.p>
+
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="w-full p-3 bg-amber-50 border border-amber-200 rounded-xl"
+              >
+                <span className="text-[9px] font-bold text-amber-600 uppercase tracking-wider">Tu nuevo saldo</span>
+                <p className="text-xl font-black font-mono text-amber-700 mt-0.5">{pointsNotification.newBalance} <span className="text-xs font-bold">pts</span></p>
+              </motion.div>
+
+              <motion.button
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                onClick={dismissPointsNotification}
+                className="w-full py-3 bg-zinc-950 hover:bg-zinc-800 text-white font-black text-xs uppercase tracking-widest rounded-2xl transition-all active:scale-95 cursor-pointer shadow-lg"
+              >
+                ¡Acepto!
+              </motion.button>
             </div>
           </motion.div>
         </div>
