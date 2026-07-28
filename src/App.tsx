@@ -211,18 +211,19 @@ function AppContent() {
 
   if (isGlobalLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-white">
+      <div className="min-h-screen flex flex-col items-center justify-center" style={{ backgroundColor: config.theme_color || '#0f5d34' }}>
         <div className="z-10 flex flex-col items-center">
           {logoUrl ? (
             <img
               src={logoUrl}
               alt={config.site_nombre || 'Tienda'}
               className="w-20 h-20 object-contain mb-3"
+              style={{ borderRadius: '20px', boxShadow: '0 8px 32px rgba(0,0,0,0.25)' }}
             />
           ) : (
-            <ShoppingBag size={40} className="text-zinc-400 mb-3" />
+            <ShoppingBag size={40} className="text-white/60 mb-3" />
           )}
-          <div className="w-8 h-8 border-2 border-zinc-200 border-t-zinc-600 rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-white/20 border-t-white/80 rounded-full animate-spin" />
         </div>
       </div>
     );

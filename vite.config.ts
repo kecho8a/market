@@ -13,13 +13,13 @@ export default defineConfig(({mode}) => {
       VitePWA({
         registerType: 'autoUpdate',
         strategies: 'generateSW',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'sounds/notification.mp3'],
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'sounds/notification.mp3'],
         manifest: {
           name: 'Marketo - Supermercado Gourmet & Delivery Express',
           short_name: 'Marketo',
           description: 'Tu supermercado premium con despacho express en el Gran Valencia, Carabobo.',
           scope: '/',
-          start_url: '/',
+          start_url: '/splash.html',
           theme_color: '#0f5d34',
           background_color: '#0f5d34',
           display: 'standalone',
@@ -30,13 +30,19 @@ export default defineConfig(({mode}) => {
               src: 'pwa-192x192.png',
               sizes: '192x192',
               type: 'image/png',
-              purpose: 'any maskable'
+              purpose: 'any'
             },
             {
               src: 'pwa-512x512.png',
               sizes: '512x512',
               type: 'image/png',
-              purpose: 'any maskable'
+              purpose: 'any'
+            },
+            {
+              src: 'pwa-512x512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'maskable'
             }
           ]
         },
