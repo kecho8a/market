@@ -26,6 +26,23 @@ function AppContent() {
   // PWA Install Prompt State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
+  // In-app toast for notifications when app is in foreground
+  const [inAppToast, setInAppToast] = useState<{ title: string; body: string; url: string } | null>(null);
+
+  useEffect(() => {
+    const handleSWMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'SHOW_IN_APP_NOTIFICATION' && event.data.notification) {
+        const n = event.data.notification;
+        setInAppToast({ title: n.title, body: n.body, url: n.url || '/' });
+        setTimeout(() => setInAppToast(null), 5000);
+      }
+    };
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleSWMessage);
+      return () => navigator.serviceWorker.removeEventListener('message', handleSWMessage);
+    }
+  }, []);
+
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
@@ -199,6 +216,27 @@ function AppContent() {
     <div className="min-h-screen bg-zinc-50 text-zinc-900 w-full flex justify-center">
       <SEOHead />
       <PushNotificationModal />
+
+      {/* In-App Toast Notification */}
+      {inAppToast && (
+        <div
+          onClick={() => { window.location.href = inAppToast.url; setInAppToast(null); }}
+          className="fixed top-4 left-4 right-4 z-[200] cursor-pointer animate-slide-down"
+        >
+          <div className="max-w-md mx-auto bg-zinc-950 text-white rounded-2xl p-4 shadow-2xl border border-zinc-800 flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+              <Bell size={16} className="text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-black uppercase tracking-wider text-white/90 truncate">{inAppToast.title}</p>
+              <p className="text-[11px] text-white/70 mt-0.5 line-clamp-2 leading-relaxed">{inAppToast.body}</p>
+            </div>
+            <button onClick={(e) => { e.stopPropagation(); setInAppToast(null); }} className="text-white/40 hover:text-white shrink-0">
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Grid Wrapper: Full screen width on PC and mobile viewports */}
       <div className="w-full bg-white flex flex-col lg:flex-row min-h-screen relative">

@@ -2305,12 +2305,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const deleteNotification = (id: string) => {
+  const deleteNotification = async (id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
+    try {
+      await supabase.from('notifications').delete().eq('id', id);
+    } catch (e) { console.error('[Notif] delete error:', e); }
   };
 
-  const clearAllNotifications = () => {
+  const clearAllNotifications = async () => {
+    const ids = notifications.map(n => n.id).filter(id => !id.startsWith('push-'));
     setNotifications([]);
+    try {
+      if (ids.length > 0) {
+        await supabase.from('notifications').delete().in('id', ids);
+      }
+    } catch (e) { console.error('[Notif] clearAll error:', e); }
   };
 
   // Admin Auth functions
