@@ -1226,7 +1226,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (cr) setClubRewards(cr);
         if (currentUser) {
           const { data: ca } = await supabase.from('club_accounts').select('*').eq('user_id', currentUser.id).single();
-          if (ca) setClubAccount(ca);
+          if (ca) {
+            setClubAccount(ca);
+          } else {
+            // Auto-create club account for users who don't have one (legacy users)
+            try {
+              const { data: newAcc } = await supabase.rpc('ensure_club_account', { p_user_id: currentUser.id });
+              if (newAcc?.success) {
+                const { data: freshCa } = await supabase.from('club_accounts').select('*').eq('user_id', currentUser.id).single();
+                if (freshCa) setClubAccount(freshCa);
+              } else {
+                // Fallback: create manually
+                const code = Math.random().toString(36).substring(2, 10).toUpperCase();
+                const bonus = clubSettings.welcome_bonus_points || 100;
+                const { data: manualAcc } = await supabase.from('club_accounts').insert({
+                  user_id: currentUser.id,
+                  current_balance: bonus,
+                  total_earned: bonus,
+                  referral_code: code,
+                  welcome_bonus_given: true
+                }).select().single();
+                if (manualAcc) {
+                  setClubAccount(manualAcc);
+                  await supabase.from('club_transactions').insert({
+                    user_id: currentUser.id,
+                    points: bonus,
+                    type: 'welcome_bonus',
+                    reference_id: 'welcome-auto-' + currentUser.id,
+                    description: 'Bonificacion de bienvenida',
+                    balance_after: bonus
+                  });
+                }
+              }
+            } catch (e) { console.error('[Club] auto-create account error:', e); }
+          }
           const { data: ctx } = await supabase.from('club_transactions').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(50);
           if (ctx) setClubTransactions(ctx);
           const { data: crd } = await supabase.from('club_redemptions').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
